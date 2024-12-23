@@ -12,6 +12,7 @@ import TokenBalance from "../tokenBalance";
 import { Button } from "../ui/button";
 import NftCard from "./nftCard";
 import TokenCard from "./tokenCard";
+import { REROLL_PATH } from "@/lib/constants";
 
 export enum TradeState {
   "nft",
@@ -24,6 +25,8 @@ const SwapWrapper = () => {
   const [isTransacting, setIsTransacting] = useState(false);
   const { escrow } = useEscrowStore();
 
+  const rerollEnabled = escrow?.path === REROLL_PATH;
+
   const handleSwap = async () => {
     setIsTransacting(true);
     console.log("Swapping", tradeState, selectedAsset);
@@ -35,15 +38,18 @@ const SwapWrapper = () => {
           variant: "destructive",
         });
         setIsTransacting(false);
+
         return;
       }
-    } else {
-      if (escrow?.path === 0 && !selectedAsset) {
+    } 
+    else {
+      if (!rerollEnabled && !selectedAsset) {
         toast({
           title: "No NFT selected",
           description: "Please select an NFT to receive",
           variant: "destructive",
         });
+        setIsTransacting(false);
         return;
       }
     }
@@ -58,12 +64,14 @@ const SwapWrapper = () => {
         setSelectedAsset(undefined);
       })
       .catch((error) => {
+        console.log(error);
         toast({
           title: "Swap Error",
-          description: error,
+          description: error.message,
           variant: "destructive",
         });
-      });
+      })
+      .finally(() => setIsTransacting(false));
   };
 
   useEffect(() => {

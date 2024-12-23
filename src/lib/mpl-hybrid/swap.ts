@@ -5,6 +5,7 @@ import { captureV1, releaseV1 } from "@metaplex-foundation/mpl-hybrid";
 import fetchEscrowAssets from "../fetchEscrowAssets";
 import sendAndConfirmWalletAdapter from "../umi/sendAndConfirmWithWalletAdapter";
 import umiWithCurrentWalletAdapter from "../umi/umiWithCurrentWalletAdapter";
+import { REROLL_PATH } from '../constants';
 
 const swap = async ({
   swapOption,
@@ -47,12 +48,13 @@ const swap = async ({
 
       let nft: DasApiAsset | undefined = selectedNft;
 
-      if (escrow.path === 1 && !selectedNft) {
+      if (escrow.path === REROLL_PATH && !selectedNft) {
         console.log(
           "Fetching Escrows NFTs and picking the first one for reroll swap"
         );
 
         const escrowAssets = await fetchEscrowAssets();
+        console.log({ escrowAssets });  
 
         if (!escrowAssets || escrowAssets.total === 0) {
           throw new Error("No NFTs available to swap in escrow");
@@ -60,10 +62,10 @@ const swap = async ({
 
         nft = escrowAssets.items[0];
       }
-
       if (!nft) {
         throw new Error("Something went wrong, during NFT selection");
       }
+
 
       const captureTx = captureV1(umi, {
         owner: umi.identity,

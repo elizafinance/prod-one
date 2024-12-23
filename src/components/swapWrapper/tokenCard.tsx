@@ -9,6 +9,7 @@ import { Card } from "../ui/card";
 import { Skeleton } from "../ui/skeleton";
 import { TradeState } from "./swapWrapper";
 import { set } from "@metaplex-foundation/umi/serializers";
+import { formatTokenAmount } from "@/lib/utils";
 
 interface TokenCardProps {
   tradeState: TradeState;
@@ -44,7 +45,7 @@ const TokenCard = (props: TokenCardProps) => {
 
       {escrow && !loading ? (
         <div className="flex flex-col">
-          {Number(escrow.amount).toLocaleString()}{" "}
+          {formatTokenAmount(escrow.amount, 9)}{" "}
           {tokenAsset?.content.metadata.name}
         </div>
       ) : (

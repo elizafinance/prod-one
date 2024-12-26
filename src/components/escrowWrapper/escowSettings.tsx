@@ -3,6 +3,7 @@ import useEscrowStore from "@/store/useEscrowStore";
 import { EscrowV1 } from "@metaplex-foundation/mpl-hybrid";
 import UpdateEscrowForm from "../forms/updateEscrowForm";
 import { Card } from "../ui/card";
+import { NO_REROLL_PATH } from "@/lib/constants";
 
 interface EscrowSettingsProps {
   escrowData: EscrowV1 | undefined;
@@ -46,7 +47,7 @@ const EscrowSettings = () => {
           </div>
           <div>
             ReRoll Enabled:{" "}
-            <span>{escrowData.path === 0 ? "false" : "true"}</span>
+            <span>{escrowData.path === NO_REROLL_PATH ? "false" : "true"}</span>
           </div>
         </div>
       )}

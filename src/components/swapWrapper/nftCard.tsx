@@ -4,6 +4,7 @@ import { Card } from "../ui/card";
 import CollectionImg from "@/assets/images/collectionImage.jpg";
 import useEscrowStore from "@/store/useEscrowStore";
 import { TradeState } from "./swapWrapper";
+import { NO_REROLL_PATH, REROLL_PATH } from "@/lib/constants";
 
 interface NftCardProps {
   tradeState: TradeState;
@@ -32,7 +33,7 @@ const NftCard = (props: NftCardProps) => {
         />
         <div>
           <div className="text-lg">
-            {props.tradeState === TradeState.tokens && escrow?.path === 1 ? (
+            {props.tradeState === TradeState.tokens && escrow?.path === REROLL_PATH ? (
               "Receive Random NFT"
             ) : props.selectedAsset ? (
               props.selectedAsset.content.metadata.name
@@ -48,7 +49,7 @@ const NftCard = (props: NftCardProps) => {
   return (
     <>
       {props.tradeState === TradeState.nft ||
-      (props.tradeState === TradeState.tokens && escrow?.path === 0) ? (
+      (props.tradeState === TradeState.tokens && escrow?.path === NO_REROLL_PATH) ? (
         <NftPicker
           wallet={props.tradeState === TradeState.nft ? "user" : "escrow"}
           setSelectedAsset={(selectedNft) => {

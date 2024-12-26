@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { Card } from "../ui/card";
 import { Skeleton } from "../ui/skeleton";
 import useEscrowStore from "@/store/useEscrowStore";
+import { formatTokenAmount } from "@/lib/utils";
 
 const TokenEscrowSummary = () => {
   const escrow = useEscrowStore.getState().escrow;
@@ -47,7 +48,7 @@ const TokenEscrowSummary = () => {
         <div>
           Balance:{" "}
           {escrowTokenAccount &&
-            Number(escrowTokenAccount.amount).toLocaleString()}
+            formatTokenAmount(escrowTokenAccount)}
         </div>
       </div>
     </Card>

@@ -6,6 +6,7 @@ import useUmiStore from "@/store/useUmiStore";
 import { useEffect } from "react";
 import { Skeleton } from "./ui/skeleton";
 import TokenImage from "@/assets/images/token.jpg";
+import { formatTokenAmount } from "@/lib/utils";
 
 const TokenBalance = () => {
   const umiSigner = useUmiStore().signer;
@@ -43,7 +44,7 @@ const TokenBalance = () => {
         <div className="w-full text-center">
           {tokenAccount === null
             ? "0"
-            : "Balance: " + Number(tokenAccount.amount).toLocaleString()}
+            : "Balance: " +  formatTokenAmount(tokenAccount)}
         </div>
       ) : (
         <Skeleton className="w-full min-w-[150px] h-8" />

@@ -10,8 +10,27 @@ import { Toaster } from "@/components/ui/toaster";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Metaplex Umi Next.js",
-  description: "Metaplex template for Next.js using Umi",
+  title: "DeFAIRewards - Check Your $AIR Airdrop & Explore Decentralized Rewards!",
+  description: "Discover your $AIR token airdrop eligibility with the DeFAIRewards checker. Stay tuned for more on our platform dedicated to decentralized finance rewards.",
+  openGraph: {
+    title: "DeFAIRewards - Check Your $AIR Airdrop & Explore Decentralized Rewards!",
+    description: "Discover your $AIR token airdrop eligibility with the DeFAIRewards checker. Stay tuned for more on our platform dedicated to decentralized finance rewards.",
+    images: [
+      {
+        url: '/logo.png',
+        width: 512,
+        height: 512,
+        alt: 'DeFAIRewards Logo',
+      },
+    ],
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: "DeFAIRewards - Check Your $AIR Airdrop & Explore Decentralized Rewards!",
+    description: "Discover your $AIR token airdrop eligibility with the DeFAIRewards checker. Stay tuned for more on our platform dedicated to decentralized finance rewards.",
+    images: ['/logo.png'],
+  },
 };
 
 export default function RootLayout({

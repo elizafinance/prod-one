@@ -4,7 +4,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { UmiProvider } from "@/providers/umiProvider";
-import Header from "@/components/header";
+// import Header from "@/components/header";
 import { Toaster } from "@/components/ui/toaster";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -27,9 +27,9 @@ export default function RootLayout({
             className={inter.className + " flex flex-col min-h-screen gap-4"}
           >
             <ThemeProviderWrapper>
-              <div className="flex flex-col items-center pt-24 gap-4 w-full">
+              {/* <div className="flex flex-col items-center pt-24 gap-4 w-full">
                 <Header />
-              </div>
+              </div> */}
               {children}
               <Toaster />
             </ThemeProviderWrapper>

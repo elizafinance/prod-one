@@ -1,5 +1,6 @@
 "use client";
 import TokenImg from "@/assets/images/token.jpg";
+import { DasApiAsset } from "@metaplex-foundation/digital-asset-standard-api";
 
 import fetchAsset from "@/lib/das/fetchAsset";
 import useEscrowStore from "@/store/useEscrowStore";
@@ -31,6 +32,15 @@ const TokenCard = (props: TokenCardProps) => {
     }
   }, [escrow, tokenAsset, updateTokenAsset]);
 
+  // Debugging log
+  if (escrow && !loading && tokenAsset) {
+    console.log("TokenCard decimals debug:", {
+      tokenInfo: (tokenAsset as DasApiAsset & { token_info?: { decimals?: number } })?.token_info,
+      decimalsFromAsset: (tokenAsset as DasApiAsset & { token_info?: { decimals?: number } })?.token_info?.decimals,
+      resolvedDecimals: (tokenAsset as DasApiAsset & { token_info?: { decimals?: number } })?.token_info?.decimals ?? 6
+    });
+  }
+
   return (
     <Card className="flex items-center w-full border border-foreground-muted rounded-xl shadow-lg p-4 gap-4">
       {tokenAsset ? (
@@ -45,7 +55,7 @@ const TokenCard = (props: TokenCardProps) => {
 
       {escrow && !loading ? (
         <div className="flex flex-col">
-          {formatTokenAmount(escrow.amount, 9)}{" "}
+          {formatTokenAmount(escrow.amount, (tokenAsset as DasApiAsset & { token_info?: { decimals?: number } })?.token_info?.decimals ?? 6)}{" "}
           {tokenAsset?.content.metadata.name}
         </div>
       ) : (

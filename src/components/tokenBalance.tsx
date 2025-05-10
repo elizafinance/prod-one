@@ -44,7 +44,7 @@ const TokenBalance = () => {
         <div className="w-full text-center">
           {tokenAccount === null
             ? "0"
-            : "Balance: " +  formatTokenAmount(tokenAccount)}
+            : "Balance: " +  formatTokenAmount(tokenAccount.amount, 6)}
         </div>
       ) : (
         <Skeleton className="w-full min-w-[150px] h-8" />

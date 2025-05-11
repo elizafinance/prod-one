@@ -31,10 +31,10 @@ export default function HomePage() {
       const response = await fetch(`/api/check-airdrop?address=${encodeURIComponent(trimmedAddress)}`);
       const data = await response.json();
 
-      if (response.ok) {
+      if (response.ok && typeof data.AIRDROP === 'number') {
         setResult(data.AIRDROP);
       } else {
-        setResult(data.error || "Sorry You Don't Qualify For The Airdrop."); // Ensured fallback message
+        setResult(data.error || "Sorry You Don't Qualify For The Airdrop.");
       }
     } catch (error) {
       console.error("Failed to fetch airdrop data:", error);
@@ -43,8 +43,24 @@ export default function HomePage() {
     setIsLoading(false);
   };
 
+  const handleShareToX = () => {
+    if (typeof result === 'number' && result > 0) {
+      const airdropAmount = result.toLocaleString();
+      const siteUrl = "https://defairewards.net"; // Replace with your actual site URL if different
+      const twitterHandle = "DeFAIRewards"; // Your actual Twitter handle (without @ for via parameter)
+      const tokenToBuy = "$DeFAI"; // Confirm this is the correct token symbol
+      const snapshotDate = "May 20, 2025";
+
+      const text = `I'm getting ${airdropAmount} $AIR from @${twitterHandle}! 🚀 Get ready for the ${snapshotDate} snapshot - buy ${tokenToBuy} now to join the next wave of rewards!`;
+      const hashtags = "DeFAIRewards,Airdrop,AI,Solana";
+      
+      const twitterIntentUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(siteUrl)}&hashtags=${encodeURIComponent(hashtags)}&via=${twitterHandle}`;
+      window.open(twitterIntentUrl, '_blank');
+    }
+  };
+
   return (
-    <main className="flex flex-col items-center justify-start min-h-screen p-4 sm:p-8 bg-white text-black pt-12 sm:pt-20 font-sans">
+    <main className="flex flex-col items-center justify-start min-h-screen p-4 sm:p-8 bg-white text-gray-900 pt-12 sm:pt-20 font-sans">
       {/* Logo at the top */}
       <img 
         className="h-12 sm:h-16 mb-8" // Adjusted size and margin
@@ -90,50 +106,44 @@ export default function HomePage() {
       {result !== null && !isLoading && (
         <div className="mt-4 mb-4 p-4 bg-gray-100 rounded-md text-center w-full max-w-lg">
           {typeof result === 'number' ? (
-            <p className="text-lg text-gray-800">
-              🎉 Congratulations! You will receive: <span className="font-bold text-xl text-green-600">{result.toLocaleString()}</span> $AIR tokens.
-            </p>
+            <>
+              <p className="text-lg text-gray-800">
+                🎉 Congratulations! You will receive: <span className="font-bold text-xl text-green-600">{result.toLocaleString()}</span> $AIR tokens.
+              </p>
+            </>
           ) : (
             <p className="text-lg text-red-600">{result}</p>
           )}
         </div>
       )}
       
-      {/* Conditional Buttons - Home, Chart, X, Telegram - shown after check */}
+      {/* Conditional Buttons - Buy DeFAI, Share on X - shown after check */}
       {result !== null && !isLoading && (
-        <div className="mt-4 mb-8 flex flex-wrap justify-center gap-3 sm:gap-4 w-full max-w-lg"> {/* Changed to flex-wrap and adjusted gap */}
-          <Link href="https://defairewards.net" target="_blank" rel="noopener noreferrer" className="flex-shrink-0">
-            <button 
-              className="w-full sm:w-auto text-white font-bold py-3 px-6 rounded-full transition-all duration-150 ease-in-out hover:scale-105 hover:shadow-lg hover:shadow-blue-500/50 whitespace-nowrap" /* Adjusted padding */
-              style={{ backgroundColor: '#2563EB' }}
-            >
-              Home
-            </button>
-          </Link>
+        <div className="mt-4 mb-8 flex flex-wrap justify-center gap-3 sm:gap-4 w-full max-w-lg">
+          {/* REMOVED Home Button */}
+          
+          {/* Changed Chart Button to Buy DeFAI Button */}
           <Link href="https://dexscreener.com/solana/3jiwexdwzxjva2yd8aherfsrn7a97qbwmdz8i4q6mh7y" target="_blank" rel="noopener noreferrer" className="flex-shrink-0">
             <button 
-              className="w-full sm:w-auto text-white font-bold py-3 px-6 rounded-full transition-all duration-150 ease-in-out hover:scale-105 hover:shadow-lg hover:shadow-blue-500/50 whitespace-nowrap" /* Adjusted padding */
+              className="w-full sm:w-auto text-white font-bold py-3 px-6 rounded-full transition-all duration-150 ease-in-out hover:scale-105 hover:shadow-lg hover:shadow-blue-500/50 whitespace-nowrap"
               style={{ backgroundColor: '#2563EB' }}
             >
-              Chart
+              Buy DeFAI
             </button>
           </Link>
-          <Link href="https://x.com/defairewards" target="_blank" rel="noopener noreferrer" className="flex-shrink-0">
+
+          {/* Share on X Button - only if eligible */}
+          {typeof result === 'number' && result > 0 && (
             <button 
-              className="w-full sm:w-auto text-white font-bold py-3 px-6 rounded-full transition-all duration-150 ease-in-out hover:scale-105 hover:shadow-lg hover:shadow-blue-500/50 whitespace-nowrap" /* Adjusted padding */
+              onClick={handleShareToX}
+              className="w-full sm:w-auto text-white font-bold py-3 px-6 rounded-full transition-all duration-150 ease-in-out hover:scale-105 hover:shadow-lg hover:shadow-blue-500/50 whitespace-nowrap"
               style={{ backgroundColor: '#2563EB' }}
             >
-              Follow on X
+              Share on X
             </button>
-          </Link>
-          <Link href="https://t.me/defairewards" target="_blank" rel="noopener noreferrer" className="flex-shrink-0">
-            <button 
-              className="w-full sm:w-auto text-white font-bold py-3 px-6 rounded-full transition-all duration-150 ease-in-out hover:scale-105 hover:shadow-lg hover:shadow-blue-500/50 whitespace-nowrap" /* Adjusted padding */
-              style={{ backgroundColor: '#2563EB' }}
-            >
-              Join Telegram
-            </button>
-          </Link>
+          )}
+          {/* REMOVED Follow on X Button */}
+          {/* REMOVED Join Telegram Button */}
         </div>
       )}
 

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import airdropData from '@/data/airdropData.json'; // Reverted to original import path
+import airdropData from '@/data/airdropData.json';
 
 interface AirdropEntry {
   Account: string;

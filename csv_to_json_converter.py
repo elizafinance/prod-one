@@ -50,12 +50,9 @@ def csv_to_json(csv_file_path, json_file_path):
 if __name__ == '__main__':
     # Define the input CSV and output JSON file paths
     # Assumes the script is in the workspace root and the CSV is also there.
-    # Adjust paths as necessary.
     csv_input_path = '10_1AIR - Sheet1.csv'
-    json_output_path = 'airdropDataOutput.json' 
-    
-    # For use within your Next.js project, you might want this output path:
-    # json_output_path = 'src/data/airdropData.json'
+    # Output directly to the location the API route expects
+    json_output_path = 'src/data/airdropData.json' 
 
     print(f"Starting conversion of {csv_input_path} to {json_output_path}...")
     csv_to_json(csv_input_path, json_output_path) 

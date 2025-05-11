@@ -1,13 +1,18 @@
 import { ThemeProviderWrapper } from "@/providers/themeProvider";
 import { WalletAdapterProvider } from "@/providers/walletAdapterProvider";
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Inter, Orbitron } from "next/font/google";
 import "./globals.css";
 import { UmiProvider } from "@/providers/umiProvider";
 // import Header from "@/components/header";
 import { Toaster } from "@/components/ui/toaster";
 
-const inter = Inter({ subsets: ["latin"] });
+const inter = Inter({ subsets: ["latin"], variable: '--font-inter' });
+const orbitron = Orbitron({ 
+  subsets: ["latin"], 
+  weight: ['400', '600', '700'],
+  variable: '--font-orbitron'
+});
 
 export const metadata: Metadata = {
   title: "DeFAIRewards - Check Your $AIR Airdrop & Explore Decentralized Rewards!",
@@ -41,9 +46,9 @@ export default function RootLayout({
   return (
     <WalletAdapterProvider>
       <UmiProvider>
-        <html lang="en">
+        <html lang="en" className={`${inter.variable} ${orbitron.variable}`}>
           <body
-            className={inter.className + " flex flex-col min-h-screen gap-4"}
+            className={"flex flex-col min-h-screen gap-4 font-sans"}
           >
             <ThemeProviderWrapper>
               {/* <div className="flex flex-col items-center pt-24 gap-4 w-full">

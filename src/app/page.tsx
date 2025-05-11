@@ -44,7 +44,7 @@ export default function HomePage() {
   };
 
   return (
-    <main className="flex flex-col items-center justify-start min-h-screen p-4 sm:p-8 bg-white text-gray-900 pt-12 sm:pt-20">
+    <main className="flex flex-col items-center justify-start min-h-screen p-4 sm:p-8 bg-white text-black pt-12 sm:pt-20 font-sans">
       {/* Logo at the top */}
       <img 
         className="h-12 sm:h-16 mb-8" // Adjusted size and margin
@@ -54,15 +54,15 @@ export default function HomePage() {
       />
 
       {/* Main Headings */}
-      <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold text-black text-center">
+      <h1 className="font-orbitron text-4xl sm:text-5xl md:text-6xl font-bold text-black text-center">
         Banking AI Agents
       </h1>
-      <h2 className="text-4xl sm:text-5xl md:text-6xl font-bold text-black text-center mb-10">
+      <h2 className="font-orbitron text-4xl sm:text-5xl md:text-6xl font-bold text-black text-center mb-10">
         Rewarding Humans
       </h2>
 
       {/* Welcome Copy */}
-      <p className="text-center mb-8 text-gray-700 text-base sm:text-sm max-w-xl">
+      <p className="text-center mb-8 text-black text-base sm:text-lg max-w-xl">
         Welcome to the DeFAIRewards $AIRdrop checker. Simply paste your wallet address in the box and click check AIRdrop to see what you will receive via Streamflow when we launch! Numbers are based on the the DeFAI Snapshot taken March 31, 2025 and will be updated with the May 20, 2025 snapshot as we get closer to launch.
       </p>
 
@@ -73,13 +73,13 @@ export default function HomePage() {
           value={address}
           onChange={(e) => setAddress(e.target.value)}
           placeholder="Enter your wallet address"
-          className="flex-grow w-full sm:w-auto p-3 bg-white border border-gray-400 rounded-md focus:ring-2 focus:ring-[#86CEEA] focus:border-[#86CEEA] outline-none text-gray-900 placeholder-gray-500"
+          className="flex-grow w-full sm:w-auto p-3 bg-white border border-gray-400 rounded-md focus:ring-2 focus:ring-[#2563EB] focus:border-[#2563EB] outline-none text-gray-900 placeholder-gray-500"
           disabled={isLoading}
         />
         <button
           onClick={handleCheckAirdrop}
-          className="w-full sm:w-auto text-black font-semibold py-3 px-6 rounded-md transition duration-150 ease-in-out hover:opacity-90 disabled:opacity-50 whitespace-nowrap"
-          style={{ backgroundColor: '#86CEEA' }} 
+          className="w-full sm:w-auto text-white font-semibold py-3 px-6 rounded-full transition-all duration-150 ease-in-out hover:scale-105 hover:shadow-lg hover:shadow-blue-500/50 disabled:opacity-50 whitespace-nowrap"
+          style={{ backgroundColor: '#2563EB' }} 
           disabled={isLoading}
         >
           {isLoading ? 'Checking...' : 'Check'}
@@ -104,32 +104,32 @@ export default function HomePage() {
         <div className="mt-4 mb-8 flex flex-wrap justify-center gap-3 sm:gap-4 w-full max-w-lg"> {/* Changed to flex-wrap and adjusted gap */}
           <Link href="https://defairewards.net" target="_blank" rel="noopener noreferrer" className="flex-shrink-0">
             <button 
-              className="w-full sm:w-auto text-white font-bold py-2 px-4 rounded-md transition duration-150 ease-in-out hover:opacity-90 whitespace-nowrap" /* Adjusted padding */
-              style={{ backgroundColor: '#86CEEA' }}
+              className="w-full sm:w-auto text-white font-bold py-3 px-6 rounded-full transition-all duration-150 ease-in-out hover:scale-105 hover:shadow-lg hover:shadow-blue-500/50 whitespace-nowrap" /* Adjusted padding */
+              style={{ backgroundColor: '#2563EB' }}
             >
               Home
             </button>
           </Link>
           <Link href="https://dexscreener.com/solana/3jiwexdwzxjva2yd8aherfsrn7a97qbwmdz8i4q6mh7y" target="_blank" rel="noopener noreferrer" className="flex-shrink-0">
             <button 
-              className="w-full sm:w-auto text-white font-bold py-2 px-4 rounded-md transition duration-150 ease-in-out hover:opacity-90 whitespace-nowrap" /* Adjusted padding */
-              style={{ backgroundColor: '#86CEEA' }}
+              className="w-full sm:w-auto text-white font-bold py-3 px-6 rounded-full transition-all duration-150 ease-in-out hover:scale-105 hover:shadow-lg hover:shadow-blue-500/50 whitespace-nowrap" /* Adjusted padding */
+              style={{ backgroundColor: '#2563EB' }}
             >
               Chart
             </button>
           </Link>
           <Link href="https://x.com/defairewards" target="_blank" rel="noopener noreferrer" className="flex-shrink-0">
             <button 
-              className="w-full sm:w-auto text-white font-bold py-2 px-4 rounded-md transition duration-150 ease-in-out hover:opacity-90 whitespace-nowrap" /* Adjusted padding */
-              style={{ backgroundColor: '#86CEEA' }}
+              className="w-full sm:w-auto text-white font-bold py-3 px-6 rounded-full transition-all duration-150 ease-in-out hover:scale-105 hover:shadow-lg hover:shadow-blue-500/50 whitespace-nowrap" /* Adjusted padding */
+              style={{ backgroundColor: '#2563EB' }}
             >
               Follow on X
             </button>
           </Link>
           <Link href="https://t.me/defairewards" target="_blank" rel="noopener noreferrer" className="flex-shrink-0">
             <button 
-              className="w-full sm:w-auto text-white font-bold py-2 px-4 rounded-md transition duration-150 ease-in-out hover:opacity-90 whitespace-nowrap" /* Adjusted padding */
-              style={{ backgroundColor: '#86CEEA' }}
+              className="w-full sm:w-auto text-white font-bold py-3 px-6 rounded-full transition-all duration-150 ease-in-out hover:scale-105 hover:shadow-lg hover:shadow-blue-500/50 whitespace-nowrap" /* Adjusted padding */
+              style={{ backgroundColor: '#2563EB' }}
             >
               Join Telegram
             </button>
@@ -142,7 +142,7 @@ export default function HomePage() {
         <img 
             src={Illustration.src} 
             alt="Illustration" 
-            className="max-w-full h-auto md:max-w-md lg:max-w-lg" // Responsive sizing for illustration
+            className="w-[400px] h-auto" // Removed rounded-xl and shadow-lg
         />
       </div>
 

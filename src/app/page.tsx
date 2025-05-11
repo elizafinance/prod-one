@@ -62,8 +62,8 @@ export default function HomePage() {
       </h2>
 
       {/* Welcome Copy */}
-      <p className="text-center mb-8 text-gray-700 text-base sm:text-lg max-w-xl">
-        Welcome to the DeFAIRewards $AIRdrop checker. Simply paste your wallet address in the box and click check AIRdrop to see what you will receive via Streamflow when we launch!
+      <p className="text-center mb-8 text-gray-700 text-base sm:text-sm max-w-xl">
+        Welcome to the DeFAIRewards $AIRdrop checker. Simply paste your wallet address in the box and click check AIRdrop to see what you will receive via Streamflow when we launch! Numbers are based on the the DeFAI Snapshot taken March 31, 2025 and will be updated with the May 20, 2025 snapshot as we get closer to launch.
       </p>
 
       {/* Input and Button Area */}

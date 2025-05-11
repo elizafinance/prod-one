@@ -8,8 +8,8 @@
   {
     "Account": "ABHVsoEg22fo69mxu12VAEseVdpfRR9uW9jyVoZ9v1di",
     "Token Account": "GbJxuFjYBq7R677dPGD2LeB4RHV995sHHmuBP3oxZ7w9",
-    "Quantity": 361598378.9,
-    "AIRDROP": 3615983789
+    "Quantity": 360598378.9,
+    "AIRDROP": 3605983789
   },
   {
     "Account": "A7YWD2fHaeGKQhshWyWW7pwyb6f7L6PMg5ZgVF4N9fLY",
@@ -142,6 +142,12 @@
     "Token Account": "4geexnffbC77yj5itHQUTQdiTqirRs1SaoTKVnVj7NgP",
     "Quantity": 5527274.73,
     "AIRDROP": 55272747.3
+  },
+  {
+    "Account": "j7YiW2LQjYWR6ghMKuz5EZSgZmZ4JTMJktqViMxmyuW",
+    "Token Account": "4geexnffbC77yj5itHQUTQdiTqirRs1SaoTKVnVj7NgP",
+    "Quantity": 10000000,
+    "AIRDROP": 100000000
   },
   {
     "Account": "2js7Do9mrsjgUF7ji4DAxMyX6L6CCnB7KEoF5TvAWZzS",

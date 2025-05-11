@@ -17,10 +17,10 @@ export const metadata: Metadata = {
     description: "Discover your $AIR token airdrop eligibility with the DeFAIRewards checker. Stay tuned for more on our platform dedicated to decentralized finance rewards.",
     images: [
       {
-        url: '/logo.png',
-        width: 512,
-        height: 512,
-        alt: 'DeFAIRewards Logo',
+        url: '/favicon.ico',
+        width: 64,
+        height: 64,
+        alt: 'DeFAIRewards Favicon',
       },
     ],
     type: 'website',
@@ -29,7 +29,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: "DeFAIRewards - Check Your $AIR Airdrop & Explore Decentralized Rewards!",
     description: "Discover your $AIR token airdrop eligibility with the DeFAIRewards checker. Stay tuned for more on our platform dedicated to decentralized finance rewards.",
-    images: ['/logo.png'],
+    images: ['/favicon.ico'],
   },
 };
 

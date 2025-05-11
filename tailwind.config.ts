@@ -11,6 +11,7 @@ const config: Config = {
   		fontFamily: {
   			sans: ['var(--font-inter)', 'sans-serif'],
   			orbitron: ['var(--font-orbitron)', 'sans-serif'],
+  			spacegrotesk: ['var(--font-space-grotesk)', 'sans-serif'],
   		},
   		backgroundImage: {
   			'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',

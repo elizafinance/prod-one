@@ -1,7 +1,7 @@
 import { ThemeProviderWrapper } from "@/providers/themeProvider";
 import { WalletAdapterProvider } from "@/providers/walletAdapterProvider";
 import type { Metadata } from "next";
-import { Inter, Orbitron } from "next/font/google";
+import { Inter, Orbitron, Space_Grotesk } from "next/font/google";
 import "./globals.css";
 import { UmiProvider } from "@/providers/umiProvider";
 // import Header from "@/components/header";
@@ -12,6 +12,11 @@ const orbitron = Orbitron({
   subsets: ["latin"], 
   weight: ['400', '600', '700'],
   variable: '--font-orbitron'
+});
+const spaceGrotesk = Space_Grotesk({
+  subsets: ["latin"],
+  weight: ['400', '700'],
+  variable: '--font-space-grotesk'
 });
 
 export const metadata: Metadata = {
@@ -46,7 +51,7 @@ export default function RootLayout({
   return (
     <WalletAdapterProvider>
       <UmiProvider>
-        <html lang="en" className={`${inter.variable} ${orbitron.variable}`}>
+        <html lang="en" className={`${inter.variable} ${orbitron.variable} ${spaceGrotesk.variable}`}>
           <body
             className={"flex flex-col min-h-screen gap-4 font-sans"}
           >

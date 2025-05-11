@@ -54,10 +54,10 @@ export default function HomePage() {
       />
 
       {/* Main Headings */}
-      <h1 className="font-orbitron text-4xl sm:text-5xl md:text-6xl font-bold text-black text-center">
+      <h1 className="font-spacegrotesk text-4xl sm:text-5xl md:text-6xl font-bold text-black text-center">
         Banking AI Agents
       </h1>
-      <h2 className="font-orbitron text-4xl sm:text-5xl md:text-6xl font-bold text-black text-center mb-10">
+      <h2 className="font-spacegrotesk text-4xl sm:text-5xl md:text-6xl font-bold text-black text-center mb-10">
         Rewarding Humans
       </h2>
 

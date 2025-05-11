@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import SiteLogo from "@/assets/logos/favicon.ico"; // Using favicon as the main small logo
 import Illustration from "@/assets/images/tits.png"; // The illustration
+import Link from 'next/link'; // Already imported, but confirming it's here
 
 // REMOVED slide image imports and images array
 // REMOVED Link import as social buttons are removed
@@ -33,7 +34,7 @@ export default function HomePage() {
       if (response.ok) {
         setResult(data.AIRDROP);
       } else {
-        setResult(data.error || "An error occurred.");
+        setResult(data.error || "Sorry You Don't Qualify For The Airdrop."); // Ensured fallback message
       }
     } catch (error) {
       console.error("Failed to fetch airdrop data:", error);
@@ -87,7 +88,7 @@ export default function HomePage() {
 
       {/* Result Display */}
       {result !== null && !isLoading && (
-        <div className="mt-4 mb-8 p-4 bg-gray-100 rounded-md text-center w-full max-w-lg">
+        <div className="mt-4 mb-4 p-4 bg-gray-100 rounded-md text-center w-full max-w-lg">
           {typeof result === 'number' ? (
             <p className="text-lg text-gray-800">
               🎉 Congratulations! You will receive: <span className="font-bold text-xl text-green-600">{result.toLocaleString()}</span> $AIR tokens.
@@ -98,6 +99,44 @@ export default function HomePage() {
         </div>
       )}
       
+      {/* Conditional Buttons - Home, Chart, X, Telegram - shown after check */}
+      {result !== null && !isLoading && (
+        <div className="mt-4 mb-8 flex flex-wrap justify-center gap-3 sm:gap-4 w-full max-w-lg"> {/* Changed to flex-wrap and adjusted gap */}
+          <Link href="https://defairewards.net" target="_blank" rel="noopener noreferrer" className="flex-shrink-0">
+            <button 
+              className="w-full sm:w-auto text-white font-bold py-2 px-4 rounded-md transition duration-150 ease-in-out hover:opacity-90 whitespace-nowrap" /* Adjusted padding */
+              style={{ backgroundColor: '#86CEEA' }}
+            >
+              Home
+            </button>
+          </Link>
+          <Link href="https://dexscreener.com/solana/3jiwexdwzxjva2yd8aherfsrn7a97qbwmdz8i4q6mh7y" target="_blank" rel="noopener noreferrer" className="flex-shrink-0">
+            <button 
+              className="w-full sm:w-auto text-white font-bold py-2 px-4 rounded-md transition duration-150 ease-in-out hover:opacity-90 whitespace-nowrap" /* Adjusted padding */
+              style={{ backgroundColor: '#86CEEA' }}
+            >
+              Chart
+            </button>
+          </Link>
+          <Link href="https://x.com/defairewards" target="_blank" rel="noopener noreferrer" className="flex-shrink-0">
+            <button 
+              className="w-full sm:w-auto text-white font-bold py-2 px-4 rounded-md transition duration-150 ease-in-out hover:opacity-90 whitespace-nowrap" /* Adjusted padding */
+              style={{ backgroundColor: '#86CEEA' }}
+            >
+              Follow on X
+            </button>
+          </Link>
+          <Link href="https://t.me/defairewards" target="_blank" rel="noopener noreferrer" className="flex-shrink-0">
+            <button 
+              className="w-full sm:w-auto text-white font-bold py-2 px-4 rounded-md transition duration-150 ease-in-out hover:opacity-90 whitespace-nowrap" /* Adjusted padding */
+              style={{ backgroundColor: '#86CEEA' }}
+            >
+              Join Telegram
+            </button>
+          </Link>
+        </div>
+      )}
+
       {/* Illustration at the bottom */}
       <div className="mt-auto w-full flex justify-center pt-8"> {/* Pushes to bottom if content is short, adds padding top */}
         <img 

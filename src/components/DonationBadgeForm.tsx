@@ -94,7 +94,9 @@ const DonationBadgeForm: React.FC<DonationBadgeFormProps> = ({ onBadgeEarned }) 
     setVerifying(true);
     
     try {
-      const response = await fetch('/api/badges/verify-donation', {
+      // Use a dynamic base URL to ensure we're hitting the correct endpoint
+      const baseUrl = window.location.origin;
+      const response = await fetch(`${baseUrl}/api/badges/verify-donation`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

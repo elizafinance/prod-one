@@ -9,7 +9,7 @@ export async function GET(request: Request) {
     const usersCollection = db.collection<UserDocument>('users');
 
     const leaderboard = await usersCollection
-      .find({}, { projection: { walletAddress: 1, points: 1, _id: 0 } }) // Select only necessary fields
+      .find({}, { projection: { walletAddress: 1, points: 1, highestAirdropTierLabel: 1, _id: 0 } }) // Select necessary fields
       .sort({ points: -1 }) // Sort by points descending
       .limit(LEADERBOARD_LIMIT)
       .toArray();
@@ -21,7 +21,7 @@ export async function GET(request: Request) {
         ? `${originalWalletAddress.substring(0, 6)}...${originalWalletAddress.substring(originalWalletAddress.length - 4)}` 
         : "[No Wallet Address]";
       return {
-        ...user,
+        ...user, // Includes points and highestAirdropTierLabel
         walletAddress: maskedAddress
       };
     });

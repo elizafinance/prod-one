@@ -650,11 +650,11 @@ export default function SquadDetailsPage() {
                     <input 
                       type="text" 
                       readOnly 
-                      value={`https://claim-staging.defairewards.net/?ref=${squadDetails.leaderReferralCode}`}
+                      value={`https://kol-claim.defairewards.net/?ref=${squadDetails.leaderReferralCode}`}
                       className="text-gray-700 text-sm break-all bg-transparent outline-none flex-grow p-1"
                     />
                     <button 
-                      onClick={() => handleCopyToClipboard(`https://claim-staging.defairewards.net/?ref=${squadDetails.leaderReferralCode}`)}
+                      onClick={() => handleCopyToClipboard(`https://kol-claim.defairewards.net/?ref=${squadDetails.leaderReferralCode}`)}
                       className="ml-2 py-1 px-2 text-xs bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
                     >
                       Copy

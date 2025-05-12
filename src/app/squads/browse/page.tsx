@@ -126,10 +126,10 @@ export default function BrowseSquadsPage() {
         {!isLoading && !error && squads.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {squads.map((squad) => (
-              <div key={squad.squadId} className="bg-white border border-gray-200 shadow-lg rounded-lg p-6 flex flex-col justify-between">
+              <div key={squad.squadId} className="bg-white border border-gray-200 shadow-lg rounded-lg p-6 flex flex-col justify-between min-h-[280px]">
                 <div>
                   <h2 className="text-2xl font-bold text-sky-700 mb-2">{squad.name}</h2>
-                  {squad.description && <p className="text-sm text-gray-600 mb-3 h-12 overflow-hidden line-clamp-2">{squad.description}</p>}
+                  {squad.description && <p className="text-sm text-gray-600 mb-3 line-clamp-3">{squad.description}</p>}
                   <p className="text-sm text-gray-500">Leader: <span className="font-mono text-xs">{squad.leaderWalletAddress.substring(0,6)}...</span></p>
                   <p className="text-sm text-gray-500">Members: {squad.memberCount} / {process.env.NEXT_PUBLIC_MAX_SQUAD_MEMBERS || 10}</p>
                   <p className="text-lg font-semibold text-transparent bg-clip-text bg-gradient-to-r from-green-500 to-teal-500 mt-1">Points: {squad.totalSquadPoints.toLocaleString()}</p>

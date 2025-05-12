@@ -32,7 +32,12 @@ export async function POST(request: Request) {
     }
     
     // Connect to Solana to verify the transaction
-    const connection = new Connection(process.env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com');
+    const rpcUrl = process.env.NEXT_PUBLIC_HELIUS_RPC_URL;
+    if (!rpcUrl) {
+      console.error('[VerifyDonation API] Helius RPC URL not configured.');
+      return NextResponse.json({ error: 'Server configuration error for RPC.' }, { status: 500 });
+    }
+    const connection = new Connection(rpcUrl);
     
     // Get the transaction details
     const transaction = await connection.getTransaction(transactionSignature, {
@@ -44,9 +49,10 @@ export async function POST(request: Request) {
     }
     
     // Get the donation address from environment variable
-    const donationAddress = process.env.DONATION_WALLET_ADDRESS;
+    const donationAddress = process.env.NEXT_PUBLIC_DONATION_WALLET_ADDRESS;
     if (!donationAddress) {
-      return NextResponse.json({ error: 'Donation address not configured' }, { status: 500 });
+      console.error('[VerifyDonation API] Donation wallet address not configured.');
+      return NextResponse.json({ error: 'Donation address not configured on server.' }, { status: 500 });
     }
     
     // Verify this transaction:

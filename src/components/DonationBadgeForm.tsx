@@ -14,7 +14,6 @@ const DonationBadgeForm: React.FC<DonationBadgeFormProps> = ({ onBadgeEarned }) 
   const [isLoading, setIsLoading] = useState(false);
   const [verifying, setVerifying] = useState(false);
   const [txSignature, setTxSignature] = useState('');
-  const [showingManualVerify, setShowingManualVerify] = useState(false);
   const wallet = useWallet();
   
   const donationAmount = 0.1; // SOL
@@ -86,7 +85,9 @@ const DonationBadgeForm: React.FC<DonationBadgeFormProps> = ({ onBadgeEarned }) 
   
   const verifyDonation = async (signature: string) => {
     if (!signature.trim()) {
-      toast.error('Please enter a transaction signature');
+      // This case should ideally not be reached if we remove manual input
+      // but keep it as a safeguard or for potential future internal use.
+      toast.error('Transaction signature is missing for verification.');
       return;
     }
     
@@ -150,40 +151,16 @@ const DonationBadgeForm: React.FC<DonationBadgeFormProps> = ({ onBadgeEarned }) 
             {isLoading ? 'Sending...' : `Donate ${donationAmount} SOL Now`}
           </button>
           
-          {txSignature && (
-            <div className="mt-4 p-3 bg-gray-800 rounded-md">
-              <p className="text-gray-300 text-sm mb-2">Transaction sent! Signature:</p>
-              <p className="text-xs text-gray-400 font-mono break-all">{txSignature}</p>
+          {txSignature && !verifying && (
+            <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-md">
+              <p className="text-green-700 text-sm mb-1">✅ Donation sent! Verification complete.</p>
+              <p className="text-xs text-gray-600 font-mono break-all">Signature: {txSignature}</p>
             </div>
           )}
-          
-          {!txSignature && (
-            <div className="mt-2">
-              <button
-                onClick={() => setShowingManualVerify(!showingManualVerify)}
-                className="text-xs text-purple-400 hover:text-purple-300"
-              >
-                {showingManualVerify ? 'Hide manual verification' : 'Already donated? Verify manually'}
-              </button>
-              
-              {showingManualVerify && (
-                <div className="mt-3 space-y-3">
-                  <input
-                    type="text"
-                    value={txSignature}
-                    onChange={(e) => setTxSignature(e.target.value)}
-                    placeholder="Enter transaction signature"
-                    className="w-full p-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400"
-                  />
-                  <button
-                    onClick={() => verifyDonation(txSignature)}
-                    disabled={verifying || !txSignature.trim()}
-                    className="w-full py-2 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-md shadow disabled:opacity-70"
-                  >
-                    {verifying ? 'Verifying...' : 'Verify Donation'}
-                  </button>
-                </div>
-              )}
+          {verifying && (
+             <div className="mt-4 p-3 bg-yellow-50 border border-yellow-300 rounded-md">
+              <p className="text-yellow-700 text-sm mb-1">⏳ Verifying your donation transaction...</p>
+              {txSignature && <p className="text-xs text-gray-500 font-mono break-all">Signature: {txSignature}</p>}
             </div>
           )}
         </>

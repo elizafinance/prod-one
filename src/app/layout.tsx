@@ -52,7 +52,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${inter.variable} ${orbitron.variable} ${spaceGrotesk.variable}`}>
-      <body className={"flex flex-col min-h-screen gap-4 font-sans"}>
+      <body className={"flex flex-col min-h-screen font-sans"}>
         <SessionProviderWrapper>
           <WalletAdapterProvider>
             <UmiProvider>

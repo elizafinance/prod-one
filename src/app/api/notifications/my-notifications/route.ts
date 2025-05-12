@@ -29,18 +29,15 @@ export async function GET(request: Request) {
       .limit(Math.max(1, Math.min(limit, 100))) // Ensure limit is reasonable (1-100)
       .toArray();
 
-    // Optionally, get unread count if not already filtering by unread
-    let unreadCount = 0;
-    if (!onlyUnread) {
-        unreadCount = await notificationsCollection.countDocuments({
-            recipientWalletAddress: currentUserWalletAddress,
-            isRead: false
-        });
-    }
+    // Always get the total unread count for the user if they are fetching their notifications
+    const totalUnreadCount = await notificationsCollection.countDocuments({
+        recipientWalletAddress: currentUserWalletAddress,
+        isRead: false
+    });
 
     return NextResponse.json({ 
         notifications,
-        unreadCount: onlyUnread ? notifications.length : unreadCount // if onlyUnread, current batch length is unread count for this batch
+        unreadCount: totalUnreadCount // Always return the true total unread count
     });
 
   } catch (error) {

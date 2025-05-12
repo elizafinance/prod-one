@@ -5,10 +5,16 @@ import { authOptions } from "@/lib/auth";
 
 export async function GET(request: Request) {
   const session = await getServerSession(authOptions);
-  if (!session || !session.user || typeof session.user.walletAddress !== 'string') {
+  console.log('[MyPendingInvitesAPI] Session:', JSON.stringify(session));
+  let currentUserWalletAddress = '';
+  if (session && session.user && typeof session.user.walletAddress === 'string') {
+    currentUserWalletAddress = session.user.walletAddress;
+  }
+  if (!session || !session.user || !currentUserWalletAddress) {
+    console.warn('[MyPendingInvitesAPI] Not authenticated or walletAddress missing. Session:', session);
     return NextResponse.json({ error: 'User not authenticated or wallet not available in session' }, { status: 401 });
   }
-  const currentUserWalletAddress = session.user.walletAddress;
+  console.log('[MyPendingInvitesAPI] Current user wallet address:', currentUserWalletAddress);
 
   try {
     const { db } = await connectToDatabase();
@@ -18,6 +24,7 @@ export async function GET(request: Request) {
       invitedUserWalletAddress: currentUserWalletAddress,
       status: 'pending'
     }).sort({ createdAt: -1 }).toArray(); // Sort by newest first
+    console.log('[MyPendingInvitesAPI] Pending invitations found:', pendingInvitations);
 
     return NextResponse.json({ invitations: pendingInvitations });
 

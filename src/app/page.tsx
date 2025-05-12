@@ -431,42 +431,14 @@ export default function HomePage() {
             </div>
           )}
 
-          {/* Squad Info Section */}
+          {/* My Squad Section - replaced with navigation button */}
           <div className="w-full max-w-md p-5 bg-indigo-50 border border-indigo-200 rounded-xl shadow-md mt-8 mb-4">
             <h3 className="text-xl font-bold text-indigo-700 mb-3 text-center">🛡️ My Squad</h3>
-            {isFetchingSquad && <p className="text-center text-indigo-600">Loading squad info...</p>}
-            {!isFetchingSquad && mySquadData && (
-              <div className="text-center">
-                <p className="text-lg font-semibold text-gray-800">Name: <span className="text-indigo-600 font-bold">{mySquadData.name}</span></p>
-                <p className="text-sm text-gray-600">Total Points: <span className="font-semibold">{mySquadData.totalSquadPoints.toLocaleString()}</span></p>
-                <p className="text-sm text-gray-600">Members: <span className="font-semibold">{mySquadData.memberWalletAddresses.length} / {process.env.NEXT_PUBLIC_MAX_SQUAD_MEMBERS || 10}</span></p>
-                {mySquadData.leaderWalletAddress === wallet.publicKey?.toBase58() && (
-                  <span className="mt-2 inline-block px-3 py-1 text-xs font-bold bg-indigo-200 text-indigo-800 rounded-full uppercase tracking-wider">LEADER</span>
-                )}
-                <Link href={`/squads/${mySquadData.squadId}`} passHref>
-                  <button className="mt-3 py-2 px-4 bg-indigo-500 hover:bg-indigo-600 text-white text-sm font-semibold rounded-lg transition-colors w-full shadow hover:shadow-md">
-                    View Squad Details
-                  </button>
-                </Link>
-              </div>
-            )}
-            {!isFetchingSquad && !mySquadData && (
-              <div className="text-center py-2">
-                <p className="text-gray-700 mb-4">You are not part of a squad yet. Lead the charge or join forces!</p>
-                <div className="flex flex-col sm:flex-row gap-3">
-                  <Link href="/squads/create" passHref className="flex-1">
-                    <button className="py-2.5 px-5 bg-green-500 hover:bg-green-600 text-white font-semibold rounded-lg transition-colors w-full shadow hover:shadow-md">
-                      Create New Squad
-                    </button>
-                  </Link>
-                  <Link href="/squads/browse" passHref className="flex-1">
-                    <button className="py-2.5 px-5 bg-blue-500 hover:bg-blue-600 text-white font-semibold rounded-lg transition-colors w-full shadow hover:shadow-md">
-                      Join Existing Squad
-                    </button>
-                  </Link>
-                </div>
-              </div>
-            )}
+            <Link href="/squads/my" passHref>
+              <button className="mt-3 py-2 px-4 bg-indigo-500 hover:bg-indigo-600 text-white text-sm font-semibold rounded-lg transition-colors w-full shadow hover:shadow-md">
+                Go to My Squad Page
+              </button>
+            </Link>
           </div>
 
           {/* Link to Public Profile */}

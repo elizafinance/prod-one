@@ -5,8 +5,10 @@ import { authOptions } from "@/lib/auth";
 
 export async function GET(request: Request) {
   const session = await getServerSession(authOptions);
+  console.log('[MySquadAPI] Session:', JSON.stringify(session));
   // Step 1: Basic authentication - is the user logged in via NextAuth?
   if (!session || !session.user || !session.user.xId) { // Check for xId as the primary session identifier
+    console.warn('[MySquadAPI] Not authenticated or xId missing. Session:', session);
     return NextResponse.json({ error: 'User not authenticated or xId missing from session' }, { status: 401 });
   }
   const userXId = session.user.xId;
@@ -14,6 +16,7 @@ export async function GET(request: Request) {
   // The frontend might still send userWalletAddress as a query param (from connected wallet)
   const { searchParams } = new URL(request.url);
   const clientProvidedWalletAddress = searchParams.get('userWalletAddress');
+  console.log('[MySquadAPI] Query param userWalletAddress:', clientProvidedWalletAddress);
 
   try {
     const { db } = await connectToDatabase();
@@ -22,7 +25,9 @@ export async function GET(request: Request) {
 
     // Step 2: Fetch the user from DB using the authenticated xId to get their canonical walletAddress
     const userFromDb = await usersCollection.findOne({ xUserId: userXId });
+    console.log('[MySquadAPI] DB lookup result for xUserId', userXId, ':', userFromDb);
     if (!userFromDb) {
+      console.error('[MySquadAPI] User not found in DB for xUserId:', userXId);
       return NextResponse.json({ error: 'User record not found in database for authenticated xId.' }, { status: 404 });
     }
     

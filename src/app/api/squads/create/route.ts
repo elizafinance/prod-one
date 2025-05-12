@@ -53,6 +53,9 @@ export async function POST(request: Request) {
     if (!leaderUser) {
       return NextResponse.json({ error: 'Authenticated leader user not found in database.' }, { status: 404 });
     }
+    if ((leaderUser.points || 0) < 10000) {
+      return NextResponse.json({ error: 'You need at least 10,000 DeFAI Points to create a squad.' }, { status: 403 });
+    }
     if (leaderUser.squadId) {
       return NextResponse.json({ error: 'You are already in a squad. Leave your current squad to create a new one.' }, { status: 400 });
     }

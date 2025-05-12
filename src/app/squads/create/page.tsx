@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useWallet } from '@solana/wallet-adapter-react'; // To ensure user has a wallet connected
 import { toast } from 'sonner';
@@ -14,6 +14,35 @@ export default function CreateSquadPage() {
   const [description, setDescription] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [userPoints, setUserPoints] = useState<number | null>(null);
+
+  useEffect(() => {
+    async function fetchPoints() {
+      if (connected && publicKey) {
+        try {
+          const res = await fetch(`/api/users/points?address=${publicKey.toBase58()}`);
+          const data = await res.json();
+          if (res.ok && typeof data.points === 'number') {
+            setUserPoints(data.points);
+            return;
+          }
+        } catch (err) {
+          // fall through to localStorage fallback
+        }
+      }
+      // Fallback to localStorage
+      try {
+        const stored = localStorage.getItem('defaiUserData');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (typeof parsed.points === 'number') {
+            setUserPoints(parsed.points);
+          }
+        }
+      } catch {}
+    }
+    fetchPoints();
+  }, [connected, publicKey]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -44,10 +73,7 @@ export default function CreateSquadPage() {
 
       if (response.ok) {
         toast.success(data.message || 'Squad created successfully!');
-        // Optionally, redirect to the new squad's detail page or a "my squad" page
-        // For now, redirecting to home, which should then show their new squad info.
         router.push('/'); 
-        // Consider a state update mechanism if HomePage needs to refresh its squad data immediately without full reload.
       } else {
         setError(data.error || 'Failed to create squad.');
         toast.error(data.error || 'Failed to create squad.');
@@ -60,6 +86,8 @@ export default function CreateSquadPage() {
     setIsLoading(false);
   };
 
+  const canCreate = userPoints !== null && userPoints >= 10000;
+
   return (
     <main className="flex flex-col items-center min-h-screen p-4 sm:p-8 bg-gradient-to-b from-gray-900 to-gray-800 text-white">
       <div className="w-full max-w-md mx-auto my-10">
@@ -69,6 +97,14 @@ export default function CreateSquadPage() {
           </h1>
           <p className="text-gray-300 mt-2">Lead your team to victory and earn rewards together!</p>
         </div>
+
+        {!canCreate && (
+          <div className="mb-6 p-4 bg-red-100 border border-red-300 rounded text-red-700 text-center">
+            You need at least <b>10,000 DeFAI Points</b> to create a squad.<br />
+            {userPoints === null && <span>Go to the Dashboard to activate your account and earn points.</span>}
+            {userPoints !== null && <span>Your current points: <b>{userPoints.toLocaleString()}</b></span>}
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="bg-white/10 backdrop-blur-md shadow-2xl rounded-xl p-6 sm:p-8 space-y-6">
           <div>
@@ -84,6 +120,7 @@ export default function CreateSquadPage() {
               placeholder="The Legends"
               maxLength={30}
               required
+              disabled={!canCreate}
             />
           </div>
 
@@ -99,6 +136,7 @@ export default function CreateSquadPage() {
               className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none text-white placeholder-gray-400"
               placeholder="A brief description of your squad's mission..."
               maxLength={150}
+              disabled={!canCreate}
             />
           </div>
 
@@ -106,7 +144,7 @@ export default function CreateSquadPage() {
 
           <button
             type="submit"
-            disabled={isLoading || !connected}
+            disabled={isLoading || !connected || !canCreate}
             className="w-full py-3 px-5 bg-green-500 hover:bg-green-600 disabled:bg-gray-500 text-white font-semibold rounded-lg shadow-md hover:shadow-lg transform hover:scale-105 transition-all duration-150 ease-in-out disabled:opacity-70 disabled:cursor-not-allowed"
           >
             {isLoading ? (

@@ -63,10 +63,13 @@ const config: Config = {
   				'4': 'hsl(var(--chart-4))',
   				'5': 'hsl(var(--chart-5))'
   			},
-  		}
+  		},
+  		animation: {
+  			"pulse-slow": "pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite",
+  		},
   	}
   },
   plugins: [require("tailwindcss-animate")],
-  darkMode: ["class", "class"],
+  darkMode: ["class"],
 };
 export default config;

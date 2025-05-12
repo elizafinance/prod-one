@@ -16,11 +16,21 @@ type Props = {
 
 export const WalletAdapterProvider: FC<Props> = ({ children }) => {
   const [connectionReady, setConnectionReady] = useState(false);
+  const [connectionError, setConnectionError] = useState<string | null>(null);
   
-  // Define the Solana cluster endpoint
-  const endpoint = process.env.NEXT_PUBLIC_SOLANA_RPC_URL || "https://api.mainnet-beta.solana.com";
+  // Define the Solana cluster endpoint, preferring Helius RPC URL
+  const endpoint = process.env.NEXT_PUBLIC_HELIUS_RPC_URL || 
+                  process.env.NEXT_PUBLIC_SOLANA_RPC_URL || 
+                  "https://api.devnet.solana.com"; // Fallback to devnet for development if no URL provided
   
   useEffect(() => {
+    // Verify endpoint starts with http:// or https://
+    if (!endpoint.startsWith('http://') && !endpoint.startsWith('https://')) {
+      setConnectionError('Invalid RPC URL: endpoint must start with http:// or https://');
+      console.error('Invalid RPC URL:', endpoint);
+      return;
+    }
+    
     // Log connection information
     console.log(`Initializing Solana connection to: ${endpoint}`);
     setConnectionReady(true);
@@ -44,6 +54,10 @@ export const WalletAdapterProvider: FC<Props> = ({ children }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     []
   );
+
+  if (connectionError) {
+    return <div className="text-red-500 p-4">Error connecting to Solana: {connectionError}</div>;
+  }
 
   return (
     <ConnectionProvider endpoint={endpoint}>

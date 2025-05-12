@@ -16,6 +16,7 @@ import { getAssociatedTokenAddress } from '@solana/spl-token';
 import { useRouter } from 'next/navigation';
 import { useConnection } from '@solana/wallet-adapter-react';
 import { checkRequiredEnvVars } from '@/utils/checkEnv';
+import DeFAILogo from '@/components/DeFAILogo';
 
 // Dynamically import WalletMultiButton
 const WalletMultiButtonDynamic = dynamic(
@@ -257,12 +258,41 @@ export default function HomePage() {
           checkDefaiBalance(wallet.publicKey, connection);
         }
       } else {
-        toast.error(data.error || "Failed to activate rewards.");
-        setIsRewardsActive(false); setUserData(null); setMySquadData(null); setPendingInvites([]);
+        // Handle specific error cases to provide better user experience
+        if (response.status === 409) {
+          // This is a wallet conflict - show a modal or prominent message instead of a toast that disappears
+          const errorMessage = data.error || "This wallet is already linked to another X account.";
+          toast.error(errorMessage, {
+            duration: 10000, // Longer duration
+            id: "wallet-conflict-error" // Using an ID prevents duplicate toasts
+          });
+          
+          // Set some state to show the user can't use this wallet and should disconnect
+          setIsRewardsActive(false);
+          setUserData(null);
+          setMySquadData(null);
+          setPendingInvites([]);
+          
+          // Suggest disconnecting the wallet
+          toast.info("Please disconnect this wallet and try with a different one, or use the X account linked to this wallet.", {
+            duration: 10000,
+            id: "wallet-conflict-suggestion"
+          });
+        } else {
+          // Handle other errors normally
+          toast.error(data.error || "Failed to activate rewards.");
+          setIsRewardsActive(false);
+          setUserData(null);
+          setMySquadData(null);
+          setPendingInvites([]);
+        }
       }
     } catch (error) {
       toast.error("Error activating rewards.");
-      setIsRewardsActive(false); setUserData(null); setMySquadData(null); setPendingInvites([]);
+      setIsRewardsActive(false);
+      setUserData(null);
+      setMySquadData(null);
+      setPendingInvites([]);
     }
     setIsActivatingRewards(false);
   }, [initialReferrer, fetchMySquadData, fetchPendingInvites, connection, wallet.publicKey, checkDefaiBalance]);
@@ -448,285 +478,106 @@ export default function HomePage() {
   const showInsufficientBalanceMessage = authStatus === "authenticated" && wallet.connected && isRewardsActive && userData && hasSufficientDefai === false;
 
   return (
-    <main className="flex flex-col items-center min-h-screen p-4 sm:p-8 bg-white text-gray-900 font-sans">
-      <h1 className="font-spacegrotesk text-4xl sm:text-5xl md:text-6xl font-bold text-black text-center mt-8">
-        Banking AI Agents
-      </h1>
-      <h2 className="font-spacegrotesk text-4xl sm:text-5xl md:text-6xl font-bold text-black text-center mb-10">
-        Rewarding Humans
-      </h2>
-      
-      {/* Initial Airdrop Checker Section - Always visible if not X-authenticated or if X-auth but wallet not connected/rewards not active */}
-      {authStatus !== "authenticated" || !isRewardsActive || !wallet.connected ? (
-        <div className="w-full max-w-lg mb-8">
-            <p className="text-center mb-4 text-black text-base sm:text-lg">
-            Welcome to the DeFAIRewards $AIRdrop checker. First, check if an address is eligible for the airdrop. Sign in with X and connect your wallet to activate your defAIRewards account.
-            </p>
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-2 mb-4">
-                <input
+    <main className="flex flex-col items-center h-screen overflow-hidden p-4 sm:p-8 bg-white text-gray-900 font-sans relative">
+      {/* Main content moved up significantly */}
+      <div className="w-full max-w-3xl mx-auto pt-8 flex flex-col items-center">
+        {/* Heading with blue and black text */}
+        <h1 className="font-spacegrotesk text-5xl sm:text-6xl md:text-7xl font-bold text-center mb-2">
+          <span className="text-[#2B96F1]">Banking AI Agents</span>
+        </h1>
+        <h2 className="font-spacegrotesk text-5xl sm:text-6xl md:text-7xl font-bold text-black text-center mb-6">
+          Rewarding Humans
+        </h2>
+        
+        {/* Welcome text - moved up */}
+        <p className="text-center text-gray-600 max-w-xl mx-auto mb-6">
+          Welcome to the DeFAIRewards $AIRdrop checker. First, check if an address is eligible for the airdrop. Sign in with X and connect your wallet to activate your defAIRewards account.
+        </p>
+        
+        {/* Airdrop checker input - moved up further */}
+        {authStatus !== "authenticated" || !isRewardsActive || !wallet.connected ? (
+          <div className="w-full mb-8">
+            <div className="relative flex items-center mt-2 mb-6">
+              <input
                 type="text"
                 value={typedAddress}
                 onChange={(e) => setTypedAddress(e.target.value)}
                 placeholder="Enter any Solana address to check eligibility"
-                className="flex-grow w-full sm:w-auto p-3 bg-white border border-gray-400 rounded-md focus:ring-2 focus:ring-[#2563EB] focus:border-[#2563EB] outline-none text-gray-900 placeholder-gray-500"
+                className="w-full p-4 pl-5 pr-32 bg-gray-50 border border-gray-200 rounded-full focus:ring-2 focus:ring-[#2B96F1] focus:border-[#2B96F1] outline-none text-gray-800"
                 disabled={isCheckingAirdrop || (authStatus === "authenticated" && isRewardsActive)}
-                />
-                <button
+              />
+              <button
                 onClick={handleInitialAirdropCheck}
-                className="w-full sm:w-auto text-white font-semibold py-3 px-6 rounded-full transition-all duration-150 ease-in-out hover:scale-105 hover:shadow-lg hover:shadow-blue-500/50 disabled:opacity-50 whitespace-nowrap"
-                style={{ backgroundColor: '#2563EB' }} 
+                className="absolute right-2 bg-[#2B96F1] hover:bg-blue-500 text-white font-medium py-2 px-6 rounded-full transition-all disabled:opacity-50"
                 disabled={isCheckingAirdrop || (authStatus === "authenticated" && isRewardsActive)}
-                >
+              >
                 {isCheckingAirdrop ? 'Checking...' : 'Check Eligibility'}
-                </button>
+              </button>
             </div>
             {airdropCheckResult !== null && (
-                <div className="mt-6 p-5 bg-green-50 border border-green-200 rounded-lg text-center shadow-sm">
+              <div className="mt-6 p-5 bg-green-50 border border-green-200 rounded-lg text-center shadow-sm">
                 {typeof airdropCheckResult === 'number' ? (
-                      airdropCheckResult > 0 ? (
-                        <p className="text-center text-3xl font-bold mb-4 animate-pulse">
-                          Eligible for: <span className="text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 via-orange-500 to-red-500">{airdropCheckResult.toLocaleString()}</span> $AIR!
+                  airdropCheckResult > 0 ? (
+                    <p className="text-center text-3xl font-bold mb-4 animate-pulse">
+                      Eligible for: <span className="text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 via-orange-500 to-red-500">{airdropCheckResult.toLocaleString()}</span> $AIR!
                     </p>
+                  ) : (
+                    <p className="text-center text-lg text-gray-600 mb-4">
+                      This address does not qualify for the $AIR airdrop (amount: {airdropCheckResult}).
+                    </p>
+                  )
                 ) : (
-                        <p className="text-center text-lg text-gray-600 mb-4">
-                          This address does not qualify for the $AIR airdrop (amount: {airdropCheckResult}).
-                        </p>
-                      )
-                    ) : (
-                        <p className="text-center text-lg text-red-600 mb-4">
-                            Airdrop Status: {airdropCheckResult}
-                        </p>
-                    )
-                  }
-                </div>
+                  <p className="text-center text-lg text-red-600 mb-4">
+                    Airdrop Status: {airdropCheckResult}
+                  </p>
+                )}
+              </div>
             )}
-        </div>
-      ) : null}
-
-      {/* Prompt to Connect Wallet (If X logged in, airdrop checked, but wallet not connected) */}
-      {authStatus === "authenticated" && !wallet.connected && (
-        <div className="my-6 w-full max-w-md text-center p-4 bg-purple-50 rounded-lg border border-purple-200">
-          <p className="mb-3 text-lg text-purple-700 font-semibold">
-            Connect Your Wallet to Activate Rewards!
-          </p>
-          <p className="mb-4 text-sm text-gray-700">
-            You are logged in with X. Now connect your Solana wallet to activate your DeFAI Rewards account, see points, and get your referral link.
-          </p>
-          <WalletMultiButtonDynamic style={{ backgroundColor: '#2563EB' }} />
-        </div>
-      )}
-
-      {/* Insufficient DeFAI Balance Message */}
-      {showInsufficientBalanceMessage && (
-        <div className="w-full max-w-lg my-6 p-5 bg-orange-50 border border-orange-200 rounded-lg text-center shadow-md">
-          <h3 className="text-xl font-semibold text-orange-700 mb-3">Action Required: Hold DeFAI Tokens</h3>
-          <p className="text-gray-700 mb-4">
-            To participate in the DeFAI Rewards points system and access all features, you need to hold at least {REQUIRED_DEFAI_AMOUNT} $DeFAI tokens in your connected wallet ({wallet.publicKey?.toBase58().substring(0,6)}...).
-          </p>
-          <Link href="https://dexscreener.com/solana/3jiwexdwzxjva2yd8aherfsrn7a97qbwmdz8i4q6mh7y" target="_blank" rel="noopener noreferrer" className="inline-block">
-            <button className="text-white font-bold py-3 px-6 rounded-full transition-all duration-150 ease-in-out hover:scale-105 hover:shadow-lg hover:shadow-blue-500/50 whitespace-nowrap bg-[#2563EB]">
-              <ChartIcon /> Buy DeFAI on DexScreener
-            </button>
-          </Link>
-        </div>
-      )}
-
-      {/* Rewards Section - Renders ONLY if balance check passes */}
-      {showPointsSection && (
-        <div className="w-full max-w-lg mt-2 flex flex-col items-center">
-           <p className="text-center text-sm text-gray-600 mb-1">Wallet: <span className="font-mono">{wallet.publicKey!.toBase58().substring(0,6)}...{wallet.publicKey!.toBase58().substring(wallet.publicKey!.toBase58().length - 4)}</span></p>
-          {userData.points !== null && (
-            <div className="my-4 text-center"> {/* Wrapper for label and number */}
-              <p className="text-lg text-gray-600 mb-1">DeFAI Points</p>
-              <p className="text-5xl font-extrabold animate-pulse mb-2 font-spacegrotesk text-transparent bg-clip-text bg-gradient-to-r from-purple-500 via-pink-500 to-orange-500">
-                {userData.points.toLocaleString()}
+          </div>
+        ) : null}
+        
+        {/* Content wrapper with scrollable content if needed */}
+        <div className="w-full max-w-xl overflow-y-auto hide-scrollbar mb-32"> {/* Add bottom margin to avoid overlap */}
+          
+          {/* Other sections without duplicating login buttons */}
+          {authStatus === "authenticated" && !wallet.connected && (
+            <div className="my-6 w-full text-center p-4 bg-gray-50 rounded-lg border border-gray-200">
+              <p className="text-gray-600 mb-3">
+                You are logged in with X. Connect your wallet using the button in the header to activate your DeFAI Rewards account.
               </p>
             </div>
           )}
-          {typeof userData.airdropAmount === 'number' && (
-             <div className="my-4 text-center"> {/* Wrapper for label and number */}
-                <p className="text-lg text-gray-600 mb-1">$AIR Airdrop for this Wallet</p>
-                <p className="text-4xl font-bold animate-pulse text-transparent bg-clip-text bg-gradient-to-r from-green-400 via-teal-500 to-cyan-500">
-                    {userData.airdropAmount.toLocaleString()} $AIR
-                </p>
-             </div>
-          )}
           
-          {userData.referralCode && (
-            <div className="my-4 p-4 bg-gray-100 rounded-lg text-center w-full">
-              <div className="flex justify-center items-center mb-2">
-                <p className="text-md font-semibold text-gray-800">Your Referral Link (Share & Earn!):</p>
-                {userData.activeReferralBoosts && userData.activeReferralBoosts.length > 0 && (
-                  <span className="ml-2 px-2 py-0.5 text-xs font-bold text-black bg-yellow-400 rounded-full animate-pulse">
-                    BOOST ACTIVE!
-                  </span>
-                )}
-              </div>
-              <div className="flex items-center justify-center bg-gray-200 p-2 rounded">
-                <input type="text" readOnly value={`https://kol-claim.defairewards.net/?ref=${userData.referralCode}`} className="text-gray-700 text-sm break-all bg-transparent outline-none flex-grow p-1" />
-                <button onClick={() => handleCopyToClipboard(`https://kol-claim.defairewards.net/?ref=${userData.referralCode}`)} className="ml-2 py-1 px-2 text-xs bg-[#2563EB] text-white rounded hover:bg-blue-700 transition-colors">
-                  Copy
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Display Active Referral Boosts */}
-          {userData.activeReferralBoosts && userData.activeReferralBoosts.length > 0 && (
-            <div className="w-full max-w-md p-5 bg-gradient-to-br from-indigo-50 to-purple-50 border border-purple-200 rounded-xl shadow-lg mt-6 mb-4">
-              <h3 className="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600 mb-3 text-center">
-                🚀 Active Referral Boosts!
-              </h3>
-              <ul className="space-y-3">
-                {userData.activeReferralBoosts.map(boost => (
-                  <li key={boost.boostId} className="p-4 bg-white border border-gray-200 rounded-lg shadow-sm">
-                    <p className="font-semibold text-indigo-700">{boost.description}</p>
-                    <p className="text-sm text-gray-600 mt-1">Remaining Uses: <span className="font-medium text-purple-700">{boost.remainingUses}</span></p>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {/* Display Referrals Made Count */}
-          {typeof userData.referralsMadeCount === 'number' && userData.referralsMadeCount > 0 && (
-            <div className="my-3 text-center">
-              <p className="text-md text-gray-700">You have successfully referred <span className="font-bold text-green-500">{userData.referralsMadeCount}</span> user(s)! Keep it up!</p>
-            </div>
-          )}
-
-          {/* My Squad Section - replaced with navigation button */}
-          <div className="w-full max-w-md p-5 bg-indigo-50 border border-indigo-200 rounded-xl shadow-md mt-8 mb-4">
-            <h3 className="text-xl font-bold text-indigo-700 mb-3 text-center">🛡️ My Squad</h3>
-            <Link href="/squads/my" passHref>
-              <button className="mt-3 py-2 px-4 bg-indigo-500 hover:bg-indigo-600 text-white text-sm font-semibold rounded-lg transition-colors w-full shadow hover:shadow-md">
-                Go to My Squad Page
-              </button>
-            </Link>
-          </div>
-
-          {/* Link to Public Profile */}
-          {userData.walletAddress && (
-            <div className="w-full max-w-md mt-6 mb-4 text-center">
-              <Link href={`/profile/${userData.walletAddress}`} passHref>
-                <button 
-                  className="py-2.5 px-6 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-lg shadow-md hover:shadow-lg transform hover:scale-105 transition-all duration-150 ease-in-out"
-                >
-                  View My Public Showcase
+          {/* Other sections */}
+          {showInsufficientBalanceMessage && (
+            <div className="w-full my-6 p-5 bg-orange-50 border border-orange-200 rounded-lg text-center shadow-md">
+              <h3 className="text-xl font-semibold text-orange-700 mb-3">Action Required: Hold DeFAI Tokens</h3>
+              <p className="text-gray-700 mb-4">
+                To participate in the DeFAI Rewards points system and access all features, you need to hold at least {REQUIRED_DEFAI_AMOUNT} $DeFAI tokens in your connected wallet ({wallet.publicKey?.toBase58().substring(0,6)}...).
+              </p>
+              <Link href="https://dexscreener.com/solana/3jiwexdwzxjva2yd8aherfsrn7a97qbwmdz8i4q6mh7y" target="_blank" rel="noopener noreferrer" className="inline-block">
+                <button className="text-white font-bold py-3 px-6 rounded-full transition-all duration-150 ease-in-out hover:scale-105 hover:shadow-lg hover:shadow-blue-500/50 whitespace-nowrap bg-[#2B96F1]">
+                  <ChartIcon /> Buy DeFAI on DexScreener
                 </button>
               </Link>
             </div>
           )}
-
-          {/* Pending Squad Invitations Section */}
-          {!mySquadData && pendingInvites.length > 0 && (
-            <div className="w-full max-w-md p-5 bg-teal-50 border border-teal-200 rounded-xl shadow-md mt-8 mb-4">
-              <h3 className="text-xl font-bold text-teal-700 mb-3 text-center">💌 Squad Invitations</h3>
-              {isFetchingInvites && <p className="text-center text-teal-600">Loading invitations...</p>}
-              <ul className="space-y-3">
-                {pendingInvites.map(invite => (
-                  <li key={invite.invitationId} className="p-3 bg-white/80 rounded-lg shadow">
-                    <div className="flex items-center gap-2 mb-2">
-                      <UserAvatar 
-                        profileImageUrl={invite.inviterInfo?.xProfileImageUrl} 
-                        username={invite.inviterInfo?.xUsername}
-                        size="sm"
-                      />
-                      <div>
-                        <p className="text-sm text-gray-700">
-                          You have been invited to join <strong className="text-teal-600">{invite.squadName}</strong>
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          Invited by: {invite.inviterInfo?.xUsername ? 
-                            `@${invite.inviterInfo.xUsername}` : 
-                            `${invite.invitedByUserWalletAddress.substring(0,6)}...`}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex gap-2 mt-2">
-                      <button 
-                        onClick={() => handleInviteAction(invite.invitationId, 'accept')}
-                        disabled={isProcessingInvite === invite.invitationId}
-                        className="flex-1 py-1.5 px-3 text-sm bg-green-500 hover:bg-green-600 text-white font-semibold rounded-md disabled:opacity-70"
-                      >
-                        {isProcessingInvite === invite.invitationId ? 'Processing...' : 'Accept'} 
-                      </button>
-                      <button 
-                        onClick={() => handleInviteAction(invite.invitationId, 'decline')}
-                        disabled={isProcessingInvite === invite.invitationId}
-                        className="flex-1 py-1.5 px-3 text-sm bg-red-500 hover:bg-red-600 text-white font-semibold rounded-md disabled:opacity-70"
-                      >
-                        {isProcessingInvite === invite.invitationId ? 'Processing...' : 'Decline'}
-                      </button>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {/* Action Buttons */}
-          <div className="mt-2 mb-4 flex flex-wrap justify-center gap-3 sm:gap-4 w-full">
-            <Link href="https://defairewards.net" target="_blank" rel="noopener noreferrer" className="flex-shrink-0">
-              <button className="w-full sm:w-auto text-white font-bold py-3 px-6 rounded-full transition-all duration-150 ease-in-out hover:scale-105 hover:shadow-lg hover:shadow-blue-500/50 whitespace-nowrap" style={{ backgroundColor: '#2563EB' }}><HomeIcon /> Home</button>
-            </Link>
-            <Link href="/leaderboard" passHref className="flex-shrink-0">
-              <button className="w-full sm:w-auto text-white font-bold py-3 px-6 rounded-full transition-all duration-150 ease-in-out hover:scale-105 hover:shadow-lg hover:shadow-blue-500/50 whitespace-nowrap" style={{ backgroundColor: '#2563EB' }}><LeaderboardIcon /> Leaderboard</button>
-            </Link>
-            {typeof userData.airdropAmount === 'number' && userData.airdropAmount > 0 && (
-              <button onClick={handleShareToX} className="w-full sm:w-auto text-white font-bold py-3 px-6 rounded-full transition-all duration-150 ease-in-out hover:scale-105 hover:shadow-lg hover:shadow-blue-500/50 whitespace-nowrap" style={{ backgroundColor: '#2563EB' }} ><ShareIcon /> Flex my $AIR on X</button>
-            )}
-            <button onClick={() => { window.open("https://x.com/defairewards", "_blank"); logSocialAction('followed_on_x');}} className="w-full sm:w-auto text-white font-bold py-3 px-6 rounded-full transition-all duration-150 ease-in-out hover:scale-105 hover:shadow-lg hover:shadow-blue-500/50 whitespace-nowrap" style={{ backgroundColor: '#2563EB' }}><XIcon /> Follow on X</button>
-            <button onClick={() => { window.open("https://t.me/defairewards", "_blank"); logSocialAction('joined_telegram');}} className="w-full sm:w-auto text-white font-bold py-3 px-6 rounded-full transition-all duration-150 ease-in-out hover:scale-105 hover:shadow-lg hover:shadow-blue-500/50 whitespace-nowrap" style={{ backgroundColor: '#2563EB' }}><TelegramIcon /> Join Telegram</button>
-          </div>
-
-          {/* Points Earning Table */}
-          {userData.points !== null && (
-            <div className="mt-2 mb-8 w-full">
-              <h3 className="text-xl font-spacegrotesk font-semibold text-black mb-3 text-center">How to Earn More Points</h3>
-              <div className="bg-gray-100 p-3 sm:p-4 rounded-lg shadow">
-                <ul className="space-y-1.5">
-                  {pointActivities.map((activity) => {
-                    const isCompleted = userData.completedActions.includes(activity.id);
-                    // Special check for profile share boost: consider it "done" if they have an active frenzy boost,
-                    // or if they've completed the 'shared_milestone_profile_on_x' action.
-                    let isEffectivelyCompleted = isCompleted;
-                    if (activity.id === 'shared_milestone_profile_on_x') {
-                      const hasFrenzyBoost = userData.activeReferralBoosts?.some(b => b.description.includes('Referral Frenzy'));
-                      isEffectivelyCompleted = isCompleted || !!hasFrenzyBoost;
-                    }
-
-                    return (
-                      <li key={activity.id} className="flex justify-between items-center p-2 border-b border-gray-200 last:border-b-0">
-                        <span className={`text-sm ${isEffectivelyCompleted ? 'text-gray-400 line-through' : 'text-gray-700'}`}>
-                          {isEffectivelyCompleted ? '✅ ' : '✨ '}
-                          {activity.action}
-                        </span>
-                        <span className={`font-semibold text-sm ${isEffectivelyCompleted ? 'text-gray-400 line-through' : (typeof activity.points === 'number' ? 'text-purple-600' : 'text-yellow-500')}`}>
-                          {typeof activity.points === 'number' ? `${activity.points} pts` : activity.points}
-                        </span>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </div>
-            </div>
-          )}
         </div>
-      )}
+      </div>
       
-      {/* Loading indicator for balance check */}
-      {authStatus === "authenticated" && wallet.connected && isCheckingDefaiBalance && (
-         <div className="my-4 text-center text-gray-600">
-            <p>Verifying DeFAI token balance...</p>
-         </div>
-      )}
+      {/* Bottom branding */}
+      <div className="absolute bottom-0 w-full flex justify-center p-2 z-10">
+        <div className="bg-black text-green-400 rounded-lg px-3 py-1 text-sm font-medium">
+          Built with ElizaOS
+        </div>
+      </div>
       
-      <div className="mt-auto w-full flex justify-center pt-8">
+      {/* Anime girl illustration - properly positioned at bottom */}
+      <div className="absolute bottom-0 left-0 right-0 flex justify-center opacity-80 pointer-events-none">
         <img 
-            src={Illustration.src} 
-            alt="Illustration" 
-            className="w-[400px] h-auto"
+          src={Illustration.src} 
+          alt="Illustration" 
+          className="w-[400px] h-auto"
         />
       </div>
     </main>

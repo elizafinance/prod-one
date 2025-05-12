@@ -64,17 +64,15 @@ export default function AppHeader() {
   };
 
   return (
-    <header className="w-full bg-white dark:bg-gray-900/80 backdrop-blur-md shadow-sm sticky top-0 z-30">
+    <header className="w-full bg-white backdrop-blur-md shadow-sm sticky top-0 z-30">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
           <div className="flex-shrink-0">
             <Link href="/" passHref>
-              <img 
-                className="h-8 sm:h-10 cursor-pointer"
-                src={SiteLogo.src} 
-                alt="DeFAI Rewards Logo" 
-              />
+              <div className="text-[#2B96F1] font-semibold text-3xl cursor-pointer">
+                defAI.
+              </div>
             </Link>
           </div>
 
@@ -95,14 +93,28 @@ export default function AppHeader() {
               </button>
             )}
 
-            <WalletMultiButtonDynamic style={{ height: '38px', fontSize: '0.875rem' }} />
+            {/* Revert to using style prop for better control */}
+            {/* <WalletMultiButtonDynamic className="bg-[#2B96F1] hover:bg-blue-700 text-white font-medium py-1.5 px-4 rounded-full text-sm transition-colors" /> */}
+            <WalletMultiButtonDynamic 
+              style={{
+                backgroundColor: '#2B96F1', 
+                color: 'white', 
+                borderRadius: '9999px', // Fully rounded
+                paddingLeft: '16px', // px-4
+                paddingRight: '16px', // px-4
+                fontSize: '0.875rem', // text-sm
+                lineHeight: '1.25rem',
+                fontWeight: 500, // font-medium
+                height: '36px' // Explicit height h-9
+              }}
+            />
 
             {authStatus === "authenticated" && session?.user ? (
               <div className="flex items-center gap-2 sm:gap-3">
                 <span className="hidden sm:inline text-sm text-gray-700 dark:text-gray-300">Hi, {session.user.name || session.user.xUsername || session.user.xId}</span>
                 <button 
                   onClick={() => signOut()} 
-                  className="py-1.5 px-3 text-xs sm:text-sm bg-red-500 hover:bg-red-600 text-white font-semibold rounded-md transition-colors"
+                  className="py-1.5 px-3 text-xs sm:text-sm bg-red-500 hover:bg-red-600 text-white font-semibold rounded-md transition-colors h-9" // Added h-9
                 >
                   Sign Out
                 </button>
@@ -110,7 +122,7 @@ export default function AppHeader() {
             ) : (
               <button 
                 onClick={() => signIn('twitter')} 
-                className="py-1.5 px-3 sm:px-4 text-xs sm:text-sm bg-[#1DA1F2] hover:bg-[#0c85d0] text-white font-semibold rounded-md transition-colors flex items-center gap-1 sm:gap-2"
+                className="bg-[#2B96F1] hover:bg-blue-700 text-white font-medium px-4 rounded-full text-sm transition-colors flex items-center gap-2 h-9" // Added h-9, removed py-1.5 (height handles vertical) 
               >
                 <XIcon /> Log in with X
               </button>

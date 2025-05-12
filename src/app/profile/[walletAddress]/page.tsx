@@ -13,6 +13,13 @@ interface PublicProfileSquadInfo {
   squadId: string;
   name: string;
 }
+
+interface ReferrerInfo {
+  walletAddress: string;
+  xUsername?: string;
+  xProfileImageUrl?: string;
+}
+
 interface PublicProfileData {
   maskedWalletAddress: string;
   xUsername?: string;
@@ -22,6 +29,7 @@ interface PublicProfileData {
   referralsMadeCount?: number;
   squadInfo?: PublicProfileSquadInfo | null;
   earnedBadgeIds?: string[];
+  referredBy?: ReferrerInfo;
 }
 
 const tierStyles: { [key: string]: string } = {
@@ -192,6 +200,26 @@ export default function UserProfilePage() {
               {profileData.referralsMadeCount?.toLocaleString() || 0}
             </p>
           </div>
+          {/* Referred By Info */}
+          {profileData.referredBy && (
+            <div className="p-6 bg-white/5 rounded-lg shadow-lg">
+              <h2 className="text-sm font-semibold text-purple-300 uppercase tracking-wider mb-2">Referred By</h2>
+              <div className="flex items-center gap-3">
+                <UserAvatar 
+                  profileImageUrl={profileData.referredBy.xProfileImageUrl} 
+                  username={profileData.referredBy.xUsername}
+                  size="sm"
+                />
+                <div>
+                  {profileData.referredBy.xUsername ? (
+                    <span className="text-md text-gray-200">@{profileData.referredBy.xUsername}</span>
+                  ) : (
+                    <span className="text-md text-gray-200 font-mono">{profileData.referredBy.walletAddress}</span>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Share Buttons */}

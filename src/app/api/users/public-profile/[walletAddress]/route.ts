@@ -6,6 +6,12 @@ interface PublicProfileSquadInfo {
   name: string;
 }
 
+interface ReferrerInfo {
+  walletAddress: string;
+  xUsername?: string;
+  xProfileImageUrl?: string;
+}
+
 interface PublicProfileData {
   maskedWalletAddress: string;
   xUsername?: string;
@@ -15,6 +21,7 @@ interface PublicProfileData {
   referralsMadeCount?: number;
   squadInfo?: PublicProfileSquadInfo | null;
   earnedBadgeIds?: string[];
+  referredBy?: ReferrerInfo;
 }
 
 function maskWalletAddress(address: string): string {
@@ -51,6 +58,19 @@ export async function GET(
       }
     }
 
+    // Get referrer information if available
+    let referredBy: ReferrerInfo | undefined = undefined;
+    if (user.referredBy) {
+      const referrer = await usersCollection.findOne({ walletAddress: user.referredBy });
+      if (referrer) {
+        referredBy = {
+          walletAddress: maskWalletAddress(referrer.walletAddress || user.referredBy),
+          xUsername: referrer.xUsername,
+          xProfileImageUrl: referrer.xProfileImageUrl
+        };
+      }
+    }
+
     const publicData: PublicProfileData = {
       maskedWalletAddress: maskWalletAddress(user.walletAddress || walletAddress),
       xUsername: user.xUsername,
@@ -60,6 +80,7 @@ export async function GET(
       referralsMadeCount: user.referralsMadeCount || 0,
       squadInfo: squadInfo,
       earnedBadgeIds: user.earnedBadgeIds || [],
+      referredBy: referredBy
     };
 
     return NextResponse.json(publicData);

@@ -164,7 +164,14 @@ export default function HomePage() {
     setIsFetchingInvites(false);
   }, [wallet.connected, session]);
 
-  const checkDefaiBalance = useCallback(async (userPublicKey: PublicKey, solanaConnection: Connection) => {
+  const checkDefaiBalance = useCallback(async (userPublicKey: PublicKey, solanaConnection: Connection | undefined | null) => {
+    if (!solanaConnection) {
+      console.error("checkDefaiBalance called with invalid connection object.");
+      toast.error("Connection error: Cannot verify DeFAI balance.");
+      setHasSufficientDefai(null); // Indicate check couldn't run
+      return;
+    }
+
     const defaiMintAddress = process.env.NEXT_PUBLIC_DEFAI_CONTRACT_ADDRESS;
     if (!defaiMintAddress) {
       console.error("DeFAI mint address environment variable not set.");

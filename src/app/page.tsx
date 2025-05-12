@@ -15,6 +15,7 @@ import { PublicKey, Connection } from '@solana/web3.js';
 import { getAssociatedTokenAddress } from '@solana/spl-token';
 import { useRouter } from 'next/navigation';
 import { useConnection } from '@solana/wallet-adapter-react';
+import { checkRequiredEnvVars } from '@/utils/checkEnv';
 
 // Dynamically import WalletMultiButton
 const WalletMultiButtonDynamic = dynamic(
@@ -101,6 +102,11 @@ export default function HomePage() {
   const [isCheckingDefaiBalance, setIsCheckingDefaiBalance] = useState(false);
   const [hasSufficientDefai, setHasSufficientDefai] = useState<boolean | null>(null); // null = not checked, false = insufficient, true = sufficient
 
+  // Check required environment variables on component mount
+  useEffect(() => {
+    checkRequiredEnvVars();
+  }, []);
+
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const refCode = urlParams.get('ref');
@@ -165,8 +171,17 @@ export default function HomePage() {
   }, [wallet.connected, session]);
 
   const checkDefaiBalance = useCallback(async (userPublicKey: PublicKey, solanaConnection: Connection | undefined | null) => {
+    if (!userPublicKey) {
+      console.error("checkDefaiBalance called with invalid public key.");
+      toast.error("Wallet error: Cannot verify DeFAI balance.");
+      setHasSufficientDefai(null);
+      return;
+    }
+
     if (!solanaConnection) {
       console.error("checkDefaiBalance called with invalid connection object.");
+      console.log("Wallet connection state:", wallet.connected ? "Connected" : "Disconnected");
+      console.log("Connection object type:", solanaConnection === undefined ? "undefined" : solanaConnection === null ? "null" : typeof solanaConnection);
       toast.error("Connection error: Cannot verify DeFAI balance.");
       setHasSufficientDefai(null); // Indicate check couldn't run
       return;
@@ -185,6 +200,8 @@ export default function HomePage() {
       const mintPublicKey = new PublicKey(defaiMintAddress);
       const associatedTokenAccount = await getAssociatedTokenAddress(mintPublicKey, userPublicKey);
       console.log(`Checking DeFAI balance for ATA: ${associatedTokenAccount.toBase58()}`);
+      console.log(`Using Solana RPC endpoint: ${solanaConnection.rpcEndpoint}`);
+      
       const balanceResponse = await solanaConnection.getTokenAccountBalance(associatedTokenAccount, 'confirmed');
       
       if (balanceResponse.value.uiAmount === null) {
@@ -208,7 +225,7 @@ export default function HomePage() {
     } finally {
       setIsCheckingDefaiBalance(false);
     }
-  }, []);
+  }, [wallet.connected]);
 
   const activateRewardsAndFetchData = useCallback(async (connectedWalletAddress: string, xUserId: string, userDbId: string | undefined) => {
     setIsActivatingRewards(true);
@@ -257,7 +274,16 @@ export default function HomePage() {
     } else if (authStatus === "authenticated" && wallet.connected && wallet.publicKey && isRewardsActive && hasSufficientDefai === null && !isCheckingDefaiBalance) {
       // New logic: If already authenticated/connected/rewards active, check balance if not already done/checked
       console.log("Rewards active, checking DeFAI balance...");
-      checkDefaiBalance(wallet.publicKey, connection);
+      
+      // Small delay to ensure connection is fully established
+      setTimeout(() => {
+        if (connection && wallet.publicKey) {
+          checkDefaiBalance(wallet.publicKey, connection);
+        } else {
+          console.error("Connection or wallet public key not available after delay");
+          toast.error("Connection error: Please try refreshing the page");
+        }
+      }, 1000);
     } else if (authStatus === "authenticated" && wallet.connected && isRewardsActive && !isFetchingInvites) {
         // Fetch invites if rewards are active and not already fetching them (e.g., on page load/refresh if already activated)
         fetchPendingInvites();

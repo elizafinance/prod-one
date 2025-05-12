@@ -4,10 +4,10 @@ import type { Metadata } from "next";
 import { Inter, Orbitron, Space_Grotesk } from "next/font/google";
 import "./globals.css";
 import { UmiProvider } from "@/providers/umiProvider";
-// import Header from "@/components/header";
 import { Toaster as ShadcnToaster } from "@/components/ui/toaster";
 import { Toaster as SonnerToaster } from "sonner";
 import SessionProviderWrapper from "@/providers/sessionProviderWrapper";
+import AppHeader from "@/components/layout/AppHeader";
 
 const inter = Inter({ subsets: ["latin"], variable: '--font-inter' });
 const orbitron = Orbitron({ 
@@ -57,10 +57,10 @@ export default function RootLayout({
           <WalletAdapterProvider>
             <UmiProvider>
               <ThemeProviderWrapper>
-                {/* <div className="flex flex-col items-center pt-24 gap-4 w-full">
-                  <Header />
-                </div> */}
-                {children}
+                <AppHeader />
+                <main className="pt-16">
+                  {children}
+                </main>
                 <ShadcnToaster />
                 <SonnerToaster richColors position="bottom-right" />
               </ThemeProviderWrapper>

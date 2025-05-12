@@ -1,5 +1,10 @@
 import { NextResponse } from 'next/server';
-import { connectToDatabase, UserDocument } from '@/lib/mongodb';
+import { connectToDatabase, UserDocument, SquadDocument } from '@/lib/mongodb';
+
+interface PublicProfileSquadInfo {
+  squadId: string;
+  name: string;
+}
 
 interface PublicProfileData {
   maskedWalletAddress: string;
@@ -7,11 +12,12 @@ interface PublicProfileData {
   points: number;
   highestAirdropTierLabel?: string;
   referralsMadeCount?: number;
-  // Add any other public-safe fields you want to display
+  squadInfo?: PublicProfileSquadInfo | null;
+  earnedBadgeIds?: string[];
 }
 
 function maskWalletAddress(address: string): string {
-  if (address.length < 10) return address; // Avoid errors on very short strings
+  if (!address || address.length < 10) return address || 'N/A';
   return `${address.substring(0, 6)}...${address.substring(address.length - 4)}`;
 }
 
@@ -28,6 +34,7 @@ export async function GET(
   try {
     const { db } = await connectToDatabase();
     const usersCollection = db.collection<UserDocument>('users');
+    const squadsCollection = db.collection<SquadDocument>('squads');
 
     const user = await usersCollection.findOne({ walletAddress });
 
@@ -35,12 +42,22 @@ export async function GET(
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
+    let squadInfo: PublicProfileSquadInfo | null = null;
+    if (user.squadId) {
+      const squad = await squadsCollection.findOne({ squadId: user.squadId });
+      if (squad) {
+        squadInfo = { squadId: squad.squadId, name: squad.name };
+      }
+    }
+
     const publicData: PublicProfileData = {
-      maskedWalletAddress: maskWalletAddress(user.walletAddress || walletAddress), // Use original if from DB, else the param
+      maskedWalletAddress: maskWalletAddress(user.walletAddress || walletAddress),
       xUsername: user.xUsername,
       points: user.points || 0,
       highestAirdropTierLabel: user.highestAirdropTierLabel,
       referralsMadeCount: user.referralsMadeCount || 0,
+      squadInfo: squadInfo,
+      earnedBadgeIds: user.earnedBadgeIds || [],
     };
 
     return NextResponse.json(publicData);

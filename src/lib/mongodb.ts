@@ -66,6 +66,7 @@ export interface UserDocument {
   referralsMadeCount?: number;
   activeReferralBoosts?: ReferralBoost[];
   squadId?: string; // ID of the squad the user belongs to
+  earnedBadgeIds?: string[]; // New field for storing earned badge identifiers
   createdAt?: Date;
   updatedAt?: Date;
 }

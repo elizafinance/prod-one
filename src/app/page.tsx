@@ -8,7 +8,8 @@ import { toast } from 'sonner'; // Import sonner toast
 import { useWallet } from '@solana/wallet-adapter-react'; // Import useWallet
 import dynamic from 'next/dynamic'; // Import dynamic
 import { useSession, signIn, signOut } from "next-auth/react"; // NextAuth hooks
-import { ReferralBoost, SquadDocument } from '@/lib/mongodb'; // Import the ReferralBoost interface and SquadDocument
+import { ReferralBoost, SquadDocument, SquadInvitationDocument } from '@/lib/mongodb'; // Import the ReferralBoost interface and SquadDocument
+import { BellIcon } from '@heroicons/react/24/outline'; // Example icon, install @heroicons/react
 
 // Dynamically import WalletMultiButton
 const WalletMultiButtonDynamic = dynamic(
@@ -73,6 +74,9 @@ export default function HomePage() {
   const [mySquadData, setMySquadData] = useState<MySquadData | null>(null);
   const [isFetchingSquad, setIsFetchingSquad] = useState(false);
   const [initialReferrer, setInitialReferrer] = useState<string | null>(null);
+  const [pendingInvites, setPendingInvites] = useState<SquadInvitationDocument[]>([]);
+  const [isFetchingInvites, setIsFetchingInvites] = useState(false);
+  const [isProcessingInvite, setIsProcessingInvite] = useState<string | null>(null); // invitationId being processed
 
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -107,6 +111,25 @@ export default function HomePage() {
     setIsFetchingSquad(false);
   }, [isFetchingSquad]);
 
+  const fetchPendingInvites = useCallback(async () => {
+    if (!wallet.connected || !session) return; // Need session for authenticated API call
+    setIsFetchingInvites(true);
+    try {
+      const response = await fetch('/api/squads/invitations/my-pending');
+      if (response.ok) {
+        const data = await response.json();
+        setPendingInvites(data.invitations || []);
+      } else {
+        console.error("Failed to fetch pending invites:", await response.text());
+        setPendingInvites([]);
+      }
+    } catch (error) {
+      console.error("Error fetching pending invites:", error);
+      setPendingInvites([]);
+    }
+    setIsFetchingInvites(false);
+  }, [wallet.connected, session]);
+
   const activateRewardsAndFetchData = useCallback(async (connectedWalletAddress: string, xUserId: string, userDbId: string | undefined) => {
     setIsActivatingRewards(true);
     toast.info("Activating your DeFAI Rewards account...");
@@ -127,20 +150,21 @@ export default function HomePage() {
         if (data.points > 0 || (data.points === 0 && data.message && data.message.includes("created"))) {
             toast.info(`Your current points: ${data.points?.toLocaleString() || 0}`);
         }
-        // After successfully activating rewards, fetch squad data if user is authenticated
-        if (connectedWalletAddress) { // Ensure we have a wallet address to fetch for
+        // After successfully activating rewards, fetch squad data AND pending invites
+        if (connectedWalletAddress) {
           fetchMySquadData(connectedWalletAddress);
+          fetchPendingInvites(); // Fetch invites after activating rewards
         }
       } else {
         toast.error(data.error || "Failed to activate rewards.");
-        setIsRewardsActive(false); setUserData(null); setMySquadData(null);
+        setIsRewardsActive(false); setUserData(null); setMySquadData(null); setPendingInvites([]);
       }
     } catch (error) {
       toast.error("Error activating rewards.");
-      setIsRewardsActive(false); setUserData(null); setMySquadData(null);
+      setIsRewardsActive(false); setUserData(null); setMySquadData(null); setPendingInvites([]);
     }
     setIsActivatingRewards(false);
-  }, [initialReferrer, fetchMySquadData]);
+  }, [initialReferrer, fetchMySquadData, fetchPendingInvites]);
 
   useEffect(() => {
     if (authStatus === "authenticated" && session?.user?.xId && wallet.connected && wallet.publicKey && !isRewardsActive && !isActivatingRewards) {
@@ -151,13 +175,16 @@ export default function HomePage() {
       console.log("[HomePage] Rewards active, attempting to fetch squad data because mySquadData is null/empty.");
       fetchMySquadData(wallet.publicKey.toBase58());
     }
-    
+    if (authStatus === "authenticated" && wallet.connected && isRewardsActive && !isFetchingInvites) {
+        // Fetch invites if rewards are active and not already fetching them (e.g., on page load/refresh if already activated)
+        fetchPendingInvites();
+    }
     if (authStatus === "authenticated" && !wallet.connected && isRewardsActive) {
       setIsRewardsActive(false);
       setUserData(null);
       setMySquadData(null);
     }
-  }, [authStatus, session, wallet.connected, wallet.publicKey, isRewardsActive, isActivatingRewards, activateRewardsAndFetchData, userData, mySquadData, fetchMySquadData, isFetchingSquad]);
+  }, [authStatus, session, wallet.connected, wallet.publicKey, isRewardsActive, isActivatingRewards, activateRewardsAndFetchData, userData, mySquadData, fetchMySquadData, isFetchingSquad, pendingInvites, fetchPendingInvites]);
   
   const handleInitialAirdropCheck = async () => {
     const addressToCheck = typedAddress.trim();
@@ -255,40 +282,43 @@ export default function HomePage() {
     });
   };
 
+  const handleInviteAction = async (invitationId: string, action: 'accept' | 'decline') => {
+    setIsProcessingInvite(invitationId);
+    try {
+      const response = await fetch(`/api/squads/invitations/${action}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ invitationId }),
+        }
+      );
+      const data = await response.json();
+      if (response.ok) {
+        toast.success(data.message || `Invitation ${action}ed successfully!`);
+        fetchPendingInvites(); // Refresh invites list
+        if (action === 'accept') {
+          // If accepted, also refresh user data and their squad data as they've joined a squad
+          if(wallet.publicKey && session?.user?.xId && session?.user?.dbId) {
+            activateRewardsAndFetchData(wallet.publicKey.toBase58(), session.user.xId, session.user.dbId);
+          }
+        }
+      } else {
+        toast.error(data.error || `Failed to ${action} invitation.`);
+      }
+    } catch (err) {
+      toast.error(`An error occurred while trying to ${action} the invitation.`);
+      console.error(`Error ${action}ing invite:`, err);
+    }
+    setIsProcessingInvite(null);
+  };
+
   if (authStatus === "loading") {
     return <main className="flex flex-col items-center justify-center min-h-screen p-8 bg-white text-gray-900"><p className="font-orbitron text-xl">Loading Session...</p></main>;
   }
 
   return (
-    <main className="flex flex-col items-center min-h-screen p-4 sm:p-8 bg-white text-gray-900 pt-8 sm:pt-12 font-sans">
-      <div className="w-full max-w-4xl mx-auto flex justify-between items-center mb-8 px-2">
-        <img 
-          className="h-10 sm:h-12"
-          src={SiteLogo.src} 
-          alt="DeFAI Rewards Logo" 
-        />
-        {authStatus === "authenticated" && session?.user ? (
-          <div className="flex items-center gap-3">
-             {/* @ts-ignore */}
-            <span className="text-sm text-gray-700">Hi, {session.user.name || session.user.xId}</span>
-            <button 
-              onClick={() => signOut()} 
-              className="py-2 px-4 text-sm bg-red-500 hover:bg-red-600 text-white font-semibold rounded-full transition-colors"
-            >
-              Sign Out
-            </button>
-          </div>
-        ) : (
-          <button 
-            onClick={() => signIn('twitter')} 
-            className="py-2 px-5 bg-[#1DA1F2] hover:bg-[#0c85d0] text-white font-semibold rounded-full transition-colors flex items-center gap-2"
-          >
-            <XIcon /> Log in with X
-          </button>
-        )}
-      </div>
-
-      <h1 className="font-spacegrotesk text-4xl sm:text-5xl md:text-6xl font-bold text-black text-center">
+    <main className="flex flex-col items-center min-h-screen p-4 sm:p-8 bg-white text-gray-900 font-sans">
+      <h1 className="font-spacegrotesk text-4xl sm:text-5xl md:text-6xl font-bold text-black text-center mt-8">
         Banking AI Agents
       </h1>
       <h2 className="font-spacegrotesk text-4xl sm:text-5xl md:text-6xl font-bold text-black text-center mb-10">
@@ -437,6 +467,42 @@ export default function HomePage() {
               </div>
             )}
           </div>
+
+          {/* Pending Squad Invitations Section */}
+          {!mySquadData && pendingInvites.length > 0 && (
+            <div className="w-full max-w-md p-5 bg-teal-50 border border-teal-200 rounded-xl shadow-md mt-8 mb-4">
+              <h3 className="text-xl font-bold text-teal-700 mb-3 text-center">💌 Squad Invitations</h3>
+              {isFetchingInvites && <p className="text-center text-teal-600">Loading invitations...</p>}
+              <ul className="space-y-3">
+                {pendingInvites.map(invite => (
+                  <li key={invite.invitationId} className="p-3 bg-white/80 rounded-lg shadow">
+                    <p className="text-sm text-gray-700 mb-1">
+                      You have been invited to join <strong className="text-teal-600">{invite.squadName}</strong>
+                      {invite.invitedByUserWalletAddress && 
+                        <span className="text-xs block text-gray-500"> (Invited by: {invite.invitedByUserWalletAddress.substring(0,6)}...)</span>
+                      }
+                    </p>
+                    <div className="flex gap-2 mt-2">
+                      <button 
+                        onClick={() => handleInviteAction(invite.invitationId, 'accept')}
+                        disabled={isProcessingInvite === invite.invitationId}
+                        className="flex-1 py-1.5 px-3 text-sm bg-green-500 hover:bg-green-600 text-white font-semibold rounded-md disabled:opacity-70"
+                      >
+                        {isProcessingInvite === invite.invitationId ? 'Processing...' : 'Accept'} 
+                      </button>
+                      <button 
+                        onClick={() => handleInviteAction(invite.invitationId, 'decline')}
+                        disabled={isProcessingInvite === invite.invitationId}
+                        className="flex-1 py-1.5 px-3 text-sm bg-red-500 hover:bg-red-600 text-white font-semibold rounded-md disabled:opacity-70"
+                      >
+                        {isProcessingInvite === invite.invitationId ? 'Processing...' : 'Decline'}
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           {/* Action Buttons */}
           <div className="mt-2 mb-4 flex flex-wrap justify-center gap-3 sm:gap-4 w-full">

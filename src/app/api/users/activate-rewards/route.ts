@@ -79,6 +79,8 @@ export async function POST(request: Request) {
     let pointsGainedThisSession = 0;
     let currentReferralCode: string | undefined = undefined;
     let currentCompletedActions: string[] = [];
+    let newEarnedBadgeIds: string[] = user?.earnedBadgeIds || [];
+    let userHighestAirdropTierLabel: string | undefined = user?.highestAirdropTierLabel;
 
     if (!user) {
       // New user: Create them
@@ -91,12 +93,18 @@ export async function POST(request: Request) {
       pointsGainedThisSession += CONNECT_WALLET_POINTS;
       currentCompletedActions.push(CONNECT_WALLET_ACTION_ID);
 
+      // Award "Pioneer" badge for new users
+      if (!newEarnedBadgeIds.includes('pioneer_badge')) {
+        newEarnedBadgeIds.push('pioneer_badge');
+      }
+
       const newUserDocData: Omit<UserDocument, '_id'> = {
         walletAddress,
         xUserId: walletAddress,
         points: currentPoints,
         referralCode: newReferralCode,
         completedActions: currentCompletedActions,
+        earnedBadgeIds: newEarnedBadgeIds,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -182,9 +190,16 @@ export async function POST(request: Request) {
       } else {
         currentReferralCode = user.referralCode;
       }
+
+      // Potentially award badges if criteria met and not already earned
+      if (currentCompletedActions.includes('initial_connection') && !newEarnedBadgeIds.includes('pioneer_badge')) {
+         // Awarding pioneer badge here too if they had initial_connection but somehow missed the badge
+         newEarnedBadgeIds.push('pioneer_badge');
+      }
     }
 
     // Award points for airdrop amount thresholds
+    let determinedHighestTierLabelThisSession: string | undefined = undefined;
     if (airdropAmount > 0) {
       for (const threshold of AIRDROP_THRESHOLDS) {
         if (airdropAmount >= threshold.amount && !currentCompletedActions.includes(threshold.tier_action_id)) {
@@ -198,8 +213,18 @@ export async function POST(request: Request) {
             timestamp: new Date(),
           });
         }
+        // Determine highest achieved tier label for this session for badge logic and DB update
+        if (airdropAmount >= threshold.amount && !determinedHighestTierLabelThisSession) { // Only set the first (highest) one encountered
+            const label = threshold.tier_action_id.replace('airdrop_tier_', '');
+            determinedHighestTierLabelThisSession = label.charAt(0).toUpperCase() + label.slice(1);
+        }
+      }
+      // Award specific badge for Legend tier if achieved in this session or previously
+      if (currentCompletedActions.includes('airdrop_tier_legend') && !newEarnedBadgeIds.includes('legend_tier_badge')) {
+        newEarnedBadgeIds.push('legend_tier_badge');
       }
     }
+    userHighestAirdropTierLabel = determinedHighestTierLabelThisSession || userHighestAirdropTierLabel;
 
     // Update squad points if user is in a squad and gained points this session
     const finalUserForSquadCheck = await usersCollection.findOne({ walletAddress });
@@ -214,23 +239,15 @@ export async function POST(request: Request) {
       console.log(`Updated squad ${finalUserForSquadCheck.squadId} points by ${pointsGainedThisSession}`);
     }
 
-    // Determine the user's highest airdrop tier label
-    let userHighestAirdropTierLabel: string | undefined = undefined;
-    for (const threshold of AIRDROP_THRESHOLDS) {
-      if (currentCompletedActions.includes(threshold.tier_action_id)) {
-        userHighestAirdropTierLabel = threshold.tier_action_id.replace('airdrop_tier_', '');
-        userHighestAirdropTierLabel = userHighestAirdropTierLabel.charAt(0).toUpperCase() + userHighestAirdropTierLabel.slice(1);
-        break;
-      }
-    }
-
     await usersCollection.updateOne(
       { walletAddress }, 
-      { $set: { 
+      { 
+        $set: { 
           points: currentPoints, 
           completedActions: currentCompletedActions, 
           referralCode: currentReferralCode,
           highestAirdropTierLabel: userHighestAirdropTierLabel,
+          earnedBadgeIds: newEarnedBadgeIds,
           updatedAt: new Date() 
         } 
       },
@@ -248,7 +265,9 @@ export async function POST(request: Request) {
       activeReferralBoosts: finalUser?.activeReferralBoosts || [],
       referralsMadeCount: finalUser?.referralsMadeCount || 0,
       xUsername: finalUser?.xUsername,
-      highestAirdropTierLabel: finalUser?.highestAirdropTierLabel
+      highestAirdropTierLabel: finalUser?.highestAirdropTierLabel,
+      earnedBadgeIds: finalUser?.earnedBadgeIds,
+      squadId: finalUser?.squadId
     });
 
   } catch (error) {

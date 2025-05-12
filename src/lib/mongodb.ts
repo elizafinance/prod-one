@@ -63,6 +63,7 @@ export interface UserDocument {
   referredBy?: string;
   completedActions?: string[];
   highestAirdropTierLabel?: string;
+  referralsMadeCount?: number;
   createdAt?: Date;
   updatedAt?: Date;
 }

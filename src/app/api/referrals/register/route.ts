@@ -53,7 +53,10 @@ export async function POST(request: Request) {
     await usersCollection.updateOne(
       { walletAddress: referrer.walletAddress },
       { 
-        $inc: { points: POINTS_REFERRAL_BONUS_FOR_REFERRER },
+        $inc: { 
+          points: POINTS_REFERRAL_BONUS_FOR_REFERRER,
+          referralsMadeCount: 1 // Increment referrals made count
+        },
         $set: { updatedAt: new Date() }
       }
     );

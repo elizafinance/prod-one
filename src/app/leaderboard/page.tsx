@@ -17,26 +17,26 @@ interface LeaderboardEntry {
 
 // Tier styles mapping - customize these Tailwind classes!
 const tierStyles: { [key: string]: string } = {
-  default: 'bg-gray-500 text-gray-100', // Adjusted for dark theme
-  bronze: 'bg-orange-500 text-white border border-orange-400',
-  silver: 'bg-slate-400 text-slate-800 border border-slate-500',
-  gold: 'bg-yellow-500 text-yellow-900 border border-yellow-600',
+  default: 'bg-gray-300 text-gray-800', // Adjusted for light theme
+  bronze: 'bg-orange-500 text-white border border-orange-600',
+  silver: 'bg-slate-400 text-slate-900 border border-slate-500',
+  gold: 'bg-yellow-400 text-yellow-900 border border-yellow-500', // Adjusted gold for better visibility
   diamond: 'bg-sky-400 text-sky-900 border border-sky-500',
-  master: 'bg-indigo-500 text-white border border-indigo-400',
-  grandmaster: 'bg-purple-600 text-white border border-purple-500',
-  legend: 'bg-pink-600 text-white border border-pink-500 font-bold italic',
+  master: 'bg-indigo-500 text-white border border-indigo-600',
+  grandmaster: 'bg-purple-600 text-white border border-purple-700',
+  legend: 'bg-pink-600 text-white border border-pink-700 font-bold italic',
 };
 
 // Badge styles mapping
 const badgeDisplayMap: { [key: string]: { icon: string; label: string; color: string; isSpecial?: boolean; glowColor?: string } } = {
-  pioneer_badge: { icon: "🧭", label: "Pioneer", color: "bg-green-500 text-white" },
+  pioneer_badge: { icon: "🧭", label: "Pioneer", color: "bg-green-600 text-white" }, // Slightly darker green
   legend_tier_badge: { icon: "🌟", label: "Legend Tier", color: "bg-yellow-500 text-black" },
-  generous_donor_badge: { 
-    icon: "✨", 
-    label: "Generous Donor", 
-    color: "bg-violet-600 text-white", 
+  generous_donor_badge: {
+    icon: "✨",
+    label: "Generous Donor",
+    color: "bg-violet-600 text-white",
     isSpecial: true,
-    glowColor: "rgba(139, 92, 246, 0.7)" // Purple glow for the donor badge
+    glowColor: "rgba(139, 92, 246, 0.7)" // Purple glow remains suitable
   },
 };
 
@@ -98,10 +98,10 @@ export default function LeaderboardPage() {
   };
 
   return (
-    <main className="flex flex-col items-center min-h-screen p-4 sm:p-8 bg-gradient-to-b from-gray-900 to-gray-800 text-white">
+    <main className="flex flex-col items-center min-h-screen p-4 sm:p-8 bg-white text-gray-900">
       <div className="w-full max-w-5xl mx-auto py-8 sm:py-12">
         <div className="flex justify-between items-center mb-10">
-          <h1 className="text-4xl sm:text-5xl font-bold font-spacegrotesk tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-purple-400 via-pink-500 to-red-500">
+          <h1 className="text-4xl sm:text-5xl font-bold font-spacegrotesk tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-purple-600 via-pink-600 to-red-600">
             Global Rankings
           </h1>
           <Link href="/" passHref>
@@ -115,31 +115,31 @@ export default function LeaderboardPage() {
 
         {isLoading && (
           <div className="text-center py-10">
-            <p className="text-xl text-gray-400">Summoning the Leaderboard...</p>
-            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-500 mx-auto mt-4"></div>
+            <p className="text-xl text-gray-600">Summoning the Leaderboard...</p>
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-600 mx-auto mt-4"></div>
           </div>
         )}
-        {error && <p className="text-center text-red-400 bg-red-900 bg-opacity-30 p-4 rounded-lg">Error: {error}</p>}
+        {error && <p className="text-center text-red-700 bg-red-100 p-4 rounded-lg border border-red-300">Error: {error}</p>}
         
         {!isLoading && !error && leaderboard.length === 0 && (
-          <div className="text-center py-10 bg-gray-800 bg-opacity-50 p-6 rounded-lg shadow-xl">
-            <p className="text-2xl text-gray-300 mb-3">The Leaderboard Awaits Its Heroes!</p>
-            <p className="text-gray-400">Be the first to etch your name and claim the top spot.</p>
+          <div className="text-center py-10 bg-gray-100 p-6 rounded-lg shadow-lg border border-gray-200">
+            <p className="text-2xl text-gray-700 mb-3">The Leaderboard Awaits Its Heroes!</p>
+            <p className="text-gray-600">Be the first to etch your name and claim the top spot.</p>
           </div>
         )}
 
         {!isLoading && !error && leaderboard.length > 0 && (
-          <div className="overflow-x-auto shadow-2xl rounded-xl backdrop-blur-sm bg-white/5">
+          <div className="overflow-x-auto shadow-xl rounded-xl border border-gray-200 bg-white">
             <table className="min-w-full">
-              <thead className="border-b border-white/10">
+              <thead className="border-b border-gray-200 bg-gray-50">
                 <tr>
-                  <th className="text-left py-4 px-4 sm:px-6 font-semibold text-gray-300 tracking-wider">Rank</th>
-                  <th className="text-left py-4 px-4 sm:px-6 font-semibold text-gray-300 tracking-wider">Contender</th>
-                  <th className="text-left py-4 px-4 sm:px-6 font-semibold text-gray-300 tracking-wider">Tier & Badges</th>
-                  <th className="text-right py-4 px-4 sm:px-6 font-semibold text-gray-300 tracking-wider">Points</th>
+                  <th className="text-left py-4 px-4 sm:px-6 font-semibold text-gray-600 tracking-wider uppercase text-sm">Rank</th>
+                  <th className="text-left py-4 px-4 sm:px-6 font-semibold text-gray-600 tracking-wider uppercase text-sm">Contender</th>
+                  <th className="text-left py-4 px-4 sm:px-6 font-semibold text-gray-600 tracking-wider uppercase text-sm">Tier & Badges</th>
+                  <th className="text-right py-4 px-4 sm:px-6 font-semibold text-gray-600 tracking-wider uppercase text-sm">Points</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/5">
+              <tbody className="divide-y divide-gray-200">
                 {leaderboard.map((entry, index) => {
                   const rank = index + 1;
                   const isCurrentUser = entry.walletAddress === currentUserWalletAddress;
@@ -148,37 +148,36 @@ export default function LeaderboardPage() {
                   let rowClasses = "transition-all duration-150 ease-in-out";
 
                   if (rank === 1) {
-                    rankDisplay = <span className="text-yellow-300 text-xl">🏆 {rank}</span>; // Brighter yellow for dark bg
-                    rowClasses += " bg-yellow-600/10 hover:bg-yellow-600/20";
+                    rankDisplay = <span className="text-yellow-600 text-xl font-semibold">🏆 {rank}</span>;
+                    rowClasses += " bg-yellow-50 hover:bg-yellow-100";
                   } else if (rank === 2) {
-                    rankDisplay = <span className="text-slate-300 text-lg">🥈 {rank}</span>;
-                    rowClasses += " bg-slate-600/10 hover:bg-slate-600/20";
+                    rankDisplay = <span className="text-slate-500 text-lg font-semibold">🥈 {rank}</span>;
+                    rowClasses += " bg-slate-50 hover:bg-slate-100";
                   } else if (rank === 3) {
-                    rankDisplay = <span className="text-orange-400">🥉 {rank}</span>;
-                    rowClasses += " bg-orange-600/10 hover:bg-orange-600/20";
+                    rankDisplay = <span className="text-orange-500 font-semibold">🥉 {rank}</span>;
+                    rowClasses += " bg-orange-50 hover:bg-orange-100";
                   } else {
-                    rowClasses += " hover:bg-gray-700/30";
+                    rowClasses += " hover:bg-gray-50";
                   }
 
                   if (isCurrentUser) {
-                    // Ensure current user highlight is distinct and visible on potentially already styled rows
-                    rowClasses += " ring-2 ring-purple-400 scale-105 z-10 bg-purple-500/30 shadow-lg"; 
+                    rowClasses += " ring-2 ring-purple-500 scale-105 z-10 bg-purple-100 shadow-md";
                   }
 
-                  // Check if user has the generous donor badge for extra highlighting
                   const hasGenerousDonorBadge = entry.earnedBadgeIds?.includes('generous_donor_badge');
-                  if (hasGenerousDonorBadge) {
-                    rowClasses += " bg-violet-900/20 hover:bg-violet-900/30";
+                  if (hasGenerousDonorBadge && !isCurrentUser) {
+                    rowClasses += " bg-violet-100 hover:bg-violet-200";
+                  } else if (hasGenerousDonorBadge && isCurrentUser) {
+                    rowClasses += " bg-purple-200";
                   }
 
                   const tierLabel = entry.highestAirdropTierLabel || '-';
-                  // Ensure tierStyles access is safe with toLowerCase() only if label exists
                   const tierStyleKey = entry.highestAirdropTierLabel ? entry.highestAirdropTierLabel.toLowerCase() : 'default';
                   const tierStyle = tierStyles[tierStyleKey] || tierStyles.default;
 
                   return (
                     <tr key={entry.walletAddress + index + rank} className={rowClasses}>
-                      <td className="py-4 px-4 sm:px-6 font-medium text-gray-200 align-middle">{rankDisplay}</td>
+                      <td className="py-4 px-4 sm:px-6 font-medium text-gray-700 align-middle">{rankDisplay}</td>
                       <td className="py-4 px-4 sm:px-6 align-middle">
                         <div className="flex items-center gap-3">
                           <UserAvatar 
@@ -189,11 +188,11 @@ export default function LeaderboardPage() {
                           <div>
                             {entry.xUsername ? (
                               <Link href={`/profile/${entry.walletAddress}`} passHref>
-                                <span className="text-gray-200 hover:text-white cursor-pointer hover:underline">@{entry.xUsername}</span>
+                                <span className="text-gray-800 hover:text-blue-600 cursor-pointer hover:underline font-medium">@{entry.xUsername}</span>
                               </Link>
                             ) : (
                               <Link href={`/profile/${entry.walletAddress}`} passHref>
-                                <span className="font-mono text-sm text-gray-300 hover:text-white cursor-pointer hover:underline">{entry.walletAddress}</span>
+                                <span className="font-mono text-sm text-gray-600 hover:text-blue-600 cursor-pointer hover:underline">{entry.walletAddress}</span>
                               </Link>
                             )}
                           </div>
@@ -207,7 +206,7 @@ export default function LeaderboardPage() {
                           {entry.earnedBadgeIds && renderBadges(entry.earnedBadgeIds)}
                         </div>
                       </td>
-                      <td className="text-right py-4 px-4 sm:px-6 font-bold text-lg text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-500 align-middle">
+                      <td className="text-right py-4 px-4 sm:px-6 font-bold text-lg text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-pink-600 align-middle">
                         {entry.points.toLocaleString()}
                       </td>
                     </tr>

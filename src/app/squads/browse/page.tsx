@@ -92,10 +92,10 @@ export default function BrowseSquadsPage() {
   };
 
   return (
-    <main className="flex flex-col items-center min-h-screen p-4 sm:p-8 bg-gradient-to-b from-gray-900 to-gray-800 text-white">
+    <main className="flex flex-col items-center min-h-screen p-4 sm:p-8 bg-white text-gray-900">
       <div className="w-full max-w-4xl mx-auto py-8 sm:py-12">
         <div className="flex justify-between items-center mb-10">
-          <h1 className="text-4xl sm:text-5xl font-bold font-spacegrotesk tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-sky-400 via-blue-500 to-indigo-500">
+          <h1 className="text-4xl sm:text-5xl font-bold font-spacegrotesk tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-sky-500 via-blue-600 to-indigo-600">
             Join a Squad
           </h1>
           <div className="space-x-3">
@@ -105,7 +105,7 @@ export default function BrowseSquadsPage() {
                 </button>
             </Link>
             <Link href="/" passHref>
-                <button className="bg-gray-600 hover:bg-gray-700 text-white font-semibold py-2 px-5 rounded-lg shadow-md hover:shadow-lg transform hover:scale-105 transition-all duration-150 ease-in-out">
+                <button className="bg-gray-500 hover:bg-gray-600 text-white font-semibold py-2 px-5 rounded-lg shadow-md hover:shadow-lg transform hover:scale-105 transition-all duration-150 ease-in-out">
                 Back to Dashboard
                 </button>
             </Link>
@@ -113,40 +113,40 @@ export default function BrowseSquadsPage() {
         </div>
 
         {isLoading && (
-          <div className="text-center py-10"><p className="text-xl text-gray-400">Searching for Squads...</p><div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mx-auto mt-4"></div></div>
+          <div className="text-center py-10"><p className="text-xl text-gray-600">Searching for Squads...</p><div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-600 mx-auto mt-4"></div></div>
         )}
-        {error && <p className="text-center text-red-400 bg-red-900 bg-opacity-30 p-4 rounded-lg">Error: {error}</p>}
+        {error && <p className="text-center text-red-700 bg-red-100 p-4 rounded-lg border border-red-300">Error: {error}</p>}
         
         {!isLoading && !error && squads.length === 0 && (
-          <div className="text-center py-10 bg-gray-800 bg-opacity-50 p-6 rounded-lg shadow-xl">
-            <p className="text-2xl text-gray-300 mb-3">No squads found. Why not start your own?</p>
+          <div className="text-center py-10 bg-gray-100 p-6 rounded-lg shadow-lg border border-gray-200">
+            <p className="text-2xl text-gray-700 mb-3">No squads found. Why not start your own?</p>
           </div>
         )}
 
         {!isLoading && !error && squads.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {squads.map((squad) => (
-              <div key={squad.squadId} className="bg-white/10 backdrop-blur-sm shadow-xl rounded-lg p-6 flex flex-col justify-between">
+              <div key={squad.squadId} className="bg-white border border-gray-200 shadow-lg rounded-lg p-6 flex flex-col justify-between">
                 <div>
-                  <h2 className="text-2xl font-bold text-sky-300 mb-2">{squad.name}</h2>
-                  {squad.description && <p className="text-sm text-gray-300 mb-3 h-12 overflow-hidden truncate">{squad.description}</p>}
-                  <p className="text-sm text-gray-400">Leader: <span className="font-mono text-xs">{squad.leaderWalletAddress.substring(0,6)}...</span></p>
-                  <p className="text-sm text-gray-400">Members: {squad.memberCount} / {process.env.NEXT_PUBLIC_MAX_SQUAD_MEMBERS || 10}</p>
-                  <p className="text-lg font-semibold text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-teal-300 mt-1">Points: {squad.totalSquadPoints.toLocaleString()}</p>
+                  <h2 className="text-2xl font-bold text-sky-700 mb-2">{squad.name}</h2>
+                  {squad.description && <p className="text-sm text-gray-600 mb-3 h-12 overflow-hidden line-clamp-2">{squad.description}</p>}
+                  <p className="text-sm text-gray-500">Leader: <span className="font-mono text-xs">{squad.leaderWalletAddress.substring(0,6)}...</span></p>
+                  <p className="text-sm text-gray-500">Members: {squad.memberCount} / {process.env.NEXT_PUBLIC_MAX_SQUAD_MEMBERS || 10}</p>
+                  <p className="text-lg font-semibold text-transparent bg-clip-text bg-gradient-to-r from-green-500 to-teal-500 mt-1">Points: {squad.totalSquadPoints.toLocaleString()}</p>
                 </div>
                 <div className="mt-4 space-y-2">
                   {(!connected || !publicKey) ? (
-                    <p className="text-xs text-center text-yellow-400">Connect wallet to join</p>
+                    <p className="text-xs text-center text-orange-600">Connect wallet to join</p>
                   ) : mySquadInfo?.squadId ? (
                     <button 
                       disabled 
-                      className="w-full py-2 px-4 bg-gray-500 text-gray-300 font-semibold rounded-lg cursor-not-allowed">
+                      className="w-full py-2 px-4 bg-gray-400 text-gray-700 font-semibold rounded-lg cursor-not-allowed">
                       Already in a Squad
                     </button>
                   ) : squad.memberCount >= (parseInt(process.env.NEXT_PUBLIC_MAX_SQUAD_MEMBERS || '10')) ? (
                      <button 
                       disabled 
-                      className="w-full py-2 px-4 bg-red-700 text-red-300 font-semibold rounded-lg cursor-not-allowed">
+                      className="w-full py-2 px-4 bg-red-200 text-red-700 font-semibold rounded-lg cursor-not-allowed">
                       Squad Full
                     </button>
                   ) : (
@@ -159,7 +159,7 @@ export default function BrowseSquadsPage() {
                     </button>
                   )}
                   <Link href={`/squads/${squad.squadId}`} passHref>
-                     <button className="w-full py-2 px-4 border border-sky-500 text-sky-300 hover:bg-sky-500/20 text-sm font-semibold rounded-lg transition-colors">
+                     <button className="w-full py-2 px-4 border border-sky-500 text-sky-600 hover:bg-sky-100 text-sm font-semibold rounded-lg transition-colors">
                         View Details
                     </button>
                   </Link>

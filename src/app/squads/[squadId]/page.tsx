@@ -323,29 +323,29 @@ export default function SquadDetailsPage() {
     setIsRevokingInvite(null);
   };
 
-  if (isLoading) return <main className="flex items-center justify-center min-h-screen bg-gray-900 text-white"><div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-500"></div><p className='ml-3 text-lg'>Loading Squad Details...</p></main>;
-  if (error) return <main className="flex flex-col items-center justify-center min-h-screen bg-gray-900 text-white"><p className="text-red-400 text-xl mb-4">Error: {error}</p><Link href="/squads/browse"><button className='p-2 bg-blue-500 hover:bg-blue-600 rounded text-white'>Back to Browse Squads</button></Link></main>;
-  if (!squadDetails) return <main className="flex flex-col items-center justify-center min-h-screen bg-gray-900 text-white"><p className="text-xl mb-4">Squad not found.</p><Link href="/squads/browse"><button className='p-2 bg-blue-500 hover:bg-blue-600 rounded text-white'>Back to Browse Squads</button></Link></main>;
+  if (isLoading) return <main className="flex items-center justify-center min-h-screen bg-white text-gray-700"><div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-600"></div><p className='ml-3 text-lg'>Loading Squad Details...</p></main>;
+  if (error) return <main className="flex flex-col items-center justify-center min-h-screen bg-white text-red-700"><p className="text-xl mb-4">Error: {error}</p><Link href="/squads/browse"><button className='p-2 bg-blue-500 hover:bg-blue-600 rounded text-white'>Back to Browse Squads</button></Link></main>;
+  if (!squadDetails) return <main className="flex flex-col items-center justify-center min-h-screen bg-white text-gray-700"><p className="text-xl mb-4">Squad not found.</p><Link href="/squads/browse"><button className='p-2 bg-blue-500 hover:bg-blue-600 rounded text-white'>Back to Browse Squads</button></Link></main>;
 
   return (
-    <main className="flex flex-col items-center min-h-screen p-4 sm:p-8 bg-gradient-to-b from-gray-900 to-gray-800 text-white">
-      <div className="w-full max-w-3xl mx-auto my-10 bg-white/10 backdrop-blur-md shadow-2xl rounded-xl p-6 sm:p-8">
+    <main className="flex flex-col items-center min-h-screen p-4 sm:p-8 bg-white text-gray-900">
+      <div className="w-full max-w-3xl mx-auto my-10 bg-white border border-gray-200 shadow-xl rounded-xl p-6 sm:p-8">
         <div className="flex justify-between items-start mb-6">
           <div>
             {!isEditingSquad ? (
-              <h1 className="text-4xl font-bold font-spacegrotesk tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-purple-400 via-pink-500 to-red-500">
+              <h1 className="text-4xl font-bold font-spacegrotesk tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-purple-500 via-pink-600 to-red-600">
                 {squadDetails?.name}
               </h1>
             ) : (
-              <h1 className="text-4xl font-bold font-spacegrotesk tracking-tight text-gray-300">
+              <h1 className="text-4xl font-bold font-spacegrotesk tracking-tight text-gray-800">
                 Edit Squad Info
               </h1>
             )}
-            {!isEditingSquad && squadDetails?.description && <p className="text-gray-300 mt-1 text-sm">{squadDetails.description}</p>}
+            {!isEditingSquad && squadDetails?.description && <p className="text-gray-600 mt-1 text-sm">{squadDetails.description}</p>}
           </div>
           <div className="flex flex-col space-y-2 items-end flex-shrink-0 ml-4">
             <Link href="/squads/browse" passHref>
-              <button className="bg-gray-600 hover:bg-gray-700 text-white text-xs font-semibold py-1.5 px-3 rounded-md shadow-md hover:shadow-lg transform hover:scale-105 transition-all duration-150 ease-in-out w-full sm:w-auto">
+              <button className="bg-gray-500 hover:bg-gray-600 text-white text-xs font-semibold py-1.5 px-3 rounded-md shadow-md hover:shadow-lg transform hover:scale-105 transition-all duration-150 ease-in-out w-full sm:w-auto">
                   Browse Squads
               </button>
             </Link>
@@ -356,7 +356,7 @@ export default function SquadDetailsPage() {
                   setEditableDescription(squadDetails?.description || '');
                   setIsEditingSquad(true);
                 }}
-                className="bg-yellow-500 hover:bg-yellow-600 text-black text-xs font-semibold py-1.5 px-3 rounded-md shadow-md hover:shadow-lg transform hover:scale-105 transition-all duration-150 ease-in-out w-full sm:w-auto"
+                className="bg-yellow-400 hover:bg-yellow-500 text-black text-xs font-semibold py-1.5 px-3 rounded-md shadow-md hover:shadow-lg transform hover:scale-105 transition-all duration-150 ease-in-out w-full sm:w-auto"
               >
                 Edit Info
               </button>
@@ -365,20 +365,20 @@ export default function SquadDetailsPage() {
         </div>
 
         {isEditingSquad && (
-          <form onSubmit={handleEditSquadSubmit} className="mb-6 p-6 bg-black/20 rounded-lg space-y-4">
+          <form onSubmit={handleEditSquadSubmit} className="mb-6 p-6 bg-gray-50 border border-gray-200 rounded-lg space-y-4">
             <div>
-              <label htmlFor="editableSquadName" className="block text-sm font-medium text-gray-200 mb-1">Squad Name</label>
+              <label htmlFor="editableSquadName" className="block text-sm font-medium text-gray-700 mb-1">Squad Name</label>
               <input type="text" id="editableSquadName" value={editableSquadName} onChange={(e) => setEditableSquadName(e.target.value)} 
-                     className="w-full p-2 bg-gray-700 border border-gray-600 rounded-md text-white" maxLength={30} />
+                     className="w-full p-2 bg-white border border-gray-300 rounded-md text-gray-900 focus:ring-blue-500 focus:border-blue-500" maxLength={30} />
             </div>
             <div>
-              <label htmlFor="editableDescription" className="block text-sm font-medium text-gray-200 mb-1">Description</label>
+              <label htmlFor="editableDescription" className="block text-sm font-medium text-gray-700 mb-1">Description</label>
               <textarea id="editableDescription" value={editableDescription} onChange={(e) => setEditableDescription(e.target.value)} 
-                        rows={3} className="w-full p-2 bg-gray-700 border border-gray-600 rounded-md text-white" maxLength={150} />
+                        rows={3} className="w-full p-2 bg-white border border-gray-300 rounded-md text-gray-900 focus:ring-blue-500 focus:border-blue-500" maxLength={150} />
             </div>
             <div className="flex justify-end space-x-3">
               <button type="button" onClick={() => setIsEditingSquad(false)} disabled={isSavingEdit}
-                      className="py-2 px-4 bg-gray-500 hover:bg-gray-600 text-white font-semibold rounded-md disabled:opacity-50">
+                      className="py-2 px-4 bg-gray-400 hover:bg-gray-500 text-white font-semibold rounded-md disabled:opacity-50">
                 Cancel
               </button>
               <button type="submit" disabled={isSavingEdit}
@@ -390,24 +390,24 @@ export default function SquadDetailsPage() {
         )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-          <div className="p-4 bg-white/5 rounded-lg">
-            <h2 className="text-xs font-semibold text-purple-300 uppercase tracking-wider mb-1">Leader</h2>
-            <p className="text-gray-200 font-mono text-sm truncate" title={squadDetails.leaderWalletAddress}>{squadDetails.leaderWalletAddress.substring(0,10)}...</p>
+          <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
+            <h2 className="text-xs font-semibold text-purple-700 uppercase tracking-wider mb-1">Leader</h2>
+            <p className="text-gray-700 font-mono text-sm truncate" title={squadDetails.leaderWalletAddress}>{squadDetails.leaderWalletAddress.substring(0,10)}...</p>
           </div>
-          <div className="p-4 bg-white/5 rounded-lg">
-            <h2 className="text-xs font-semibold text-purple-300 uppercase tracking-wider mb-1">Total Points</h2>
-            <p className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-pink-500 to-red-500">
+          <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
+            <h2 className="text-xs font-semibold text-purple-700 uppercase tracking-wider mb-1">Total Points</h2>
+            <p className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-pink-600 to-red-600">
               {squadDetails.totalSquadPoints.toLocaleString()}
             </p>
           </div>
         </div>
 
         <div className="mb-8">
-          <h2 className="text-xl font-semibold text-gray-100 mb-3">Members ({squadDetails.membersFullDetails?.length || squadDetails.memberWalletAddresses.length} / {process.env.NEXT_PUBLIC_MAX_SQUAD_MEMBERS || 10})</h2>
-          <ul className="space-y-2 max-h-72 overflow-y-auto bg-white/5 p-3 rounded-lg">
+          <h2 className="text-xl font-semibold text-gray-800 mb-3">Members ({squadDetails.membersFullDetails?.length || squadDetails.memberWalletAddresses.length} / {process.env.NEXT_PUBLIC_MAX_SQUAD_MEMBERS || 10})</h2>
+          <ul className="space-y-2 max-h-72 overflow-y-auto bg-gray-50 border border-gray-200 p-3 rounded-lg">
             {squadDetails.membersFullDetails && squadDetails.membersFullDetails.length > 0 ? (
               squadDetails.membersFullDetails.map(member => (
-                <li key={member.walletAddress} className="p-3 bg-gray-700/60 rounded text-sm text-gray-300 flex justify-between items-center hover:bg-gray-600/60 transition-colors">
+                <li key={member.walletAddress} className="p-3 bg-white border border-gray-200 rounded text-sm text-gray-700 flex justify-between items-center hover:bg-gray-100 transition-colors">
                   <div className="flex items-center gap-3">
                     <UserAvatar 
                       profileImageUrl={member.xProfileImageUrl}
@@ -415,18 +415,18 @@ export default function SquadDetailsPage() {
                       size="sm"
                     />
                     <div>
-                      <span className="font-mono block">{member.xUsername ? `@${member.xUsername}` : `${member.walletAddress.substring(0,8)}...${member.walletAddress.substring(member.walletAddress.length - 4)}`}</span>
-                      <span className="text-xs text-purple-300">Points: {member.points?.toLocaleString() || 'N/A'}</span>
+                      <span className="font-mono block text-gray-800">{member.xUsername ? `@${member.xUsername}` : `${member.walletAddress.substring(0,8)}...${member.walletAddress.substring(member.walletAddress.length - 4)}`}</span>
+                      <span className="text-xs text-purple-700">Points: {member.points?.toLocaleString() || 'N/A'}</span>
                     </div>
                   </div>
                   <div className="flex items-center space-x-2">
                     {member.walletAddress === currentUserWalletAddress && <span className="text-xs px-2 py-1 bg-purple-500 text-white rounded-full">You</span>}
-                    {member.walletAddress === squadDetails.leaderWalletAddress && <span className="text-xs px-2 py-1 bg-yellow-500 text-black rounded-full">Leader</span>}
+                    {member.walletAddress === squadDetails.leaderWalletAddress && <span className="text-xs px-2 py-1 bg-yellow-400 text-black rounded-full">Leader</span>}
                     {isUserLeader && member.walletAddress !== currentUserWalletAddress && (
                       <button 
                         onClick={() => handleKickMember(member.walletAddress)}
                         disabled={isKickingMember === member.walletAddress}
-                        className="px-2 py-1 text-xs bg-red-600 hover:bg-red-700 text-white rounded-md disabled:opacity-50"
+                        className="px-2 py-1 text-xs bg-red-500 hover:bg-red-600 text-white rounded-md disabled:opacity-50"
                       >
                         {isKickingMember === member.walletAddress ? 'Kicking...' : 'Kick'}
                       </button>
@@ -435,19 +435,19 @@ export default function SquadDetailsPage() {
                 </li>
               ))
             ) : (
-              <li className="p-2 text-sm text-gray-400">No member details available or squad is empty.</li>
+              <li className="p-2 text-sm text-gray-500">No member details available or squad is empty.</li>
             )}
           </ul>
         </div>
 
-        <div className="mt-8 border-t border-gray-700 pt-6">
+        <div className="mt-8 border-t border-gray-300 pt-6">
           {connected && isUserMember && !isUserLeader && (
             <div className="mb-6">
-              <h3 className="text-lg font-semibold text-gray-100 mb-2">Squad Actions</h3>
+              <h3 className="text-lg font-semibold text-gray-800 mb-2">Squad Actions</h3>
               <button 
                 onClick={handleLeaveSquad}
                 disabled={isLeaving}
-                className="w-full py-2.5 px-5 bg-red-600 hover:bg-red-700 disabled:bg-gray-500 text-white font-semibold rounded-lg shadow-md hover:shadow-lg transition-all duration-150 ease-in-out"
+                className="w-full py-2.5 px-5 bg-red-500 hover:bg-red-600 disabled:bg-gray-400 text-white font-semibold rounded-lg shadow-md hover:shadow-lg transition-all duration-150 ease-in-out"
               >
                 {isLeaving ? 'Leaving Squad...' : 'Leave Squad'}
               </button>
@@ -456,17 +456,17 @@ export default function SquadDetailsPage() {
 
           {isUserLeader && squadDetails && (
             <div>
-              <h3 className="text-xl font-bold text-yellow-400 mb-4 text-center">Leader Tools</h3>
+              <h3 className="text-xl font-bold text-yellow-600 mb-4 text-center">Leader Tools</h3>
               
-              <div className="p-4 bg-black/20 rounded-lg mb-6">
-                <h4 className="text-md font-semibold text-gray-100 mb-2">Invite New Member:</h4>
-                <div className="flex mb-4 bg-gray-800 rounded-lg p-1 w-fit">
+              <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg mb-6">
+                <h4 className="text-md font-semibold text-gray-800 mb-2">Invite New Member:</h4>
+                <div className="flex mb-4 bg-gray-200 rounded-lg p-1 w-fit">
                   <button 
                     onClick={() => setInviteType('wallet')}
                     className={`px-3 py-1.5 text-sm font-medium rounded ${
                       inviteType === 'wallet' 
                         ? 'bg-sky-500 text-white' 
-                        : 'text-gray-300 hover:text-white'
+                        : 'text-gray-600 hover:text-gray-900'
                     }`}
                   >
                     By Wallet
@@ -479,7 +479,7 @@ export default function SquadDetailsPage() {
                     className={`px-3 py-1.5 text-sm font-medium rounded ${
                       inviteType === 'twitter' 
                         ? 'bg-sky-500 text-white' 
-                        : 'text-gray-300 hover:text-white'
+                        : 'text-gray-600 hover:text-gray-900'
                     }`}
                   >
                     By Twitter
@@ -488,7 +488,7 @@ export default function SquadDetailsPage() {
                 
                 {inviteType === 'wallet' ? (
                   <div className="space-y-2">
-                    <label htmlFor="inviteeWallet" className="block text-sm font-medium text-gray-200">
+                    <label htmlFor="inviteeWallet" className="block text-sm font-medium text-gray-700">
                       Wallet Address to Invite:
                     </label>
                     <div className="flex gap-2">
@@ -497,7 +497,7 @@ export default function SquadDetailsPage() {
                         id="inviteeWallet" 
                         value={inviteeWalletAddress} 
                         onChange={(e) => setInviteeWalletAddress(e.target.value)} 
-                        className="flex-grow p-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400"
+                        className="flex-grow p-2 bg-white border border-gray-300 rounded-md text-gray-900 placeholder-gray-400 focus:ring-blue-500 focus:border-blue-500"
                         placeholder="Enter wallet address"
                       />
                       <button 
@@ -512,7 +512,7 @@ export default function SquadDetailsPage() {
                 ) : (
                   <div className="space-y-4">
                     <div className="space-y-2">
-                      <label htmlFor="inviteeTwitter" className="block text-sm font-medium text-gray-200">
+                      <label htmlFor="inviteeTwitter" className="block text-sm font-medium text-gray-700">
                         Twitter Handle to Invite:
                       </label>
                       <div className="flex gap-2">
@@ -521,7 +521,7 @@ export default function SquadDetailsPage() {
                           id="inviteeTwitter" 
                           value={inviteeTwitterHandle} 
                           onChange={(e) => setInviteeTwitterHandle(e.target.value)} 
-                          className="flex-grow p-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400"
+                          className="flex-grow p-2 bg-white border border-gray-300 rounded-md text-gray-900 placeholder-gray-400 focus:ring-blue-500 focus:border-blue-500"
                           placeholder="Enter Twitter handle (with or without @)"
                         />
                         <button 
@@ -535,15 +535,15 @@ export default function SquadDetailsPage() {
                     </div>
                     
                     {foundTwitterUser && (
-                      <div className="p-3 bg-gray-800 rounded-lg flex items-center gap-3">
+                      <div className="p-3 bg-gray-200 rounded-lg flex items-center gap-3">
                         <UserAvatar 
                           profileImageUrl={foundTwitterUser.xProfileImageUrl} 
                           username={foundTwitterUser.xUsername}
                           size="md"
                         />
                         <div className="flex-grow">
-                          <p className="text-white font-medium">@{foundTwitterUser.xUsername}</p>
-                          <p className="text-xs text-gray-400">{foundTwitterUser.walletAddress.substring(0, 6)}...{foundTwitterUser.walletAddress.substring(foundTwitterUser.walletAddress.length - 4)}</p>
+                          <p className="text-gray-900 font-medium">@{foundTwitterUser.xUsername}</p>
+                          <p className="text-xs text-gray-500">{foundTwitterUser.walletAddress.substring(0, 6)}...{foundTwitterUser.walletAddress.substring(foundTwitterUser.walletAddress.length - 4)}</p>
                         </div>
                         <button 
                           onClick={handleSendInvite}
@@ -558,22 +558,22 @@ export default function SquadDetailsPage() {
                 )}
               </div>
 
-              <div className="p-4 bg-black/20 rounded-lg mb-6">
-                <h4 className="text-md font-semibold text-gray-100 mb-2">Pending Invites Sent:</h4>
-                {isFetchingSentInvites && <p className="text-sm text-gray-400">Loading sent invites...</p>}
-                {!isFetchingSentInvites && sentPendingInvites.length === 0 && <p className="text-sm text-gray-400">No pending invites sent from this squad.</p>}
+              <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg mb-6">
+                <h4 className="text-md font-semibold text-gray-800 mb-2">Pending Invites Sent:</h4>
+                {isFetchingSentInvites && <p className="text-sm text-gray-500">Loading sent invites...</p>}
+                {!isFetchingSentInvites && sentPendingInvites.length === 0 && <p className="text-sm text-gray-500">No pending invites sent from this squad.</p>}
                 {!isFetchingSentInvites && sentPendingInvites.length > 0 && (
                   <ul className="space-y-2 max-h-48 overflow-y-auto">
                     {sentPendingInvites.map(invite => (
-                      <li key={invite.invitationId} className="p-2 bg-gray-700/40 rounded-md text-sm flex justify-between items-center">
+                      <li key={invite.invitationId} className="p-2 bg-gray-200 rounded-md text-sm flex justify-between items-center">
                         <div>
-                          <span className="text-gray-300">To: {invite.invitedUserWalletAddress.substring(0,6)}...{invite.invitedUserWalletAddress.substring(invite.invitedUserWalletAddress.length - 4)}</span>
+                          <span className="text-gray-700">To: {invite.invitedUserWalletAddress.substring(0,6)}...{invite.invitedUserWalletAddress.substring(invite.invitedUserWalletAddress.length - 4)}</span>
                           <span className="block text-xs text-gray-500">Sent: {new Date(invite.createdAt || Date.now()).toLocaleDateString()}</span>
                         </div>
                         <button 
                           onClick={() => handleRevokeInvite(invite.invitationId)}
                           disabled={isRevokingInvite === invite.invitationId}
-                          className="px-2 py-1 text-xs bg-orange-600 hover:bg-orange-700 text-white rounded-md disabled:opacity-50"
+                          className="px-2 py-1 text-xs bg-orange-500 hover:bg-orange-600 text-white rounded-md disabled:opacity-50"
                         >
                           {isRevokingInvite === invite.invitationId ? 'Revoking...' : 'Revoke'}
                         </button>
@@ -583,13 +583,13 @@ export default function SquadDetailsPage() {
                 )}
               </div>
 
-              <div className="mt-4 pt-4 border-t border-gray-700/50">
+              <div className="mt-4 pt-4 border-t border-gray-300/50">
                  <h4 className="text-md font-semibold text-red-500 mb-2">Disband Squad (As Leader):</h4>
-                 <p className="text-xs text-gray-400 mb-2">If you leave as the leader, the next member in line will be promoted. If you are the last member, the squad will be disbanded.</p>
+                 <p className="text-xs text-gray-500 mb-2">If you leave as the leader, the next member in line will be promoted. If you are the last member, the squad will be disbanded.</p>
                 <button 
                     onClick={handleLeaveSquad}
                     disabled={isLeaving}
-                    className="w-full py-2.5 px-5 bg-red-700 hover:bg-red-800 disabled:bg-gray-500 text-white font-semibold rounded-lg shadow-md hover:shadow-lg transition-all duration-150 ease-in-out"
+                    className="w-full py-2.5 px-5 bg-red-600 hover:bg-red-700 disabled:bg-gray-400 text-white font-semibold rounded-lg shadow-md hover:shadow-lg transition-all duration-150 ease-in-out"
                     >
                     {isLeaving ? 'Leaving & Disbanding...' : 'Leave & Disband Squad'}
                 </button>

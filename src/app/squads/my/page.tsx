@@ -183,33 +183,33 @@ export default function MySquadPage() {
   };
 
   return (
-    <main className="flex flex-col items-center min-h-screen p-4 sm:p-8 bg-gradient-to-b from-gray-900 to-gray-800 text-white">
+    <main className="flex flex-col items-center min-h-screen p-4 sm:p-8 bg-white text-gray-900">
       <div className="w-full max-w-3xl">
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold font-spacegrotesk tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-indigo-500 to-purple-600">
+          <h1 className="text-4xl font-bold font-spacegrotesk tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-blue-500 via-indigo-600 to-purple-700">
             Squad Headquarters
           </h1>
-          <p className="text-gray-300 mt-2">Join forces with others to rise up the leaderboard and earn extra rewards!</p>
+          <p className="text-gray-600 mt-2">Join forces with others to rise up the leaderboard and earn extra rewards!</p>
         </div>
 
         {/* Squad Navigation Section */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
           <Link href="/squads/browse" passHref>
-            <div className="bg-indigo-900/40 hover:bg-indigo-900/60 border border-indigo-700 rounded-xl p-4 text-center cursor-pointer transform hover:scale-105 transition-all duration-200">
-              <h3 className="text-lg font-bold text-indigo-300">Browse Squads</h3>
-              <p className="text-xs text-indigo-200 mt-1">Explore squads to join</p>
+            <div className="bg-indigo-100 hover:bg-indigo-200 border border-indigo-300 rounded-xl p-4 text-center cursor-pointer transform hover:scale-105 transition-all duration-200">
+              <h3 className="text-lg font-bold text-indigo-700">Browse Squads</h3>
+              <p className="text-xs text-indigo-600 mt-1">Explore squads to join</p>
             </div>
           </Link>
           <Link href="/squads/leaderboard" passHref>
-            <div className="bg-purple-900/40 hover:bg-purple-900/60 border border-purple-700 rounded-xl p-4 text-center cursor-pointer transform hover:scale-105 transition-all duration-200">
-              <h3 className="text-lg font-bold text-purple-300">Squad Leaderboard</h3>
-              <p className="text-xs text-purple-200 mt-1">See top-performing squads</p>
+            <div className="bg-purple-100 hover:bg-purple-200 border border-purple-300 rounded-xl p-4 text-center cursor-pointer transform hover:scale-105 transition-all duration-200">
+              <h3 className="text-lg font-bold text-purple-700">Squad Leaderboard</h3>
+              <p className="text-xs text-purple-600 mt-1">See top-performing squads</p>
             </div>
           </Link>
           <Link href={canCreateSquad && !mySquadData ? "/squads/create" : "#"} passHref>
-            <div className={`${canCreateSquad && !mySquadData ? 'bg-green-900/40 hover:bg-green-900/60 border border-green-700 cursor-pointer transform hover:scale-105' : 'bg-gray-700/30 border border-gray-600 cursor-not-allowed'} rounded-xl p-4 text-center transition-all duration-200`}>
-              <h3 className={`text-lg font-bold ${canCreateSquad && !mySquadData ? 'text-green-300' : 'text-gray-400'}`}>Create Squad</h3>
-              <p className="text-xs text-gray-400 mt-1">{mySquadData ? 'Already in a squad' : `Need ${minRequiredPoints.toLocaleString()} points`}</p>
+            <div className={`${canCreateSquad && !mySquadData ? 'bg-green-100 hover:bg-green-200 border border-green-300 cursor-pointer transform hover:scale-105' : 'bg-gray-200 border border-gray-300 cursor-not-allowed'} rounded-xl p-4 text-center transition-all duration-200`}>
+              <h3 className={`text-lg font-bold ${canCreateSquad && !mySquadData ? 'text-green-700' : 'text-gray-500'}`}>Create Squad</h3>
+              <p className="text-xs text-gray-500 mt-1">{mySquadData ? 'Already in a squad' : `Need ${minRequiredPoints.toLocaleString()} points`}</p>
             </div>
           </Link>
         </div>
@@ -218,17 +218,17 @@ export default function MySquadPage() {
         <div className="w-full p-5 bg-indigo-50 border border-indigo-200 rounded-xl shadow-md mb-4">
           <h3 className="text-xl font-bold text-indigo-700 mb-3 text-center">🛡️ My Squad</h3>
           {isFetchingSquad && <p className="text-center text-indigo-600">Loading squad info...</p>}
-          {error && <p className="text-center text-red-600 bg-red-100 p-2 rounded">Error: {error}</p>}
+          {error && <p className="text-center text-red-600 bg-red-100 p-2 rounded border border-red-200">Error: {error}</p>}
           
           {!isFetchingSquad && mySquadData && (
             <div className="text-center space-y-4">
-              <div className="p-4 bg-white/60 rounded-lg">
+              <div className="p-4 bg-white/80 rounded-lg border border-gray-200">
                 <p className="text-lg font-semibold text-gray-800">Name: <span className="text-indigo-600 font-bold">{mySquadData.name}</span></p>
                 {mySquadData.description && <p className="text-sm text-gray-600 mt-1 italic">&quot;{mySquadData.description}&quot;</p>}
                 <p className="text-sm text-gray-600 mt-2">Points: <span className="font-bold text-green-600">{mySquadData.totalSquadPoints.toLocaleString()}</span></p>
                 <p className="text-sm text-gray-600">Members: <span className="font-semibold">{mySquadData.memberWalletAddresses.length} / {process.env.NEXT_PUBLIC_MAX_SQUAD_MEMBERS || 10}</span></p>
                 
-                <div className="mt-3 text-xs bg-indigo-100 p-2 rounded">
+                <div className="mt-3 text-xs bg-indigo-100 p-2 rounded border border-indigo-200">
                   {isUserLeader ? (
                     <p className="text-indigo-700 font-medium">You are the leader of this squad!</p>
                   ) : (
@@ -255,7 +255,7 @@ export default function MySquadPage() {
           
           {!isFetchingSquad && !mySquadData && !error && (
             <div className="text-center">
-              <div className="p-4 bg-white/60 rounded-lg mb-4">
+              <div className="p-4 bg-white/80 rounded-lg border border-gray-200 mb-4">
                 <p className="text-center text-gray-600 mb-2">You are not currently in a squad.</p>
                 <p className="text-sm text-gray-500">Join an existing squad or create your own to earn extra rewards and compete in the leaderboards.</p>
               </div>
@@ -272,11 +272,11 @@ export default function MySquadPage() {
                 <>
                   <div className="mt-4 text-center">
                     {canCreateSquad ? (
-                      <div className="mb-4 p-3 bg-green-800/20 rounded-lg border border-green-700">
-                        <p className="text-green-300">
+                      <div className="mb-4 p-3 bg-green-100 rounded-lg border border-green-300">
+                        <p className="text-green-800">
                           With {userPoints?.toLocaleString()} points, you&apos;re eligible to create your own squad!
                           <br/>
-                          <span className="text-xs mt-1 block text-green-200">
+                          <span className="text-xs mt-1 block text-green-700">
                             Your points allow for: {getMaxMembersForPoints(userPoints)}
                           </span>
                         </p>
@@ -287,8 +287,8 @@ export default function MySquadPage() {
                         </Link>
                       </div>
                     ) : (
-                      <div className="mb-4 p-3 bg-gray-700/30 rounded-lg border border-gray-600">
-                        <p className="text-gray-400">
+                      <div className="mb-4 p-3 bg-gray-100 rounded-lg border border-gray-300">
+                        <p className="text-gray-600">
                           You need at least {minRequiredPoints.toLocaleString()} points to create a squad.<br/>
                           Your current points: <span className="font-semibold">{userPoints?.toLocaleString() || '0'}</span>
                         </p>
@@ -299,7 +299,7 @@ export default function MySquadPage() {
                   {userCheckedNoSquad && (
                     <button 
                       onClick={handleForceRefresh} 
-                      className="py-2 px-4 bg-blue-400 hover:bg-blue-500 text-white text-sm font-semibold rounded-lg transition-colors shadow hover:shadow-md mt-3"
+                      className="py-2 px-4 bg-blue-500 hover:bg-blue-600 text-white text-sm font-semibold rounded-lg transition-colors shadow hover:shadow-md mt-3"
                     >
                       Refresh Squad Data
                     </button>
@@ -311,27 +311,27 @@ export default function MySquadPage() {
         </div>
 
         {/* Squad Benefits Info */}
-        <div className="w-full max-w-3xl p-5 bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 rounded-xl shadow-md mt-4 mb-6">
-          <h3 className="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-300 to-purple-400 mb-3 text-center">Squad Benefits</h3>
+        <div className="w-full max-w-3xl p-5 bg-gradient-to-br from-gray-100 to-gray-200 border border-gray-300 rounded-xl shadow-md mt-4 mb-6">
+          <h3 className="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600 mb-3 text-center">Squad Benefits</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-            <div className="p-3 bg-black/20 rounded-lg">
-              <h4 className="text-md font-bold text-blue-300">🤝 Team Power</h4>
-              <p className="text-sm text-gray-300">Combine your points with others to climb higher on the leaderboard</p>
+            <div className="p-3 bg-white/70 rounded-lg border border-gray-200">
+              <h4 className="text-md font-bold text-blue-700">🤝 Team Power</h4>
+              <p className="text-sm text-gray-700">Combine your points with others to climb higher on the leaderboard</p>
             </div>
-            <div className="p-3 bg-black/20 rounded-lg">
-              <h4 className="text-md font-bold text-purple-300">🎁 Bonus Rewards</h4>
-              <p className="text-sm text-gray-300">Top squads receive special rewards and early access to features</p>
+            <div className="p-3 bg-white/70 rounded-lg border border-gray-200">
+              <h4 className="text-md font-bold text-purple-700">🎁 Bonus Rewards</h4>
+              <p className="text-sm text-gray-700">Top squads receive special rewards and early access to features</p>
             </div>
-            <div className="p-3 bg-black/20 rounded-lg">
-              <h4 className="text-md font-bold text-pink-300">📈 Growth Boost</h4>
-              <p className="text-sm text-gray-300">Squad members get point multipliers on certain actions</p>
+            <div className="p-3 bg-white/70 rounded-lg border border-gray-200">
+              <h4 className="text-md font-bold text-pink-700">📈 Growth Boost</h4>
+              <p className="text-sm text-gray-700">Squad members get point multipliers on certain actions</p>
             </div>
           </div>
         </div>
         
         <div className="mt-6 text-center">
           <Link href="/">
-            <button className="py-2 px-4 bg-gray-600 hover:bg-gray-700 text-white text-sm font-semibold rounded-lg transition-colors shadow hover:shadow-md">
+            <button className="py-2 px-4 bg-gray-500 hover:bg-gray-600 text-white text-sm font-semibold rounded-lg transition-colors shadow hover:shadow-md">
               Back to Dashboard
             </button>
           </Link>

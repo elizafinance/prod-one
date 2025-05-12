@@ -5,6 +5,7 @@ import { useWallet } from '@solana/wallet-adapter-react';
 import { useSession } from 'next-auth/react';
 import Link from 'next/link';
 import { SquadDocument } from '@/lib/mongodb';
+import { toast } from 'sonner';
 
 interface MySquadData extends SquadDocument {}
 
@@ -15,6 +16,38 @@ export default function MySquadPage() {
   const [isFetchingSquad, setIsFetchingSquad] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [userCheckedNoSquad, setUserCheckedNoSquad] = useState(false);
+  
+  // User points for verifying squad creation eligibility
+  const [userPoints, setUserPoints] = useState<number | null>(null);
+  const [isLoadingPoints, setIsLoadingPoints] = useState(false);
+
+  const fetchUserPoints = useCallback(async (walletAddress: string) => {
+    if (!walletAddress || isLoadingPoints) return;
+    setIsLoadingPoints(true);
+    
+    try {
+      const res = await fetch(`/api/users/points?address=${walletAddress}`);
+      const data = await res.json();
+      if (res.ok && typeof data.points === 'number') {
+        setUserPoints(data.points);
+      } else {
+        // Try fallback to localStorage
+        try {
+          const stored = localStorage.getItem('defaiUserData');
+          if (stored) {
+            const parsed = JSON.parse(stored);
+            if (typeof parsed.points === 'number') {
+              setUserPoints(parsed.points);
+            }
+          }
+        } catch {}
+      }
+    } catch (err) {
+      console.error("Error fetching user points:", err);
+    }
+    
+    setIsLoadingPoints(false);
+  }, [isLoadingPoints]);
 
   const fetchMySquadData = useCallback(async (userWalletAddress: string) => {
     if (!userWalletAddress || isFetchingSquad || userCheckedNoSquad) return;
@@ -34,6 +67,11 @@ export default function MySquadPage() {
           console.log("[MySquadPage] User not in a squad or no squad data.");
           setMySquadData(null);
           setUserCheckedNoSquad(true);
+          
+          // If user is not in a squad, fetch their points to check eligibility for creating one
+          if (userWalletAddress) {
+            fetchUserPoints(userWalletAddress);
+          }
         }
       } else {
         console.error("[MySquadPage] Failed to fetch squad data:", data.error || response.statusText);
@@ -41,6 +79,10 @@ export default function MySquadPage() {
         setMySquadData(null);
         if (response.status === 404) {
           setUserCheckedNoSquad(true);
+          // Also fetch points if we get a 404
+          if (userWalletAddress) {
+            fetchUserPoints(userWalletAddress);
+          }
         }
       }
     } catch (error) {
@@ -49,7 +91,7 @@ export default function MySquadPage() {
       setMySquadData(null);
     }
     setIsFetchingSquad(false);
-  }, [isFetchingSquad, userCheckedNoSquad]);
+  }, [isFetchingSquad, userCheckedNoSquad, fetchUserPoints]);
 
   useEffect(() => {
     let isActive = true;
@@ -81,40 +123,174 @@ export default function MySquadPage() {
     }
   };
 
+  // Check if the user has enough points to create a squad
+  const canCreateSquad = userPoints !== null && userPoints >= 10000;
+  const minRequiredPoints = 10000;
+  const isUserLeader = mySquadData?.leaderWalletAddress === publicKey?.toBase58();
+
   return (
     <main className="flex flex-col items-center min-h-screen p-4 sm:p-8 bg-gradient-to-b from-gray-900 to-gray-800 text-white">
-      <div className="w-full max-w-md p-5 bg-indigo-50 border border-indigo-200 rounded-xl shadow-md mt-8 mb-4">
-        <h3 className="text-xl font-bold text-indigo-700 mb-3 text-center">🛡️ My Squad</h3>
-        {isFetchingSquad && <p className="text-center text-indigo-600">Loading squad info...</p>}
-        {error && <p className="text-center text-red-600 bg-red-100 p-2 rounded">Error: {error}</p>}
-        {!isFetchingSquad && mySquadData && (
-          <div className="text-center">
-            <p className="text-lg font-semibold text-gray-800">Name: <span className="text-indigo-600 font-bold">{mySquadData.name}</span></p>
-            <p className="text-sm text-gray-600">Total Points: <span className="font-semibold">{mySquadData.totalSquadPoints.toLocaleString()}</span></p>
-            <p className="text-sm text-gray-600">Members: <span className="font-semibold">{mySquadData.memberWalletAddresses.length} / {process.env.NEXT_PUBLIC_MAX_SQUAD_MEMBERS || 10}</span></p>
-            <Link href={`/squads/${mySquadData.squadId}`} passHref>
-              <button className="mt-3 py-2 px-4 bg-indigo-500 hover:bg-indigo-600 text-white text-sm font-semibold rounded-lg transition-colors w-full shadow hover:shadow-md">
-                View Squad Details
-              </button>
-            </Link>
+      <div className="w-full max-w-3xl">
+        <div className="text-center mb-8">
+          <h1 className="text-4xl font-bold font-spacegrotesk tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-indigo-500 to-purple-600">
+            Squad Headquarters
+          </h1>
+          <p className="text-gray-300 mt-2">Join forces with others to rise up the leaderboard and earn extra rewards!</p>
+        </div>
+
+        {/* Squad Navigation Section */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+          <Link href="/squads/browse" passHref>
+            <div className="bg-indigo-900/40 hover:bg-indigo-900/60 border border-indigo-700 rounded-xl p-4 text-center cursor-pointer transform hover:scale-105 transition-all duration-200">
+              <h3 className="text-lg font-bold text-indigo-300">Browse Squads</h3>
+              <p className="text-xs text-indigo-200 mt-1">Explore squads to join</p>
+            </div>
+          </Link>
+          <Link href="/squads/leaderboard" passHref>
+            <div className="bg-purple-900/40 hover:bg-purple-900/60 border border-purple-700 rounded-xl p-4 text-center cursor-pointer transform hover:scale-105 transition-all duration-200">
+              <h3 className="text-lg font-bold text-purple-300">Squad Leaderboard</h3>
+              <p className="text-xs text-purple-200 mt-1">See top-performing squads</p>
+            </div>
+          </Link>
+          <Link href={canCreateSquad && !mySquadData ? "/squads/create" : "#"} passHref>
+            <div className={`${canCreateSquad && !mySquadData ? 'bg-green-900/40 hover:bg-green-900/60 border border-green-700 cursor-pointer transform hover:scale-105' : 'bg-gray-700/30 border border-gray-600 cursor-not-allowed'} rounded-xl p-4 text-center transition-all duration-200`}>
+              <h3 className={`text-lg font-bold ${canCreateSquad && !mySquadData ? 'text-green-300' : 'text-gray-400'}`}>Create Squad</h3>
+              <p className="text-xs text-gray-400 mt-1">{mySquadData ? 'Already in a squad' : `Need ${minRequiredPoints.toLocaleString()} points`}</p>
+            </div>
+          </Link>
+        </div>
+
+        {/* Main My Squad Content */}
+        <div className="w-full p-5 bg-indigo-50 border border-indigo-200 rounded-xl shadow-md mb-4">
+          <h3 className="text-xl font-bold text-indigo-700 mb-3 text-center">🛡️ My Squad</h3>
+          {isFetchingSquad && <p className="text-center text-indigo-600">Loading squad info...</p>}
+          {error && <p className="text-center text-red-600 bg-red-100 p-2 rounded">Error: {error}</p>}
+          
+          {!isFetchingSquad && mySquadData && (
+            <div className="text-center space-y-4">
+              <div className="p-4 bg-white/60 rounded-lg">
+                <p className="text-lg font-semibold text-gray-800">Name: <span className="text-indigo-600 font-bold">{mySquadData.name}</span></p>
+                {mySquadData.description && <p className="text-sm text-gray-600 mt-1 italic">&quot;{mySquadData.description}&quot;</p>}
+                <p className="text-sm text-gray-600 mt-2">Points: <span className="font-bold text-green-600">{mySquadData.totalSquadPoints.toLocaleString()}</span></p>
+                <p className="text-sm text-gray-600">Members: <span className="font-semibold">{mySquadData.memberWalletAddresses.length} / {process.env.NEXT_PUBLIC_MAX_SQUAD_MEMBERS || 10}</span></p>
+                
+                <div className="mt-3 text-xs bg-indigo-100 p-2 rounded">
+                  {isUserLeader ? (
+                    <p className="text-indigo-700 font-medium">You are the leader of this squad!</p>
+                  ) : (
+                    <p className="text-indigo-700">Leader: <span className="font-mono">{mySquadData.leaderWalletAddress.substring(0,6)}...{mySquadData.leaderWalletAddress.substring(mySquadData.leaderWalletAddress.length-4)}</span></p>
+                  )}
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <Link href={`/squads/${mySquadData.squadId}`} passHref>
+                  <button className="py-2 px-4 bg-indigo-500 hover:bg-indigo-600 text-white text-sm font-semibold rounded-lg transition-colors w-full shadow hover:shadow-md">
+                    Manage Squad
+                  </button>
+                </Link>
+                
+                {!isUserLeader && (
+                  <button className="py-2 px-4 bg-red-500 hover:bg-red-600 text-white text-xs font-semibold rounded-lg transition-colors w-full shadow hover:shadow-md">
+                    Leave Squad
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+          
+          {!isFetchingSquad && !mySquadData && !error && (
+            <div className="text-center">
+              <div className="p-4 bg-white/60 rounded-lg mb-4">
+                <p className="text-center text-gray-600 mb-2">You are not currently in a squad.</p>
+                <p className="text-sm text-gray-500">Join an existing squad or create your own to earn extra rewards and compete in the leaderboards.</p>
+              </div>
+              
+              {isLoadingPoints ? (
+                <div className="flex justify-center items-center py-3">
+                  <svg className="animate-spin h-5 w-5 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  <span className="ml-2 text-indigo-700">Checking points...</span>
+                </div>
+              ) : (
+                <>
+                  {canCreateSquad ? (
+                    <div className="space-y-3">
+                      <p className="text-green-600 font-medium">
+                        With {userPoints?.toLocaleString()} points, you&apos;re eligible to create your own squad!
+                      </p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <Link href="/squads/create" passHref>
+                          <button className="py-2 px-6 bg-green-500 hover:bg-green-600 text-white text-sm font-semibold rounded-lg transition-colors shadow hover:shadow-md w-full">
+                            Create Your Squad
+                          </button>
+                        </Link>
+                        <Link href="/squads/browse" passHref>
+                          <button className="py-2 px-6 bg-blue-500 hover:bg-blue-600 text-white text-sm font-semibold rounded-lg transition-colors shadow hover:shadow-md w-full">
+                            Join Existing Squad
+                          </button>
+                        </Link>
+                      </div>
+                    </div>
+                  ) : userPoints !== null ? (
+                    <div className="space-y-3">
+                      <p className="text-red-600 font-medium">
+                        You need at least {minRequiredPoints.toLocaleString()} points to create a squad.<br/>
+                        Current points: {userPoints.toLocaleString()}
+                      </p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <Link href="/squads/browse" passHref>
+                          <button className="py-2 px-6 bg-blue-500 hover:bg-blue-600 text-white text-sm font-semibold rounded-lg transition-colors shadow hover:shadow-md w-full">
+                            Browse Squads
+                          </button>
+                        </Link>
+                        <Link href="/" passHref>
+                          <button className="py-2 px-6 bg-purple-500 hover:bg-purple-600 text-white text-sm font-semibold rounded-lg transition-colors shadow hover:shadow-md w-full">
+                            Earn More Points
+                          </button>
+                        </Link>
+                      </div>
+                    </div>
+                  ) : null}
+                </>
+              )}
+              
+              {userCheckedNoSquad && (
+                <button 
+                  onClick={handleForceRefresh} 
+                  className="py-2 px-4 bg-blue-400 hover:bg-blue-500 text-white text-sm font-semibold rounded-lg transition-colors shadow hover:shadow-md mt-3"
+                >
+                  Refresh Squad Data
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Squad Benefits Info */}
+        <div className="w-full max-w-3xl p-5 bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 rounded-xl shadow-md mt-4 mb-6">
+          <h3 className="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-300 to-purple-400 mb-3 text-center">Squad Benefits</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+            <div className="p-3 bg-black/20 rounded-lg">
+              <h4 className="text-md font-bold text-blue-300">🤝 Team Power</h4>
+              <p className="text-sm text-gray-300">Combine your points with others to climb higher on the leaderboard</p>
+            </div>
+            <div className="p-3 bg-black/20 rounded-lg">
+              <h4 className="text-md font-bold text-purple-300">🎁 Bonus Rewards</h4>
+              <p className="text-sm text-gray-300">Top squads receive special rewards and early access to features</p>
+            </div>
+            <div className="p-3 bg-black/20 rounded-lg">
+              <h4 className="text-md font-bold text-pink-300">📈 Growth Boost</h4>
+              <p className="text-sm text-gray-300">Squad members get point multipliers on certain actions</p>
+            </div>
           </div>
-        )}
-        {!isFetchingSquad && !mySquadData && !error && (
-          <div className="text-center">
-            <p className="text-center text-gray-600 mb-3">You are not currently in a squad.</p>
-            {userCheckedNoSquad && (
-              <button 
-                onClick={handleForceRefresh} 
-                className="py-2 px-4 bg-blue-400 hover:bg-blue-500 text-white text-sm font-semibold rounded-lg transition-colors shadow hover:shadow-md"
-              >
-                Refresh Squad Data
-              </button>
-            )}
-          </div>
-        )}
+        </div>
+        
         <div className="mt-6 text-center">
           <Link href="/">
-            <button className="py-2 px-4 bg-gray-400 hover:bg-gray-500 text-white text-sm font-semibold rounded-lg transition-colors w-full shadow hover:shadow-md">
+            <button className="py-2 px-4 bg-gray-600 hover:bg-gray-700 text-white text-sm font-semibold rounded-lg transition-colors shadow hover:shadow-md">
               Back to Dashboard
             </button>
           </Link>

@@ -418,7 +418,7 @@ export default function HomePage() {
         return;
     }
     const airdropAmountStr = airdropCheckResult.toLocaleString();
-    const siteBaseUrl = "https://kol-claim.defairewards.net";
+    const siteBaseUrl = "https://squad.defairewards.net";
     const shareUrl = userData?.referralCode ? `${siteBaseUrl}/?ref=${userData.referralCode}` : siteBaseUrl;
     const twitterHandle = "DeFAIRewards";
     const tokenToBuy = "$DeFAI"; 

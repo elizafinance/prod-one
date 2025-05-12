@@ -1,10 +1,25 @@
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
-import { NotificationDocument } from '@/lib/mongodb';
+// import { NotificationDocument } from '@/lib/mongodb'; // Will use UnifiedNotification instead
 import NotificationItem from './NotificationItem';
 import { toast } from 'sonner';
 import Link from 'next/link';
+
+// Define UnifiedNotification structure (can be moved to a shared types file)
+interface UnifiedNotification {
+  _id: string; 
+  type: 'squad_invite' | 'generic_notification'; 
+  message: string;
+  squadId?: string; 
+  squadName?: string;
+  inviterWalletAddress?: string; 
+  isRead: boolean; 
+  createdAt: Date;
+  // Potentially add other fields like an icon or a specific link based on type
+  ctaLink?: string; // Call to action link
+  ctaText?: string; // Call to action text
+}
 
 interface NotificationsPanelProps {
   isOpen: boolean;
@@ -13,7 +28,7 @@ interface NotificationsPanelProps {
 }
 
 export default function NotificationsPanel({ isOpen, onClose, onUpdateUnreadCount }: NotificationsPanelProps) {
-  const [notifications, setNotifications] = useState<NotificationDocument[]>([]);
+  const [notifications, setNotifications] = useState<UnifiedNotification[]>([]); // Use UnifiedNotification
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showErrorDetails, setShowErrorDetails] = useState(false);
@@ -34,7 +49,7 @@ export default function NotificationsPanel({ isOpen, onClose, onUpdateUnreadCoun
         throw new Error(errorMessage);
       }
       
-      const data = await response.json();
+      const data: { notifications: UnifiedNotification[], unreadCount: number } = await response.json();
       console.log("[Notifications] Received data:", data);
       
       if (!data.notifications) {
@@ -45,10 +60,13 @@ export default function NotificationsPanel({ isOpen, onClose, onUpdateUnreadCoun
       onUpdateUnreadCount(data.unreadCount || 0);
 
       if (markAsReadOnOpen && data.notifications && data.notifications.length > 0) {
-        const unreadIds = data.notifications.filter((n: NotificationDocument) => !n.isRead).map((n: NotificationDocument) => n.notificationId);
+        // Mark as read logic might need to change if we don't have a generic isRead for invites
+        // For now, this attempts to mark items that have an _id and an isRead property if API supported it
+        const unreadIds = data.notifications.filter((n: UnifiedNotification) => !n.isRead).map((n: UnifiedNotification) => n._id);
         console.log("[Notifications] Unread IDs to mark as read:", unreadIds);
         if (unreadIds.length > 0) {
-          markNotificationsAsRead(unreadIds);
+          // markNotificationsAsRead(unreadIds); // This API might need adjustment for different notification types
+          console.log("[Notifications] Skipping markAsRead for now as it needs API adjustment for UnifiedNotification types.");
         }
       }
     } catch (err) {
@@ -89,10 +107,12 @@ export default function NotificationsPanel({ isOpen, onClose, onUpdateUnreadCoun
   };
   
   const handleMarkAllAsRead = () => {
-    const allUnreadIds = notifications.filter(n => !n.isRead).map(n => n.notificationId);
-    if(allUnreadIds.length > 0) {
-        markNotificationsAsRead(allUnreadIds);
-    }
+    // This also needs to be aware of the source of notifications if they are marked read differently
+    // const allUnreadIds = notifications.filter(n => !n.isRead).map(n => n._id);
+    // if(allUnreadIds.length > 0) {
+    //     markNotificationsAsRead(allUnreadIds);
+    // }
+    toast.info("Mark all as read feature needs review for unified notification types.");
   };
 
   const handleRetry = () => {
@@ -153,7 +173,7 @@ export default function NotificationsPanel({ isOpen, onClose, onUpdateUnreadCoun
           {!isLoading && !error && notifications.length > 0 && (
             <ul>
               {notifications.map(notif => (
-                <NotificationItem key={notif.notificationId} notification={notif} onMarkAsRead={handleMarkOneAsRead} />
+                <NotificationItem key={notif._id} notification={notif} onMarkAsRead={handleMarkOneAsRead} />
               ))}
             </ul>
           )}

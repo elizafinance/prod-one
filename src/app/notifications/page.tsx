@@ -1,14 +1,28 @@
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
-import { NotificationDocument } from '@/lib/mongodb';
+// import { NotificationDocument } from '@/lib/mongodb'; // Will use UnifiedNotification
 import NotificationItem from '@/components/notifications/NotificationItem'; // Adjust path if needed
 import { toast } from 'sonner';
 import Link from 'next/link';
 import { useWallet } from '@solana/wallet-adapter-react'; // To ensure user is connected for API calls
 
+// Define UnifiedNotification structure (should be consistent with other usages)
+interface UnifiedNotification {
+  _id: string; 
+  type: 'squad_invite' | 'generic_notification'; 
+  message: string;
+  squadId?: string; 
+  squadName?: string;
+  inviterWalletAddress?: string; 
+  isRead: boolean; 
+  createdAt: Date;
+  ctaLink?: string; 
+  ctaText?: string; 
+}
+
 export default function AllNotificationsPage() {
-  const [notifications, setNotifications] = useState<NotificationDocument[]>([]);
+  const [notifications, setNotifications] = useState<UnifiedNotification[]>([]); // Use UnifiedNotification
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -25,7 +39,7 @@ export default function AllNotificationsPage() {
       if (!response.ok) {
         throw new Error('Failed to fetch notifications');
       }
-      const data = await response.json();
+      const data: { notifications: UnifiedNotification[], unreadCount: number } = await response.json(); // Explicitly type data
       setNotifications(data.notifications || []);
       setUnreadCount(data.unreadCount || 0); 
       // No automatic mark as read for all on this page, only individual clicks or "Mark All"
@@ -63,14 +77,14 @@ export default function AllNotificationsPage() {
 
   const handleMarkOneAsRead = (notificationId: string) => {
     // Check if already read to avoid unnecessary API call, though backend also checks
-    const notif = notifications.find(n => n.notificationId === notificationId);
+    const notif = notifications.find(n => n._id === notificationId); // Use _id for finding
     if (notif && !notif.isRead) {
         markNotificationsAsRead([notificationId]);
     }
   };
   
   const handleMarkAllAsRead = () => {
-    const allUnreadIds = notifications.filter(n => !n.isRead).map(n => n.notificationId);
+    const allUnreadIds = notifications.filter(n => !n.isRead).map(n => n._id); // Use _id for mapping
     if(allUnreadIds.length > 0) {
         markNotificationsAsRead(allUnreadIds);
     } else {
@@ -121,7 +135,7 @@ export default function AllNotificationsPage() {
           <div className="bg-white/5 backdrop-blur-sm shadow-2xl rounded-xl p-2 sm:p-4">
             <ul className="divide-y divide-gray-700/50">
               {notifications.map(notif => (
-                <NotificationItem key={notif.notificationId} notification={notif} onMarkAsRead={handleMarkOneAsRead} />
+                <NotificationItem key={notif._id} notification={notif} onMarkAsRead={handleMarkOneAsRead} /> // Use _id for key
               ))}
             </ul>
           </div>

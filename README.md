@@ -1,274 +1,135 @@
-# MPL Hybrid 404 UI Template
+# User Engagement & Rewards Platform
 
-This is a downloadable reusable UI template that utilizes Nextjs and Tailwind for the front end framework while also being preinstalled with Metaplex Umi, Solana WalletAdapter, and Zustand global store for ease of use.
-
+This platform is designed to foster user engagement through a points-based reward system, referral program, and social media interaction tracking. It integrates with X (formerly Twitter) for authentication and allows users to earn points for various activities.
 
 ![WebUI Preview](./template-image.jpg)
 
-## Features
+## Core Features
 
-- Nextjs React framework
-- Tailwind
-- Shadcn Component Library
-- Solana WalletAdapter
-- Metaplex Umi
-- Zustand
-- Dark/Light Mode
-- Umi Helpers
-- MPL Hybrid 404 Integration
-- Escrow Management
+*   **User Authentication:** Secure sign-up and login using X (Twitter) accounts via NextAuth.js.
+*   **Points System:** Users earn points for actions like initial connection, social sharing, following, airdrop eligibility, and referrals.
+*   **Referral Program:** Users can refer others and earn bonus points.
+*   **Social Engagement Tracking:** Logs actions such as sharing content or following on X.
+*   **Airdrop Rewards:** Calculates and assigns points based on predefined airdrop criteria.
+*   **Leaderboard:** Displays top users based on accumulated points.
+*   **Dark/Light Mode:** Theme support for user preference.
+*   **(If Applicable) Escrow Management:** Interface for managing token escrow settings, viewing balances, and assets held (accessible via `/escrow`).
 
-## Installation
+## Tech Stack
 
+*   **Frontend Framework:** Next.js (React)
+*   **Styling:** Tailwind CSS
+*   **UI Components:** Shadcn
+*   **State Management:** Zustand
+*   **Authentication:** NextAuth.js
+*   **Database:** MongoDB
+*   **Solana Integration:** Solana WalletAdapter, Metaplex Umi (for blockchain interactions if applicable to escrow features)
+
+## Getting Started
+
+Follow these steps to get the platform running locally.
+
+### 1. Prerequisites
+
+*   Node.js (v18.x or later recommended)
+*   npm (or yarn)
+
+### 2. Clone the Repository
+
+```bash
+git clone https://github.com/your-username/your-repository-name.git
+cd your-repository-name
 ```
-git clone https://github.com/metaplex-foundation/mpl-hybrid-404-ui-template-nextjs-tailwind-shadcn.git
-```
+*(Replace with the actual repository URL if different from the example used in the original README)*
 
-## Setup
+### 3. Environment Variable Setup
 
-### .env File
-
-Rename `.env.example` to `.env`
-
-Fill out the following with the correct details.
+This is a critical step for the application to function correctly. Rename the `.env.example` file to `.env.local` in the root of your project and fill in the following values:
 
 ```shell
-// Escrow Account
-NEXT_PUBLIC_ESCROW="11111111111111111111111111111111"
-NEXT_PUBLIC_COLLECTION="11111111111111111111111111111111"
-NEXT_PUBLIC_TOKEN="11111111111111111111111111111111"
+# MongoDB Connection (Required for all user data, points, referrals, etc.)
+MONGODB_URI="your_mongodb_connection_string"
+MONGODB_DB_NAME="your_mongodb_database_name"
 
-// RPC URL
-NEXT_PUBLIC_RPC="https://myrpc.com/?api-key="
+# X (Twitter) OAuth Credentials (Required for user login)
+# Create an app at https://developer.twitter.com/en/portal/projects-and-apps
+X_CLIENT_ID="your_x_app_client_id"
+X_CLIENT_SECRET="your_x_app_client_secret"
+
+# NextAuth.js Secret (Required for session security)
+# Generate a secret: `openssl rand -base64 32`
+NEXTAUTH_SECRET="your_nextauth_secret"
+
+# Solana RPC URL (Required if using Solana blockchain features)
+NEXT_PUBLIC_RPC="https://your-solana-rpc-url"
+
+# Escrow Configuration (If applicable to your platform's features)
+# These are typically addresses on the Solana blockchain.
+NEXT_PUBLIC_ESCROW="escrow_account_public_key"
+NEXT_PUBLIC_COLLECTION="collection_public_key_if_applicable"
+NEXT_PUBLIC_TOKEN="token_mint_public_key_if_applicable"
+
+# Optional: Specify the full URL for your application in production
+# NEXTAUTH_URL="https://yourdomain.com"
 ```
+
+**Explanation of Environment Variables:**
+
+*   `MONGODB_URI`: Your full MongoDB connection string.
+*   `MONGODB_DB_NAME`: The name of the database to use within your MongoDB instance.
+*   `X_CLIENT_ID` & `X_CLIENT_SECRET`: Credentials from your X (Twitter) Developer App for OAuth authentication.
+*   `NEXTAUTH_SECRET`: A random string used to hash tokens and cookies for NextAuth.js.
+*   `NEXT_PUBLIC_RPC`: The URL of the Solana RPC endpoint you want to connect to for any blockchain interactions.
+*   `NEXT_PUBLIC_ESCROW`, `NEXT_PUBLIC_COLLECTION`, `NEXT_PUBLIC_TOKEN`: Solana public keys related to the token escrow functionality, if used.
+*   `NEXTAUTH_URL`: The canonical URL of your deployed application. Important for NextAuth.js redirects, especially in production.
+
+### 4. Install Dependencies
+
+```bash
+npm install
+```
+or if you use yarn:
+```bash
+yarn install
+```
+
+### 5. Run the Development Server
+
+```bash
+npm run dev
+```
+The application should now be running at `http://localhost:3000`.
+
+## Build & Deployment
+
+### Build Command
+
+To create an optimized production build, run:
+
+```bash
+npm run build
+```
+
+### Deployment Notes
+
+*   **CRITICAL: Environment Variables:** Ensure all the environment variables listed in the `.env.local` section above are correctly configured in your deployment platform's settings (e.g., Vercel, Netlify, AWS Amplify, Docker environment). The build will fail or the application will not run correctly without them, especially `MONGODB_URI`, `MONGODB_DB_NAME`, `X_CLIENT_ID`, `X_CLIENT_SECRET`, and `NEXTAUTH_SECRET`.
+*   **Database Accessibility:** Make sure your deployment environment can access your MongoDB instance (e.g., firewall rules, IP whitelisting if your database is not publicly accessible).
+*   **Browserslist:** If you see a warning during the build like `Browserslist: caniuse-lite is outdated`, you can update it by running:
+    ```bash
+    npx update-browserslist-db@latest
+    ```
+    Then, commit the changes to your `package-lock.json` or `yarn.lock` file.
+*   **NEXTAUTH_URL:** For production deployments, it is highly recommended to set the `NEXTAUTH_URL` environment variable to the canonical URL of your application.
+
+## (Optional) Escrow Management
+
+If your platform includes token escrow functionalities, you may be able to manage the escrow settings by navigating to the `/escrow` path in your application. This section typically allows for:
+*   Viewing an overview of escrow settings.
+*   Editing and updating escrow parameters.
+*   Checking token balances held in escrow.
+*   Viewing Core NFT Assets associated with the escrow.
+
+## (Optional) Customization
 
 ### Image Replacement
-
-In `src/assets/images/` there are two images to replace:
-
-- collectionImage.jpg
-- token.jpg
-
-Both of these images are used to save fetching the collection and token Metadata just to access the image uri.
-
-## Escrow Management
-
-You can manage your escrow by visiting the `/escrow` address which will load up the escrow management page where you can
-
-- get and overview of the escrow settings.
-- edit and update the escrow settings.
-- view the amount of tokens held in escrow.
-- view the Core NFT Assets that are held in escrow.
-
-## UI Documentation
-
-Beyond this point is generic documentation for the UI itself regarding its setup and use of state management.
-
-- Why Zustand?
-- Access Umi in .tsx
-- Access Umi in .ts
-- Umi Helpers
-- Component Library
-
-## Why Zustand?
-
-Zustand is a global store that allows you to access the store state from both hooks and regular state fetching.
-
-By storing the umiInstance in **zustand** we can access it in both `ts` and `tsx` files while also having the state update via other providers and hooks such as walletAdapter.
-
-While it's normally easier to use the helper methods below to access umi you can also access the state methods manually by calling for the `umiStore` state yourself.
-
-When fetching the umi state directly without a helper it will only pickup the umi instance and not the latest signer. By design when the walletAdapter changes state the state of the `signer` in the `umiStore` is updated but **NOT** applied to the `umi` state. So you will need to also pull the latest `signer` state and apply it to `umi`. This behavior can be outlined in the `umiProvider.tsx` file. The helpers always pull a fresh instance of the `signer` state.
-
-```ts
-// umiProvider.tsx snippet
-useEffect(() => {
-  if (!wallet.publicKey) return
-  // When wallet.publicKey changes, update the signer in umiStore with the new wallet adapter.
-  umiStore.updateSigner(wallet as unknown as WalletAdapter)
-}, [wallet.publicKey])
-```
-
-### Access Umi in .tsx
-
-```ts
-// Pulls the umi state from the umiStore using hook.
-const umi = useUmiStore().umi
-const signer = useUmiStore().signer
-
-umi.use(signerIdentity(signer))
-```
-
-### Access Umi in .ts
-
-```ts
-// Pulls umi state from the umiStore.
-const umi = useUmiStore.getState().umi
-const signer = useUmiStore.getState().signer
-
-umi.use(signerIdentity(signer))
-```
-
-## Helpers
-
-Stored in the `/lib/umi` folder there are some pre made helps you can use to make your development easier.
-
-Umi is split up into several components which can be called in different scenarios.
-
-#### sendAndConfirmWithWalletAdapter()
-
-Passing a transaction into `sendAndConfirmWithWalletAdapter()` will send the transaction while pulling the latest walletAdapter state from the zustand `umiStore` and will return the signature as a `string`. This can be accessed in both `.ts` and `.tsx` files.
-
-The function also provides and locks in the commitment level across `blockhash`, `send`, and `confirm` if provided. By default `confirmed` is used.
-
-We also have a `skipPreflight` flag that can be enabled.
-
-If using priority fees it would best to set them here so they can globally be used by the send function or to remove them entirely if you do not wish to use them.
-
-```ts
-import useUmiStore from '@/store/useUmiStore'
-import { setComputeUnitPrice } from '@metaplex-foundation/mpl-toolbox'
-import { TransactionBuilder, signerIdentity } from '@metaplex-foundation/umi'
-import { base58 } from '@metaplex-foundation/umi/serializers'
-
-const sendAndConfirmWalletAdapter = async (
-  tx: TransactionBuilder,
-  settings?: {
-    commitment?: 'processed' | 'confirmed' | 'finalized'
-    skipPreflight?: boolean
-  }
-) => {
-  const umi = useUmiStore.getState().umi
-  const currentSigner = useUmiStore.getState().signer
-  console.log('currentSigner', currentSigner)
-  umi.use(signerIdentity(currentSigner!))
-
-  const blockhash = await umi.rpc.getLatestBlockhash({
-    commitment: settings?.commitment || 'confirmed',
-  })
-
-  const transactions = tx
-    // Set the priority fee for your transaction. Can be removed if unneeded.
-    .add(setComputeUnitPrice(umi, { microLamports: BigInt(100000) }))
-    .setBlockhash(blockhash)
-
-  const signedTx = await transactions.buildAndSign(umi)
-
-  const signature = await umi.rpc
-    .sendTransaction(signedTx, {
-      preflightCommitment: settings?.commitment || 'confirmed',
-      commitment: settings?.commitment || 'confirmed',
-      skipPreflight: settings?.skipPreflight || false,
-    })
-    .catch((err) => {
-      throw new Error(`Transaction failed: ${err}`)
-    })
-
-  const confirmation = await umi.rpc.confirmTransaction(signature, {
-    strategy: { type: 'blockhash', ...blockhash },
-    commitment: settings?.commitment || 'confirmed',
-  })
-  return {
-    signature: base58.deserialize(signature),
-    confirmation,
-  }
-}
-
-export default sendAndConfirmWalletAdapter
-```
-
-#### umiWithCurrentWalletAdapter()
-
-This fetches the current umi state with the current walletAdapter state from the `umiStore`. This is used to create transactions or perform operations with umi that requires the current wallet adapter user.
-
-Can be used in both `.ts` and `.tsx` files
-
-```ts
-import useUmiStore from '@/store/useUmiStore'
-import { signerIdentity } from '@metaplex-foundation/umi'
-
-const umiWithCurrentWalletAdapter = () => {
-  // Because Zustand is used to store the Umi instance, the Umi instance can be accessed from the store
-  // in both hook and non-hook format. This is an example of a non-hook format that can be used in a ts file
-  // instead of a React component file.
-
-  const umi = useUmiStore.getState().umi
-  const currentWallet = useUmiStore.getState().signer
-  if (!currentWallet) throw new Error('No wallet selected')
-  return umi.use(signerIdentity(currentWallet))
-}
-export default umiWithCurrentWalletAdapter
-```
-
-#### umiWithSigner()
-
-`umiWithSigner()` allows you to pass in a signer element (`generateSigner()`, `createNoopSigner()`) and use it with the umi instance stored in the `umiStore` state.
-
-```ts
-import useUmiStore from '@/store/useUmiStore'
-import { Signer, signerIdentity } from '@metaplex-foundation/umi'
-
-const umiWithSigner = (signer: Signer) => {
-  const umi = useUmiStore.getState().umi
-  if (!signer) throw new Error('No Signer selected')
-  return umi.use(signerIdentity(signer))
-}
-
-export default umiWithSigner
-```
-
-#### Example Transaction Using Helpers
-
-Within the `/lib` folder you will find a `transferSol` example transaction that utilizes both the fetching of the umi state using `umiWithCurrentWalletAdapter()` and the sending of the generated transaction using `sendAndConfirmWithWalletAdapter()`.
-
-By pulling state from the umi store with `umiWithCurrentWalletAdapter()` if any of our transaction args require the `signer` type this will be automatically pulled from the umi instance which is generated with walletAdapter. In this case the `from` account is determined by the current signer connected to umi (walletAdapter) and auto inferred in the transaction for us.
-
-By then sending transaction with `sendAndConfirmWithWalletAdapter` the signing process will use the walletAdapter and ask the current user to signer the transaction. The transaction will be sent to the chain.
-
-```ts
-// Example of a function that transfers SOL from one account to another pulling umi
-// from the useUmiStore in a ts file which is not a React component.
-
-import { transferSol } from '@metaplex-foundation/mpl-toolbox'
-import umiWithCurrentWalletAdapter from './umi/umiWithCurrentWalletAdapter'
-import { publicKey, sol } from '@metaplex-foundation/umi'
-import sendAndConfirmWalletAdapter from './umi/sendAndConfirmWithWalletAdapter'
-
-// This function transfers SOL from the current wallet to a destination account and is callable
-// from any tsx/ts or component file in the project because of the zustand global store setup.
-
-const transferSolToDestination = async ({
-  destination,
-  amount,
-}: {
-  destination: string
-  amount: number
-}) => {
-  // Import Umi from `umiWithCurrentWalletAdapter`.
-  const umi = umiWithCurrentWalletAdapter()
-
-  // Create a transactionBuilder using the `transferSol` function from the mpl-toolbox.
-  // Umi by default will use the current signer (walletAdapter) to also set the `from` account.
-  const tx = transferSol(umi, {
-    destination: publicKey(destination),
-    amount: sol(amount),
-  })
-
-  // Use the sendAndConfirmWithWalletAdapter method to send the transaction.
-  // We do not need to pass the umi stance or wallet adapter as an argument because a
-  // fresh instance is fetched from the `umiStore` in the `sendAndConfirmWithWalletAdapter` function.
-  const res = await sendAndConfirmWalletAdapter(tx)
-}
-
-export default transferSolToDestination
-```
-
-## Component Library
-
-This template is setup to work with the Shadcn reusable components from [https://ui.shadcn.com/](https://ui.shadcn.com/).
-
-Shadcn is preinstalled so you only need to install the required components you wish to use from the documentation [https://ui.shadcn.com/docs/](https://ui.shadcn.com/docs/)
-
-## Theming
-
-Theming is handled by Shadcn and Tailwind using `CSS Variables`. Documentation regarding theming can be found here [https://ui.shadcn.com/docs/theming](https://ui.shadcn.com/docs/theming) and on Tailwinds website [https://tailwindcss.com/docs/](https://tailwindcss.com/docs/)
+The template might use placeholder images for collection art or token icons. These can typically be found and replaced in the `src/assets/images/` directory (e.g., `collectionImage.jpg`, `token.jpg`).

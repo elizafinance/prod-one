@@ -17,6 +17,8 @@ import { useRouter } from 'next/navigation';
 import { useConnection } from '@solana/wallet-adapter-react';
 import { checkRequiredEnvVars } from '@/utils/checkEnv';
 import DeFAILogo from '@/components/DeFAILogo';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 
 // Dynamically import WalletMultiButton
 const WalletMultiButtonDynamic = dynamic(
@@ -102,6 +104,9 @@ export default function HomePage() {
   // State for DeFAI balance check
   const [isCheckingDefaiBalance, setIsCheckingDefaiBalance] = useState(false);
   const [hasSufficientDefai, setHasSufficientDefai] = useState<boolean | null>(null); // null = not checked, false = insufficient, true = sufficient
+
+  // State for Welcome Modal
+  const [showWelcomeModal, setShowWelcomeModal] = useState(false);
 
   // Check required environment variables on component mount
   useEffect(() => {
@@ -239,7 +244,7 @@ export default function HomePage() {
           walletAddress: connectedWalletAddress, xUserId: xUserId, userDbId: userDbId, referrerCodeFromQuery: initialReferrer 
         }),
       });
-      const data: UserData & { message?: string, error?: string } = await response.json();
+      const data: UserData & { message?: string, error?: string, isNewUser?: boolean } = await response.json();
       if (response.ok) {
         toast.success(data.message || "Rewards activated!");
         setUserData(data);
@@ -248,6 +253,14 @@ export default function HomePage() {
         if (data.points > 0 || (data.points === 0 && data.message && data.message.includes("created"))) {
             toast.info(`Your current points: ${data.points?.toLocaleString() || 0}`);
         }
+
+        // ---> Check if it's a first-time activation
+        const isFirstTimeActivation = data.isNewUser || (data.message && data.message.toLowerCase().includes("created"));
+        if (isFirstTimeActivation) {
+          console.log("[HomePage] First time activation detected, showing welcome modal.");
+          setShowWelcomeModal(true);
+        }
+
         // After successfully activating rewards, fetch squad data AND pending invites
         if (connectedWalletAddress) {
           fetchMySquadData(connectedWalletAddress);
@@ -562,6 +575,197 @@ export default function HomePage() {
               </Link>
             </div>
           )}
+
+          {/* Rewards Section - Renders ONLY if balance check passes */}
+          {showPointsSection && userData && (
+            <div className="w-full max-w-lg mt-2 flex flex-col items-center">
+              <p className="text-center text-sm text-gray-600 mb-1">Wallet: <span className="font-mono">{wallet.publicKey!.toBase58().substring(0,6)}...{wallet.publicKey!.toBase58().substring(wallet.publicKey!.toBase58().length - 4)}</span></p>
+              {userData.points !== null && (
+                <div className="my-4 text-center"> {/* Wrapper for label and number */}
+                  <p className="text-lg text-gray-600 mb-1">DeFAI Points</p>
+                  <p className="text-5xl font-extrabold animate-pulse mb-2 font-spacegrotesk text-transparent bg-clip-text bg-gradient-to-r from-purple-500 via-pink-500 to-orange-500">
+                    {userData.points.toLocaleString()}
+                  </p>
+                </div>
+              )}
+              {typeof userData.airdropAmount === 'number' && (
+                 <div className="my-4 text-center"> {/* Wrapper for label and number */}
+                    <p className="text-lg text-gray-600 mb-1">$AIR Airdrop for this Wallet</p>
+                    <p className="text-4xl font-bold animate-pulse text-transparent bg-clip-text bg-gradient-to-r from-green-400 via-teal-500 to-cyan-500">
+                        {userData.airdropAmount.toLocaleString()} $AIR
+                    </p>
+                 </div>
+              )}
+              
+              {userData.referralCode && (
+                <div className="my-4 p-4 bg-gray-100 rounded-lg text-center w-full">
+                  <div className="flex justify-center items-center mb-2">
+                    <p className="text-md font-semibold text-gray-800">Your Referral Link (Share & Earn!):</p>
+                    {userData.activeReferralBoosts && userData.activeReferralBoosts.length > 0 && (
+                      <span className="ml-2 px-2 py-0.5 text-xs font-bold text-black bg-yellow-400 rounded-full animate-pulse">
+                        BOOST ACTIVE!
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center justify-center bg-gray-200 p-2 rounded">
+                    <input type="text" readOnly value={`https://squad.defairewards.net/?ref=${userData.referralCode}`} className="text-gray-700 text-sm break-all bg-transparent outline-none flex-grow p-1" />
+                    <button onClick={() => handleCopyToClipboard(`https://squad.defairewards.net/?ref=${userData.referralCode}`)} className="ml-2 py-1 px-2 text-xs bg-[#2563EB] text-white rounded hover:bg-blue-700 transition-colors">
+                      Copy
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Display Active Referral Boosts */}
+              {userData.activeReferralBoosts && userData.activeReferralBoosts.length > 0 && (
+                <div className="w-full max-w-md p-5 bg-gradient-to-br from-indigo-50 to-purple-50 border border-purple-200 rounded-xl shadow-lg mt-6 mb-4">
+                  <h3 className="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600 mb-3 text-center">
+                    🚀 Active Referral Boosts!
+                  </h3>
+                  <ul className="space-y-3">
+                    {userData.activeReferralBoosts.map(boost => (
+                      <li key={boost.boostId} className="p-4 bg-white border border-gray-200 rounded-lg shadow-sm">
+                        <p className="font-semibold text-indigo-700">{boost.description}</p>
+                        <p className="text-sm text-gray-600 mt-1">Remaining Uses: <span className="font-medium text-purple-700">{boost.remainingUses}</span></p>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Display Referrals Made Count */}
+              {typeof userData.referralsMadeCount === 'number' && userData.referralsMadeCount > 0 && (
+                <div className="my-3 text-center">
+                  <p className="text-md text-gray-700">You have successfully referred <span className="font-bold text-green-500">{userData.referralsMadeCount}</span> user(s)! Keep it up!</p>
+                </div>
+              )}
+
+              {/* My Squad Section - replaced with navigation button */}
+              <div className="w-full max-w-md p-5 bg-indigo-50 border border-indigo-200 rounded-xl shadow-md mt-8 mb-4">
+                <h3 className="text-xl font-bold text-indigo-700 mb-3 text-center">🛡️ My Squad</h3>
+                <Link href="/squads/my" passHref>
+                  <button className="mt-3 py-2 px-4 bg-indigo-500 hover:bg-indigo-600 text-white text-sm font-semibold rounded-lg transition-colors w-full shadow hover:shadow-md">
+                    Go to My Squad Page
+                  </button>
+                </Link>
+              </div>
+
+              {/* Link to Public Profile */}
+              {userData.walletAddress && (
+                <div className="w-full max-w-md mt-6 mb-4 text-center">
+                  <Link href={`/profile/${userData.walletAddress}`} passHref>
+                    <button 
+                      className="py-2.5 px-6 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-lg shadow-md hover:shadow-lg transform hover:scale-105 transition-all duration-150 ease-in-out"
+                    >
+                      View My Public Showcase
+                    </button>
+                  </Link>
+                </div>
+              )}
+
+              {/* Pending Squad Invitations Section */}
+              {!mySquadData && pendingInvites.length > 0 && (
+                <div className="w-full max-w-md p-5 bg-teal-50 border border-teal-200 rounded-xl shadow-md mt-8 mb-4">
+                  <h3 className="text-xl font-bold text-teal-700 mb-3 text-center">💌 Squad Invitations</h3>
+                  {isFetchingInvites && <p className="text-center text-teal-600">Loading invitations...</p>}
+                  <ul className="space-y-3">
+                    {pendingInvites.map(invite => (
+                      <li key={invite.invitationId} className="p-3 bg-white/80 rounded-lg shadow">
+                        <div className="flex items-center gap-2 mb-2">
+                          <UserAvatar 
+                            profileImageUrl={invite.inviterInfo?.xProfileImageUrl} 
+                            username={invite.inviterInfo?.xUsername}
+                            size="sm"
+                          />
+                          <div>
+                            <p className="text-sm text-gray-700">
+                              You have been invited to join <strong className="text-teal-600">{invite.squadName}</strong>
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              Invited by: {invite.inviterInfo?.xUsername ? 
+                                `@${invite.inviterInfo.xUsername}` : 
+                                `${invite.invitedByUserWalletAddress.substring(0,6)}...`}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex gap-2 mt-2">
+                          <button 
+                            onClick={() => handleInviteAction(invite.invitationId, 'accept')}
+                            disabled={isProcessingInvite === invite.invitationId}
+                            className="flex-1 py-1.5 px-3 text-sm bg-green-500 hover:bg-green-600 text-white font-semibold rounded-md disabled:opacity-70"
+                          >
+                            {isProcessingInvite === invite.invitationId ? 'Processing...' : 'Accept'} 
+                          </button>
+                          <button 
+                            onClick={() => handleInviteAction(invite.invitationId, 'decline')}
+                            disabled={isProcessingInvite === invite.invitationId}
+                            className="flex-1 py-1.5 px-3 text-sm bg-red-500 hover:bg-red-600 text-white font-semibold rounded-md disabled:opacity-70"
+                          >
+                            {isProcessingInvite === invite.invitationId ? 'Processing...' : 'Decline'}
+                          </button>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div className="mt-2 mb-4 flex flex-wrap justify-center gap-3 sm:gap-4 w-full">
+                <Link href="https://defairewards.net" target="_blank" rel="noopener noreferrer" className="flex-shrink-0">
+                  <button className="w-full sm:w-auto text-white font-bold py-3 px-6 rounded-full transition-all duration-150 ease-in-out hover:scale-105 hover:shadow-lg hover:shadow-blue-500/50 whitespace-nowrap" style={{ backgroundColor: '#2563EB' }}><HomeIcon /> Home</button>
+                </Link>
+                <Link href="/leaderboard" passHref className="flex-shrink-0">
+                  <button className="w-full sm:w-auto text-white font-bold py-3 px-6 rounded-full transition-all duration-150 ease-in-out hover:scale-105 hover:shadow-lg hover:shadow-blue-500/50 whitespace-nowrap" style={{ backgroundColor: '#2563EB' }}><LeaderboardIcon /> Leaderboard</button>
+                </Link>
+                {typeof userData.airdropAmount === 'number' && userData.airdropAmount > 0 && (
+                  <button onClick={handleShareToX} className="w-full sm:w-auto text-white font-bold py-3 px-6 rounded-full transition-all duration-150 ease-in-out hover:scale-105 hover:shadow-lg hover:shadow-blue-500/50 whitespace-nowrap" style={{ backgroundColor: '#2563EB' }} ><ShareIcon /> Flex my $AIR on X</button>
+                )}
+                <button onClick={() => { window.open("https://x.com/defairewards", "_blank"); logSocialAction('followed_on_x');}} className="w-full sm:w-auto text-white font-bold py-3 px-6 rounded-full transition-all duration-150 ease-in-out hover:scale-105 hover:shadow-lg hover:shadow-blue-500/50 whitespace-nowrap" style={{ backgroundColor: '#2563EB' }}><XIcon /> Follow on X</button>
+                <button onClick={() => { window.open("https://t.me/defairewards", "_blank"); logSocialAction('joined_telegram');}} className="w-full sm:w-auto text-white font-bold py-3 px-6 rounded-full transition-all duration-150 ease-in-out hover:scale-105 hover:shadow-lg hover:shadow-blue-500/50 whitespace-nowrap" style={{ backgroundColor: '#2563EB' }}><TelegramIcon /> Join Telegram</button>
+              </div>
+
+              {/* Points Earning Table */}
+              {userData.points !== null && (
+                <div className="mt-2 mb-8 w-full">
+                  <h3 className="text-xl font-spacegrotesk font-semibold text-black mb-3 text-center">How to Earn More Points</h3>
+                  <div className="bg-gray-100 p-3 sm:p-4 rounded-lg shadow">
+                    <ul className="space-y-1.5">
+                      {pointActivities.map((activity) => {
+                        const isCompleted = userData.completedActions.includes(activity.id);
+                        // Special check for profile share boost: consider it "done" if they have an active frenzy boost,
+                        // or if they've completed the 'shared_milestone_profile_on_x' action.
+                        let isEffectivelyCompleted = isCompleted;
+                        if (activity.id === 'shared_milestone_profile_on_x') {
+                          const hasFrenzyBoost = userData.activeReferralBoosts?.some(b => b.description.includes('Referral Frenzy'));
+                          isEffectivelyCompleted = isCompleted || !!hasFrenzyBoost;
+                        }
+
+                        return (
+                          <li key={activity.id} className="flex justify-between items-center p-2 border-b border-gray-200 last:border-b-0">
+                            <span className={`text-sm ${isEffectivelyCompleted ? 'text-gray-400 line-through' : 'text-gray-700'}`}>
+                              {isEffectivelyCompleted ? '✅ ' : '✨ '}
+                              {activity.action}
+                            </span>
+                            <span className={`font-semibold text-sm ${isEffectivelyCompleted ? 'text-gray-400 line-through' : (typeof activity.points === 'number' ? 'text-purple-600' : 'text-yellow-500')}`}>
+                              {typeof activity.points === 'number' ? `${activity.points} pts` : activity.points}
+                            </span>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+          
+          {/* Loading indicator for balance check */}
+          {authStatus === "authenticated" && wallet.connected && isCheckingDefaiBalance && (
+             <div className="my-4 text-center text-gray-600">
+                <p>Verifying DeFAI token balance...</p>
+             </div>
+          )}
         </div>
       </div>
       
@@ -580,6 +784,39 @@ export default function HomePage() {
           className="w-[400px] h-auto"
         />
       </div>
+
+      {/* Welcome Modal */}
+      <Dialog open={showWelcomeModal} onOpenChange={setShowWelcomeModal}>
+        <DialogContent className="sm:max-w-[525px] bg-gradient-to-br from-purple-100 via-pink-100 to-orange-100 border-purple-300 shadow-xl">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold font-spacegrotesk text-center text-transparent bg-clip-text bg-gradient-to-r from-purple-600 via-pink-600 to-orange-600 animate-pulse">
+              Squad Goals! Welcome to defAIRewards!
+            </DialogTitle>
+            <DialogDescription className="text-center text-gray-700 pt-2">
+              You've successfully activated your account. Here's how to get started:
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-3 text-sm text-gray-800">
+            <p>✨ <span className="font-semibold">Earn Points:</span> Connect your wallet, follow us on X, join Telegram, and share your profile/airdrop results to earn DeFAI points.</p>
+            <p>🚀 <span className="font-semibold">Refer Friends:</span> Share your unique referral link! You earn points when your friends connect their wallet after logging in via your link.</p>
+            <p>🛡️ <span className="font-semibold">Join Squads:</span> Team up with others in Squads to boost your points potential and compete on the leaderboard.</p>
+            <p>💰 <span className="font-semibold">Check Airdrop:</span> Use the checker to see if your wallet is eligible for the $AIR token airdrop.</p>
+            <p>💎 <span className="font-semibold">Hold $DeFAI:</span> You need to hold at least {REQUIRED_DEFAI_AMOUNT} $DeFAI tokens in your connected wallet to earn points and use all features.</p>
+          </div>
+          <DialogFooter>
+            <Button 
+              onClick={() => {
+                 setShowWelcomeModal(false);
+                 // TODO: Trigger tutorial start here if desired
+                 console.log("[WelcomeModal] Closed. Tutorial trigger point.");
+              }}
+              className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-bold py-2 px-4 rounded-lg shadow-md hover:shadow-lg transition-all"
+            >
+              Let's Go!
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </main>
   );
 }

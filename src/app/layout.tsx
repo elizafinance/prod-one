@@ -58,8 +58,10 @@ export default function RootLayout({
             <UmiProvider>
               <ThemeProviderWrapper>
                 <AppHeader />
-                <main className="pt-16">
-                  {children}
+                <main className="flex-grow bg-background">
+                  <div className="pt-16 bg-white">
+                    {children}
+                  </div>
                 </main>
                 <ShadcnToaster />
                 <SonnerToaster richColors position="bottom-right" />

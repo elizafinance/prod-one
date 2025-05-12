@@ -6,6 +6,7 @@ import Link from 'next/link';
 interface LeaderboardEntry {
   walletAddress: string;
   points: number;
+  highestAirdropTierLabel?: string;
 }
 
 export default function LeaderboardPage() {
@@ -63,6 +64,7 @@ export default function LeaderboardPage() {
                 <tr>
                   <th className="text-left py-3 px-4 sm:px-6 font-semibold">Rank</th>
                   <th className="text-left py-3 px-4 sm:px-6 font-semibold">Wallet Address</th>
+                  <th className="text-left py-3 px-4 sm:px-6 font-semibold">Tier</th>
                   <th className="text-right py-3 px-4 sm:px-6 font-semibold">Points</th>
                 </tr>
               </thead>
@@ -71,6 +73,15 @@ export default function LeaderboardPage() {
                   <tr key={entry.walletAddress + index} className={`${index % 2 === 0 ? 'bg-gray-50' : 'bg-white'} hover:bg-gray-100 transition-colors`}>
                     <td className="text-left py-3 px-4 sm:px-6">{index + 1}</td>
                     <td className="text-left py-3 px-4 sm:px-6 font-mono text-sm">{entry.walletAddress}</td>
+                    <td className="text-left py-3 px-4 sm:px-6">
+                      {entry.highestAirdropTierLabel ? (
+                        <span className="px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-700">
+                          {entry.highestAirdropTierLabel}
+                        </span>
+                      ) : (
+                        <span className="text-gray-400">-</span>
+                      )}
+                    </td>
                     <td className="text-right py-3 px-4 sm:px-6 font-semibold">{entry.points.toLocaleString()}</td>
                   </tr>
                 ))}

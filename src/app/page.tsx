@@ -11,6 +11,10 @@ import { useSession, signIn, signOut } from "next-auth/react"; // NextAuth hooks
 import { ReferralBoost, SquadDocument, SquadInvitationDocument } from '@/lib/mongodb'; // Import the ReferralBoost interface and SquadDocument
 import { BellIcon } from '@heroicons/react/24/outline'; // Example icon, install @heroicons/react
 import UserAvatar from "@/components/UserAvatar";
+import { PublicKey, Connection } from '@solana/web3.js';
+import { getAssociatedTokenAddress } from '@solana/spl-token';
+import { useRouter } from 'next/navigation';
+import { useConnection } from '@solana/wallet-adapter-react';
 
 // Dynamically import WalletMultiButton
 const WalletMultiButtonDynamic = dynamic(
@@ -68,9 +72,13 @@ interface EnrichedSquadInvitation extends SquadInvitationDocument {
   }
 }
 
+const REQUIRED_DEFAI_AMOUNT = 100; // Require 100 whole tokens
+
 export default function HomePage() {
   const { data: session, status: authStatus } = useSession();
   const wallet = useWallet();
+  const { connection } = useConnection(); // Correct usage
+  const router = useRouter();
 
   // State for airdrop check (now independent of wallet connection initially)
   const [typedAddress, setTypedAddress] = useState('');
@@ -89,10 +97,20 @@ export default function HomePage() {
   const [isFetchingInvites, setIsFetchingInvites] = useState(false);
   const [isProcessingInvite, setIsProcessingInvite] = useState<string | null>(null); // invitationId being processed
 
+  // State for DeFAI balance check
+  const [isCheckingDefaiBalance, setIsCheckingDefaiBalance] = useState(false);
+  const [hasSufficientDefai, setHasSufficientDefai] = useState<boolean | null>(null); // null = not checked, false = insufficient, true = sufficient
+
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const refCode = urlParams.get('ref');
-    if (refCode) setInitialReferrer(refCode);
+    if (refCode) {
+       localStorage.setItem('referralCode', refCode); // Persist ref code
+       setInitialReferrer(refCode);
+    } else {
+       const savedRefCode = localStorage.getItem('referralCode');
+       if (savedRefCode) setInitialReferrer(savedRefCode);
+    }
   }, []);
 
   const fetchMySquadData = useCallback(async (userWalletAddress: string) => {
@@ -146,6 +164,45 @@ export default function HomePage() {
     setIsFetchingInvites(false);
   }, [wallet.connected, session]);
 
+  const checkDefaiBalance = useCallback(async (userPublicKey: PublicKey, solanaConnection: Connection) => {
+    const defaiMintAddress = process.env.NEXT_PUBLIC_DEFAI_CONTRACT_ADDRESS;
+    if (!defaiMintAddress) {
+      console.error("DeFAI mint address environment variable not set.");
+      toast.error("Configuration error: Cannot verify DeFAI balance.");
+      setHasSufficientDefai(false);
+      return;
+    }
+
+    setIsCheckingDefaiBalance(true);
+    try {
+      const mintPublicKey = new PublicKey(defaiMintAddress);
+      const associatedTokenAccount = await getAssociatedTokenAddress(mintPublicKey, userPublicKey);
+      console.log(`Checking DeFAI balance for ATA: ${associatedTokenAccount.toBase58()}`);
+      const balanceResponse = await solanaConnection.getTokenAccountBalance(associatedTokenAccount, 'confirmed');
+      
+      if (balanceResponse.value.uiAmount === null) {
+         console.log('Token account not found or has null balance.');
+         setHasSufficientDefai(false);
+      } else {
+         const balance = balanceResponse.value.uiAmount;
+         console.log(`DeFAI balance: ${balance}`);
+         setHasSufficientDefai(balance >= REQUIRED_DEFAI_AMOUNT);
+      }
+
+    } catch (error: any) {
+      if (error.message?.includes('Account does not exist') || error.message?.includes('could not find account')) {
+         console.log('DeFAI token account not found for user, balance is 0.');
+         setHasSufficientDefai(false);
+      } else {
+         console.error("Error checking DeFAI balance:", error);
+         toast.error("Could not verify DeFAI balance. Please try again later.");
+         setHasSufficientDefai(null);
+      }
+    } finally {
+      setIsCheckingDefaiBalance(false);
+    }
+  }, []);
+
   const activateRewardsAndFetchData = useCallback(async (connectedWalletAddress: string, xUserId: string, userDbId: string | undefined) => {
     setIsActivatingRewards(true);
     toast.info("Activating your DeFAI Rewards account...");
@@ -171,6 +228,10 @@ export default function HomePage() {
           fetchMySquadData(connectedWalletAddress);
           fetchPendingInvites(); // Fetch invites after activating rewards
         }
+        // ON SUCCESSFUL ACTIVATION/FETCH: Trigger balance check
+        if (wallet.publicKey) { // Ensure wallet.publicKey is available
+          checkDefaiBalance(wallet.publicKey, connection);
+        }
       } else {
         toast.error(data.error || "Failed to activate rewards.");
         setIsRewardsActive(false); setUserData(null); setMySquadData(null); setPendingInvites([]);
@@ -180,18 +241,17 @@ export default function HomePage() {
       setIsRewardsActive(false); setUserData(null); setMySquadData(null); setPendingInvites([]);
     }
     setIsActivatingRewards(false);
-  }, [initialReferrer, fetchMySquadData, fetchPendingInvites]);
+  }, [initialReferrer, fetchMySquadData, fetchPendingInvites, connection, wallet.publicKey, checkDefaiBalance]);
 
   useEffect(() => {
     if (authStatus === "authenticated" && session?.user?.xId && wallet.connected && wallet.publicKey && !isRewardsActive && !isActivatingRewards) {
       const dbIdForApi = session.user.dbId === null ? undefined : session.user.dbId;
       activateRewardsAndFetchData(wallet.publicKey.toBase58(), session.user.xId, dbIdForApi);
-    } else if (authStatus === "authenticated" && wallet.connected && wallet.publicKey && isRewardsActive && userData && !mySquadData && !isFetchingSquad && !userCheckedNoSquad) {
-      // Only fetch squad data if we haven't already determined the user has no squad
-      console.log("[HomePage] Rewards active, attempting to fetch squad data because mySquadData is null/empty.");
-      fetchMySquadData(wallet.publicKey.toBase58());
-    }
-    if (authStatus === "authenticated" && wallet.connected && isRewardsActive && !isFetchingInvites) {
+    } else if (authStatus === "authenticated" && wallet.connected && wallet.publicKey && isRewardsActive && hasSufficientDefai === null && !isCheckingDefaiBalance) {
+      // New logic: If already authenticated/connected/rewards active, check balance if not already done/checked
+      console.log("Rewards active, checking DeFAI balance...");
+      checkDefaiBalance(wallet.publicKey, connection);
+    } else if (authStatus === "authenticated" && wallet.connected && isRewardsActive && !isFetchingInvites) {
         // Fetch invites if rewards are active and not already fetching them (e.g., on page load/refresh if already activated)
         fetchPendingInvites();
     }
@@ -201,7 +261,16 @@ export default function HomePage() {
       setMySquadData(null);
       setUserCheckedNoSquad(false);
     }
-  }, [authStatus, session, wallet.connected, wallet.publicKey, isRewardsActive, isActivatingRewards, activateRewardsAndFetchData, userData, mySquadData, fetchMySquadData, isFetchingSquad, pendingInvites, fetchPendingInvites, userCheckedNoSquad]);
+  }, [
+      authStatus, session, wallet.connected, wallet.publicKey, isRewardsActive, 
+      isActivatingRewards, activateRewardsAndFetchData, userData, mySquadData, 
+      fetchMySquadData, isFetchingSquad, pendingInvites, fetchPendingInvites, 
+      userCheckedNoSquad, 
+      hasSufficientDefai, // Added balance state
+      isCheckingDefaiBalance, // Added balance check state
+      connection, // Added connection
+      checkDefaiBalance // Added check function
+    ]);
   
   // Reset the userCheckedNoSquad flag when wallet changes
   useEffect(() => {
@@ -340,6 +409,11 @@ export default function HomePage() {
     return <main className="flex flex-col items-center justify-center min-h-screen p-8 bg-white text-gray-900"><p className="font-orbitron text-xl">Loading Session...</p></main>;
   }
 
+  // Determine if points/actions section should be shown
+  const showPointsSection = authStatus === "authenticated" && wallet.connected && isRewardsActive && userData && hasSufficientDefai === true;
+  // Determine if the "Insufficient Balance" message should be shown
+  const showInsufficientBalanceMessage = authStatus === "authenticated" && wallet.connected && isRewardsActive && userData && hasSufficientDefai === false;
+
   return (
     <main className="flex flex-col items-center min-h-screen p-4 sm:p-8 bg-white text-gray-900 font-sans">
       <h1 className="font-spacegrotesk text-4xl sm:text-5xl md:text-6xl font-bold text-black text-center mt-8">
@@ -409,8 +483,23 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* Rewards Section - shows only if X is logged in AND wallet is connected AND rewards are activated AND userData is available */}
-      {authStatus === "authenticated" && wallet.connected && isRewardsActive && userData && (
+      {/* Insufficient DeFAI Balance Message */}
+      {showInsufficientBalanceMessage && (
+        <div className="w-full max-w-lg my-6 p-5 bg-orange-50 border border-orange-200 rounded-lg text-center shadow-md">
+          <h3 className="text-xl font-semibold text-orange-700 mb-3">Action Required: Hold DeFAI Tokens</h3>
+          <p className="text-gray-700 mb-4">
+            To participate in the DeFAI Rewards points system and access all features, you need to hold at least {REQUIRED_DEFAI_AMOUNT} $DeFAI tokens in your connected wallet ({wallet.publicKey?.toBase58().substring(0,6)}...).
+          </p>
+          <Link href="https://dexscreener.com/solana/3jiwexdwzxjva2yd8aherfsrn7a97qbwmdz8i4q6mh7y" target="_blank" rel="noopener noreferrer" className="inline-block">
+            <button className="text-white font-bold py-3 px-6 rounded-full transition-all duration-150 ease-in-out hover:scale-105 hover:shadow-lg hover:shadow-blue-500/50 whitespace-nowrap bg-[#2563EB]">
+              <ChartIcon /> Buy DeFAI on DexScreener
+            </button>
+          </Link>
+        </div>
+      )}
+
+      {/* Rewards Section - Renders ONLY if balance check passes */}
+      {showPointsSection && (
         <div className="w-full max-w-lg mt-2 flex flex-col items-center">
            <p className="text-center text-sm text-gray-600 mb-1">Wallet: <span className="font-mono">{wallet.publicKey!.toBase58().substring(0,6)}...{wallet.publicKey!.toBase58().substring(wallet.publicKey!.toBase58().length - 4)}</span></p>
           {userData.points !== null && (
@@ -548,9 +637,6 @@ export default function HomePage() {
             <Link href="https://defairewards.net" target="_blank" rel="noopener noreferrer" className="flex-shrink-0">
               <button className="w-full sm:w-auto text-white font-bold py-3 px-6 rounded-full transition-all duration-150 ease-in-out hover:scale-105 hover:shadow-lg hover:shadow-blue-500/50 whitespace-nowrap" style={{ backgroundColor: '#2563EB' }}><HomeIcon /> Home</button>
             </Link>
-            <Link href="https://dexscreener.com/solana/3jiwexdwzxjva2yd8aherfsrn7a97qbwmdz8i4q6mh7y" target="_blank" rel="noopener noreferrer" className="flex-shrink-0">
-              <button className="w-full sm:w-auto text-white font-bold py-3 px-6 rounded-full transition-all duration-150 ease-in-out hover:scale-105 hover:shadow-lg hover:shadow-blue-500/50 whitespace-nowrap" style={{ backgroundColor: '#2563EB' }}><ChartIcon /> Buy DeFAI</button>
-            </Link>
             <Link href="/leaderboard" passHref className="flex-shrink-0">
               <button className="w-full sm:w-auto text-white font-bold py-3 px-6 rounded-full transition-all duration-150 ease-in-out hover:scale-105 hover:shadow-lg hover:shadow-blue-500/50 whitespace-nowrap" style={{ backgroundColor: '#2563EB' }}><LeaderboardIcon /> Leaderboard</button>
             </Link>
@@ -594,6 +680,13 @@ export default function HomePage() {
             </div>
           )}
         </div>
+      )}
+      
+      {/* Loading indicator for balance check */}
+      {authStatus === "authenticated" && wallet.connected && isCheckingDefaiBalance && (
+         <div className="my-4 text-center text-gray-600">
+            <p>Verifying DeFAI token balance...</p>
+         </div>
       )}
       
       <div className="mt-auto w-full flex justify-center pt-8">

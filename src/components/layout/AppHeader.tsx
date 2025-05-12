@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import SiteLogo from "@/assets/logos/favicon.ico"; // Adjust path if needed
 import { useSession, signIn, signOut } from "next-auth/react";
@@ -21,6 +21,7 @@ const XIcon = () => <span>✖️</span>; // Placeholder, replace with actual Ico
 export default function AppHeader() {
   const { data: session, status: authStatus } = useSession();
   const { connected, publicKey } = useWallet();
+  const [notificationsInitialized, setNotificationsInitialized] = useState(false);
 
   const isNotificationsPanelOpen = useUiStateStore((state) => state.isNotificationsPanelOpen);
   const unreadNotificationCount = useUiStateStore((state) => state.unreadNotificationCount);
@@ -31,12 +32,36 @@ export default function AppHeader() {
   useEffect(() => {
     // Fetch initial unread count when user is authenticated and wallet connected
     if (authStatus === "authenticated" && connected && publicKey) {
-      fetchInitialUnreadCount(publicKey.toBase58(), true);
+      console.log('[AppHeader] Initializing notifications for:', publicKey.toBase58());
+      try {
+        fetchInitialUnreadCount(publicKey.toBase58(), true)
+          .then(() => {
+            console.log('[AppHeader] Notifications initialized successfully');
+            setNotificationsInitialized(true);
+          })
+          .catch((error) => {
+            console.error('[AppHeader] Error initializing notifications:', error);
+            setNotificationsInitialized(false);
+          });
+      } catch (error) {
+        console.error('[AppHeader] Failed to initialize notifications:', error);
+      }
     } else {
       // Reset unread count if user logs out or disconnects wallet
+      console.log('[AppHeader] Resetting notifications - auth:', authStatus, 'connected:', connected);
       setUnreadNotificationCountInStore(0);
+      setNotificationsInitialized(false);
     }
   }, [authStatus, connected, publicKey, fetchInitialUnreadCount, setUnreadNotificationCountInStore]);
+
+  const handleOpenNotifications = () => {
+    if (!connected || authStatus !== "authenticated") {
+      // Show a prompt via console (you can expand this to a UI prompt) 
+      console.warn('[AppHeader] Cannot open notifications - user not authenticated or wallet not connected');
+      return;
+    }
+    toggleNotificationsPanel();
+  };
 
   return (
     <header className="w-full bg-white dark:bg-gray-900/80 backdrop-blur-md shadow-sm sticky top-0 z-30">
@@ -57,7 +82,7 @@ export default function AppHeader() {
           <div className="flex items-center space-x-3 sm:space-x-4">
             {authStatus === "authenticated" && connected && (
               <button 
-                onClick={toggleNotificationsPanel} 
+                onClick={handleOpenNotifications} 
                 className="relative p-2 rounded-full text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-100 dark:focus:ring-offset-gray-800 focus:ring-indigo-500 transition-colors"
                 aria-label="View notifications"
               >

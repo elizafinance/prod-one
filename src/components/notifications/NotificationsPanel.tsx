@@ -16,16 +16,23 @@ export default function NotificationsPanel({ isOpen, onClose, onUpdateUnreadCoun
   const [notifications, setNotifications] = useState<NotificationDocument[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showErrorDetails, setShowErrorDetails] = useState(false);
 
   const fetchNotifications = useCallback(async (markAsReadOnOpen = false) => {
     setIsLoading(true);
     setError(null);
+    console.log("[Notifications] Fetching notifications...");
     try {
       const response = await fetch('/api/notifications/my-notifications?limit=10'); // Fetch latest 10 initially
+      
       if (!response.ok) {
-        throw new Error('Failed to fetch notifications');
+        const errorData = await response.json().catch(() => ({ error: response.statusText }));
+        const errorMessage = errorData.error || `Failed to fetch notifications: ${response.status}`;
+        throw new Error(errorMessage);
       }
+      
       const data = await response.json();
+      console.log("[Notifications] Received:", data);
       setNotifications(data.notifications || []);
       onUpdateUnreadCount(data.unreadCount || 0);
 
@@ -36,8 +43,9 @@ export default function NotificationsPanel({ isOpen, onClose, onUpdateUnreadCoun
         }
       }
     } catch (err) {
+      console.error("[Notifications] Error:", err);
       setError((err as Error).message || 'Could not load notifications.');
-      console.error(err);
+      onUpdateUnreadCount(0); // Reset unread count on error
     }
     setIsLoading(false);
   }, [onUpdateUnreadCount]);
@@ -78,6 +86,10 @@ export default function NotificationsPanel({ isOpen, onClose, onUpdateUnreadCoun
     }
   };
 
+  const handleRetry = () => {
+    fetchNotifications();
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -98,20 +110,47 @@ export default function NotificationsPanel({ isOpen, onClose, onUpdateUnreadCoun
           <button onClick={onClose} className="text-gray-400 hover:text-white">&times;</button>
         </div>
 
-        {isLoading && <p className="p-4 text-center text-gray-400">Loading notifications...</p>}
-        {error && <p className="p-4 text-center text-red-400">Error: {error}</p>}
-        
-        {!isLoading && !error && notifications.length === 0 && (
-          <p className="p-4 text-center text-gray-400">You have no notifications yet.</p>
-        )}
+        <div className="overflow-y-auto flex-grow">
+          {isLoading && (
+            <div className="p-8 flex justify-center items-center">
+              <div className="animate-spin h-8 w-8 border-t-2 border-b-2 border-blue-500 rounded-full"></div>
+              <p className="ml-3 text-gray-400">Loading notifications...</p>
+            </div>
+          )}
+          
+          {error && (
+            <div className="p-4 text-center text-red-400 bg-red-900/20 m-4 rounded-lg">
+              <p className="font-semibold mb-2">Error</p>
+              <p className="text-sm mb-2">{error}</p>
+              <div className="flex justify-center space-x-3 mt-2">
+                <button onClick={handleRetry} className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded-md transition-colors">
+                  Retry
+                </button>
+                <button onClick={() => setShowErrorDetails(!showErrorDetails)} className="px-3 py-1.5 bg-gray-600 hover:bg-gray-700 text-white text-xs rounded-md transition-colors">
+                  {showErrorDetails ? 'Hide Details' : 'Show Details'}
+                </button>
+              </div>
+              {showErrorDetails && (
+                <p className="mt-2 text-xs text-left bg-black/30 p-2 rounded overflow-auto">
+                  If you are seeing authentication errors, try refreshing the page or reconnecting your wallet.
+                </p>
+              )}
+            </div>
+          )}
+          
+          {!isLoading && !error && notifications.length === 0 && (
+            <p className="p-8 text-center text-gray-400">You have no notifications yet.</p>
+          )}
 
-        {!isLoading && !error && notifications.length > 0 && (
-          <ul className="overflow-y-auto flex-grow">
-            {notifications.map(notif => (
-              <NotificationItem key={notif.notificationId} notification={notif} onMarkAsRead={handleMarkOneAsRead} />
-            ))}
-          </ul>
-        )}
+          {!isLoading && !error && notifications.length > 0 && (
+            <ul>
+              {notifications.map(notif => (
+                <NotificationItem key={notif.notificationId} notification={notif} onMarkAsRead={handleMarkOneAsRead} />
+              ))}
+            </ul>
+          )}
+        </div>
+        
         <div className="p-3 border-t border-gray-700 text-center">
             <Link href="/notifications" passHref>
                  <span onClick={onClose} className="text-sm text-blue-400 hover:underline cursor-pointer">View all notifications</span>

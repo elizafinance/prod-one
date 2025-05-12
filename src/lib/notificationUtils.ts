@@ -10,11 +10,17 @@ export async function createNotification(
   relatedSquadId?: string,
   relatedSquadName?: string,
   relatedUserWalletAddress?: string,
-  relatedUserXUsername?: string
+  relatedUserXUsername?: string,
+  relatedInvitationId?: string
 ): Promise<void> {
   const notificationsCollection = db.collection<NotificationDocument>('notifications');
+  
+  const notificationId = type === 'squad_invite_received' && relatedInvitationId 
+    ? relatedInvitationId 
+    : uuidv4();
+  
   const newNotification: NotificationDocument = {
-    notificationId: uuidv4(),
+    notificationId,
     recipientWalletAddress,
     type,
     message,
@@ -22,6 +28,7 @@ export async function createNotification(
     relatedSquadName,
     relatedUserWalletAddress,
     relatedUserXUsername,
+    relatedInvitationId,
     isRead: false,
     createdAt: new Date(),
   };

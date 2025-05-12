@@ -68,7 +68,8 @@ export async function POST(request: Request) {
       squadId,
       squad.name,
       invitingUserWalletAddress,
-      invitingUserXUsername
+      invitingUserXUsername,
+      invitationId
     );
 
     return NextResponse.json({ 

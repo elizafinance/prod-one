@@ -136,6 +136,7 @@ export interface NotificationDocument {
   relatedSquadName?: string; // For easier display without extra lookup
   relatedUserWalletAddress?: string; // e.g., who sent invite, who joined/left
   relatedUserXUsername?: string; // For easier display
+  relatedInvitationId?: string; // For squad invitations to store the invitation ID
   isRead: boolean;
   createdAt?: Date;
 } 

@@ -10,6 +10,7 @@ interface MarkReadRequestBody {
 export async function POST(request: Request) {
   const session = await getServerSession(authOptions);
   if (!session || !session.user || typeof session.user.walletAddress !== 'string') {
+    console.warn('[Notifications] User not authenticated when marking notifications as read');
     return NextResponse.json({ error: 'User not authenticated or wallet not available in session' }, { status: 401 });
   }
   const currentUserWalletAddress = session.user.walletAddress;
@@ -29,6 +30,8 @@ export async function POST(request: Request) {
       }
     }
 
+    console.log(`[Notifications] Marking as read: ${notificationIds.join(', ')} for ${currentUserWalletAddress}`);
+
     const { db } = await connectToDatabase();
     const notificationsCollection = db.collection<NotificationDocument>('notifications');
 
@@ -41,13 +44,15 @@ export async function POST(request: Request) {
       { $set: { isRead: true, updatedAt: new Date() } } // Add updatedAt for tracking
     );
 
+    console.log(`[Notifications] Marked ${result.modifiedCount} notifications as read`);
+
     return NextResponse.json({ 
       message: 'Notifications marked as read successfully.', 
       updatedCount: result.modifiedCount 
     });
 
   } catch (error) {
-    console.error("Error marking notifications as read:", error);
+    console.error("[Notifications] Error marking notifications as read:", error);
     if (error instanceof SyntaxError) { // Handle cases where request.json() fails
       return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
     }

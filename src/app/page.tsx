@@ -493,17 +493,26 @@ export default function HomePage() {
   return (
     <main className="flex flex-col items-center min-h-screen p-4 sm:p-8 bg-white text-gray-900 font-sans relative">
       {/* Main content moved up significantly */}
-      <div className="w-full max-w-3xl mx-auto pt-8 flex flex-col items-center">
-        {/* Heading with blue and black text */}
-        <h1 className="font-spacegrotesk text-5xl sm:text-6xl md:text-7xl font-bold text-center mb-2">
+      <div className="w-full max-w-3xl mx-auto pt-8 flex flex-col items-center relative">
+        {/* Illustration - moved here, positioned behind text */}
+        <div className="absolute top-[-40px] left-1/2 transform -translate-x-1/2 z-0 opacity-50 pointer-events-none">
+          <img 
+            src={Illustration.src} 
+            alt="Illustration" 
+            className="w-[400px] sm:w-[500px] h-auto"
+          />
+        </div>
+
+        {/* Heading with blue and black text - ensure they are above illustration */}
+        <h1 className="relative z-10 font-spacegrotesk text-5xl sm:text-6xl md:text-7xl font-bold text-center mb-2 mt-40"> {/* Added margin top */} 
           <span className="text-[#2B96F1]">Banking AI Agents</span>
         </h1>
-        <h2 className="font-spacegrotesk text-5xl sm:text-6xl md:text-7xl font-bold text-black text-center mb-6">
+        <h2 className="relative z-10 font-spacegrotesk text-5xl sm:text-6xl md:text-7xl font-bold text-black text-center mb-6">
           Rewarding Humans
         </h2>
         
-        {/* Welcome text - moved up */}
-        <p className="text-center text-gray-600 max-w-xl mx-auto mb-6">
+        {/* Welcome text - moved up - ensure above illustration */}
+        <p className="relative z-10 text-center text-gray-600 max-w-xl mx-auto mb-6">
           Welcome to the DeFAIRewards $AIRdrop checker. First, check if an address is eligible for the airdrop. Sign in with X and connect your wallet to activate your defAIRewards account.
         </p>
         
@@ -774,15 +783,6 @@ export default function HomePage() {
         <div className="bg-black text-green-400 rounded-lg px-3 py-1 text-sm font-medium">
           Built with ElizaOS
         </div>
-      </div>
-      
-      {/* Anime girl illustration - properly positioned at bottom */}
-      <div className="absolute bottom-0 left-0 right-0 flex justify-center opacity-80 pointer-events-none">
-        <img 
-          src={Illustration.src} 
-          alt="Illustration" 
-          className="w-[400px] h-auto"
-        />
       </div>
 
       {/* Welcome Modal */}

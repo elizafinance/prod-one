@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { connectToDatabase, UserDocument, SquadDocument } from '@/lib/mongodb';
+import { ObjectId } from 'mongodb';
 
 // Enriched types for squad details
 interface EnrichedSquadMember {
@@ -11,6 +12,14 @@ interface EnrichedSquadMember {
 
 interface EnrichedSquadData extends SquadDocument {
   membersFullDetails: EnrichedSquadMember[];
+}
+
+// Define the expected response structure, including the leader's referral code
+interface SquadDetailsApiResponse {
+  squad: SquadDocument & { 
+    membersFullDetails?: Array<Partial<UserDocument>>; 
+    leaderReferralCode?: string; // Added field
+  }
 }
 
 export async function GET(
@@ -61,12 +70,30 @@ export async function GET(
       }
     }
 
+    // Fetch the leader's referral code separately
+    let leaderReferralCode: string | undefined = undefined;
+    if (squad.leaderWalletAddress) {
+      const leaderUser = await usersCollection.findOne(
+        { walletAddress: squad.leaderWalletAddress },
+        { projection: { _id: 0, referralCode: 1 } }
+      );
+      leaderReferralCode = leaderUser?.referralCode;
+    }
+
     const enrichedSquadData: EnrichedSquadData = {
       ...squad,
       membersFullDetails,
     };
 
-    return NextResponse.json({ squad: enrichedSquadData });
+    // Combine squad data with member details and leader referral code
+    const responsePayload: SquadDetailsApiResponse = {
+      squad: {
+        ...enrichedSquadData,
+        leaderReferralCode: leaderReferralCode, // Include the code
+      }
+    };
+
+    return NextResponse.json(responsePayload);
 
   } catch (error) {
     console.error(`Error fetching details for squad ${squadId}:`, error);

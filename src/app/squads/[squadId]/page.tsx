@@ -17,6 +17,7 @@ interface EnrichedSquadMember {
 }
 interface SquadDetailsData extends SquadDocument {
   membersFullDetails?: EnrichedSquadMember[]; // Changed back to optional since API might not always provide it
+  leaderReferralCode?: string; // Add field for leader's referral code
 }
 
 export default function SquadDetailsPage() {
@@ -216,6 +217,43 @@ export default function SquadDetailsPage() {
     setIsKickingMember(null);
   };
 
+  const handleTransferLeadership = async (newLeaderWalletAddress: string) => {
+    if (!squadDetails || !isUserLeader) {
+      toast.error("Only leaders can transfer leadership.");
+      return;
+    }
+    if (newLeaderWalletAddress === currentUserWalletAddress) {
+      toast.error("Cannot transfer leadership to yourself.");
+      return;
+    }
+
+    const newLeaderUsername = squadDetails.membersFullDetails?.find(m => m.walletAddress === newLeaderWalletAddress)?.xUsername || newLeaderWalletAddress.substring(0,6);
+    if (!window.confirm(`Are you sure you want to make @${newLeaderUsername} the new leader? This action cannot be undone.`)) {
+      return;
+    }
+
+    // We can reuse isKickingMember state for loading, or create a new one like isTransferring
+    setIsKickingMember(newLeaderWalletAddress); // Re-using state to show loading on the button
+    try {
+      const response = await fetch(`/api/squads/transfer-leader/${squadId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ newLeaderWalletAddress }),
+      });
+      const data = await response.json();
+      if (response.ok) {
+        toast.success(data.message || "Leadership transferred successfully!");
+        fetchSquadDetails(); // Refresh squad details to update leader status and remove buttons
+      } else {
+        toast.error(data.error || "Failed to transfer leadership.");
+      }
+    } catch (err) {
+      toast.error("An error occurred while transferring leadership.");
+      console.error("Transfer leadership error:", err);
+    }
+    setIsKickingMember(null); // Reset loading state
+  };
+
   const searchUserByTwitterHandle = async () => {
     if (!inviteeTwitterHandle.trim()) {
       toast.error("Please enter a Twitter handle to search.");
@@ -323,6 +361,14 @@ export default function SquadDetailsPage() {
     setIsRevokingInvite(null);
   };
 
+  const handleCopyToClipboard = (textToCopy: string) => {
+    navigator.clipboard.writeText(textToCopy).then(() => {
+      toast.success("Referral link copied to clipboard!");
+    }).catch(err => {
+      toast.error("Failed to copy link.");
+    });
+  };
+
   if (isLoading) return <main className="flex items-center justify-center min-h-screen bg-white text-gray-700"><div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-600"></div><p className='ml-3 text-lg'>Loading Squad Details...</p></main>;
   if (error) return <main className="flex flex-col items-center justify-center min-h-screen bg-white text-red-700"><p className="text-xl mb-4">Error: {error}</p><Link href="/squads/browse"><button className='p-2 bg-blue-500 hover:bg-blue-600 rounded text-white'>Back to Browse Squads</button></Link></main>;
   if (!squadDetails) return <main className="flex flex-col items-center justify-center min-h-screen bg-white text-gray-700"><p className="text-xl mb-4">Squad not found.</p><Link href="/squads/browse"><button className='p-2 bg-blue-500 hover:bg-blue-600 rounded text-white'>Back to Browse Squads</button></Link></main>;
@@ -423,13 +469,23 @@ export default function SquadDetailsPage() {
                     {member.walletAddress === currentUserWalletAddress && <span className="text-xs px-2 py-1 bg-purple-500 text-white rounded-full">You</span>}
                     {member.walletAddress === squadDetails.leaderWalletAddress && <span className="text-xs px-2 py-1 bg-yellow-400 text-black rounded-full">Leader</span>}
                     {isUserLeader && member.walletAddress !== currentUserWalletAddress && (
-                      <button 
-                        onClick={() => handleKickMember(member.walletAddress)}
-                        disabled={isKickingMember === member.walletAddress}
-                        className="px-2 py-1 text-xs bg-red-500 hover:bg-red-600 text-white rounded-md disabled:opacity-50"
-                      >
-                        {isKickingMember === member.walletAddress ? 'Kicking...' : 'Kick'}
-                      </button>
+                      <>
+                        <button 
+                          onClick={() => handleTransferLeadership(member.walletAddress)}
+                          disabled={isKickingMember === member.walletAddress}
+                          className="px-2 py-1 text-xs bg-blue-500 hover:bg-blue-600 text-white rounded-md disabled:opacity-50 whitespace-nowrap"
+                          title="Transfer leadership to this member"
+                        >
+                          {isKickingMember === member.walletAddress ? 'Transferring...' : 'Make Leader'}
+                        </button>
+                        <button 
+                          onClick={() => handleKickMember(member.walletAddress)}
+                          disabled={isKickingMember === member.walletAddress}
+                          className="px-2 py-1 text-xs bg-red-500 hover:bg-red-600 text-white rounded-md disabled:opacity-50"
+                        >
+                          {isKickingMember === member.walletAddress ? 'Kicking...' : 'Kick'}
+                        </button>
+                      </>
                     )}
                   </div>
                 </li>
@@ -582,6 +638,30 @@ export default function SquadDetailsPage() {
                   </ul>
                 )}
               </div>
+
+              {/* Leader Referral Link Section */}
+              {squadDetails.leaderReferralCode && (
+                <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg mb-6">
+                  <h4 className="text-md font-semibold text-gray-800 mb-2">Your Referral Link:</h4>
+                  <p className="text-xs text-gray-600 mb-2">
+                    Share this link! Your invitee needs to sign in with X first before connecting their wallet via your link to count as a referral.
+                  </p>
+                  <div className="flex items-center justify-center bg-gray-200 p-2 rounded">
+                    <input 
+                      type="text" 
+                      readOnly 
+                      value={`https://claim-staging.defairewards.net/?ref=${squadDetails.leaderReferralCode}`}
+                      className="text-gray-700 text-sm break-all bg-transparent outline-none flex-grow p-1"
+                    />
+                    <button 
+                      onClick={() => handleCopyToClipboard(`https://claim-staging.defairewards.net/?ref=${squadDetails.leaderReferralCode}`)}
+                      className="ml-2 py-1 px-2 text-xs bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+                    >
+                      Copy
+                    </button>
+                  </div>
+                </div>
+              )}
 
               <div className="mt-4 pt-4 border-t border-gray-300/50">
                  <h4 className="text-md font-semibold text-red-500 mb-2">Disband Squad (As Leader):</h4>

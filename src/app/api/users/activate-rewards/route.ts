@@ -162,23 +162,69 @@ export async function POST(request: Request) {
         if (referrer && referrer.walletAddress && referrer.walletAddress !== newSolanaWalletAddress) {
             console.log(`[Activate Rewards] Processing referral for ${xUserId} by referrer ${referrer.xUserId || referrer.walletAddress} (code: ${referrerCodeFromQuery})`);
             userToUpdate.referredBy = referrer.walletAddress; // Mark current user as referred
-            // Award points to referrer
+            
+            // Award points and increment referral count for referrer
+            let referrerUpdate: any = { 
+                $inc: { 
+                    points: POINTS_REFERRAL_BONUS_FOR_REFERRER,
+                    referralsMadeCount: 1 // Add this increment
+                },
+                $set: { updatedAt: new Date() } 
+            };
+
+            // Handle potential referral boosts for the referrer
+            let updatedReferrerBoosts = referrer.activeReferralBoosts || [];
+            let pointsToAwardReferrer = POINTS_REFERRAL_BONUS_FOR_REFERRER;
+            let bonusFromBoost = 0;
+            let appliedBoostDescription: string | undefined = undefined;
+
+            if (updatedReferrerBoosts.length > 0) {
+                const activeBoostIndex = updatedReferrerBoosts.findIndex(
+                    boost => boost.type === 'percentage_bonus_referrer' && boost.remainingUses > 0
+                );
+                if (activeBoostIndex !== -1) {
+                    const boost = updatedReferrerBoosts[activeBoostIndex];
+                    bonusFromBoost = Math.floor(POINTS_REFERRAL_BONUS_FOR_REFERRER * boost.value);
+                    pointsToAwardReferrer += bonusFromBoost;
+                    appliedBoostDescription = boost.description;
+
+                    updatedReferrerBoosts[activeBoostIndex].remainingUses -= 1;
+                    if (updatedReferrerBoosts[activeBoostIndex].remainingUses <= 0) {
+                        updatedReferrerBoosts.splice(activeBoostIndex, 1);
+                    }
+                    referrerUpdate.$set.activeReferralBoosts = updatedReferrerBoosts;
+                    referrerUpdate.$inc.points = pointsToAwardReferrer; // Update points with boost
+                }
+            }
+
             await usersCollection.updateOne(
                 { walletAddress: referrer.walletAddress },
-                { $inc: { points: POINTS_REFERRAL_BONUS_FOR_REFERRER }, $set: { updatedAt: new Date() } }
+                referrerUpdate
             );
+
             await actionsCollection.insertOne({
                 walletAddress: referrer.walletAddress,
                 actionType: 'referral_bonus',
-                pointsAwarded: POINTS_REFERRAL_BONUS_FOR_REFERRER,
+                pointsAwarded: POINTS_REFERRAL_BONUS_FOR_REFERRER, // Log standard points
                 timestamp: new Date(),
                 notes: `Referred user now identified by Solana wallet ${newSolanaWalletAddress} (originally X_User ${xUserId})`
             });
+
+            if (bonusFromBoost > 0) {
+                await actionsCollection.insertOne({
+                    walletAddress: referrer.walletAddress,
+                    actionType: 'referral_powerup_bonus',
+                    pointsAwarded: bonusFromBoost,
+                    timestamp: new Date(),
+                    notes: `Bonus from power-up: ${appliedBoostDescription || 'Referral Boost'} for referring ${newSolanaWalletAddress} (X_User ${xUserId})`
+                });
+            }
+
              // If referrer is in a squad, update their squad points
             if (referrer.squadId) {
                 await squadsCollection.updateOne(
                     { squadId: referrer.squadId },
-                    { $inc: { totalSquadPoints: POINTS_REFERRAL_BONUS_FOR_REFERRER }, $set: { updatedAt: new Date() } }
+                    { $inc: { totalSquadPoints: pointsToAwardReferrer }, $set: { updatedAt: new Date() } } // Use pointsToAwardReferrer which includes boost
                 );
             }
         } else {

@@ -9,7 +9,6 @@ import { toast } from 'sonner';
 import UserAvatar from '@/components/UserAvatar';
 import ShareProfileButton from '@/components/ShareProfileButton';
 import GlowingBadge from '@/components/GlowingBadge';
-import DonationBadgeForm from '@/components/DonationBadgeForm';
 
 // INTERFACES AND CONSTANTS used by the Client Component
 interface PublicProfileSquadInfo {
@@ -174,28 +173,6 @@ export default function UserProfilePage() {
                 })}
               </div>
             </div>
-          )}
-          {/* Special Badge Opportunity - only show on own profile */}
-          {loggedInUserWalletAddress && loggedInUserWalletAddress === walletAddress && 
-            (!profileData.earnedBadgeIds || !profileData.earnedBadgeIds.includes('generous_donor_badge')) && (
-            <DonationBadgeForm 
-              onBadgeEarned={() => {
-                // Refetch profile data to show the new badge
-                if (walletAddress) {
-                  fetch(`/api/users/public-profile/${walletAddress}`)
-                    .then(response => {
-                      if (response.ok) return response.json();
-                      throw new Error('Failed to refresh profile.');
-                    })
-                    .then(data => {
-                      setProfileData(data);
-                    })
-                    .catch(err => {
-                      console.error("Error refreshing profile:", err);
-                    });
-                }
-              }}
-            />
           )}
           {/* Referrals Made */}
           <div className="p-6 bg-gray-50 border border-gray-200 rounded-lg shadow-md">

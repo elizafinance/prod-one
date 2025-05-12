@@ -491,7 +491,7 @@ export default function HomePage() {
   const showInsufficientBalanceMessage = authStatus === "authenticated" && wallet.connected && isRewardsActive && userData && hasSufficientDefai === false;
 
   return (
-    <main className="flex flex-col items-center h-screen overflow-hidden p-4 sm:p-8 bg-white text-gray-900 font-sans relative">
+    <main className="flex flex-col items-center min-h-screen p-4 sm:p-8 bg-white text-gray-900 font-sans relative">
       {/* Main content moved up significantly */}
       <div className="w-full max-w-3xl mx-auto pt-8 flex flex-col items-center">
         {/* Heading with blue and black text */}
@@ -549,8 +549,8 @@ export default function HomePage() {
           </div>
         ) : null}
         
-        {/* Content wrapper with scrollable content if needed */}
-        <div className="w-full max-w-xl overflow-y-auto hide-scrollbar mb-32"> {/* Add bottom margin to avoid overlap */}
+        {/* Content wrapper - Remove overflow-y-auto and hide-scrollbar */}
+        <div className="w-full max-w-xl mb-32"> 
           
           {/* Other sections without duplicating login buttons */}
           {authStatus === "authenticated" && !wallet.connected && (

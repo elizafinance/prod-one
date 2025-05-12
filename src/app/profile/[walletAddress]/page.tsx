@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { toast } from 'sonner';
 import UserAvatar from '@/components/UserAvatar';
+import ShareProfileButton from '@/components/ShareProfileButton';
 
 // INTERFACES AND CONSTANTS used by the Client Component
 interface PublicProfileSquadInfo {
@@ -79,45 +80,6 @@ export default function UserProfilePage() {
       fetchProfileData();
     }
   }, [walletAddress]);
-
-  const handleShareToX = async () => { 
-    if (!profileData) return;
-    let shareText = `Check out this profile on DeFAI Rewards! Wallet: ${profileData.maskedWalletAddress}, Points: ${profileData.points.toLocaleString()}`;
-    if (profileData.highestAirdropTierLabel) {
-      shareText += `, Tier: ${profileData.highestAirdropTierLabel}`;
-    }
-    shareText += ` | @DeFAIRewards`;
-    const profileUrl = window.location.href;
-    const twitterIntentUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(profileUrl)}`;
-    
-    window.open(twitterIntentUrl, '_blank');
-
-    if (loggedInUserWalletAddress && loggedInUserWalletAddress === walletAddress) {
-      try {
-        toast.info('Checking for profile share bonus...');
-        const response = await fetch('/api/actions/log-profile-share', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ walletAddress: loggedInUserWalletAddress }),
-        });
-        if (response.ok) {
-          const result = await response.json();
-          if (result.boostActivated) {
-            toast.success("Referral Frenzy Boost Activated! Next 3 referrals get +50% points!");
-          } else if (result.awardedPoints && result.awardedPoints > 0) {
-            toast.success(`Successfully shared profile! +${result.awardedPoints} points.`);
-          } else {
-            toast.success('Profile share acknowledged!');
-          }
-        } else {
-          const errorData = await response.json();
-          toast.error(errorData.error || 'Failed to log profile share.');
-        }
-      } catch (error) {
-        toast.error('Error logging profile share.');
-      }
-    }
-  };
 
   // Loading, Error, and Not Found states JSX (simplified for brevity in instruction)
   if (isLoading) return <main className="flex flex-col items-center justify-center min-h-screen"><p>Loading Profile...</p></main>;
@@ -223,18 +185,20 @@ export default function UserProfilePage() {
         </div>
 
         {/* Share Buttons */}
-        <div className="mt-10 text-center space-x-4">
-          <button
-            onClick={handleShareToX}
-            className="bg-sky-500 hover:bg-sky-600 text-white font-semibold py-3 px-8 rounded-lg shadow-md hover:shadow-lg transform hover:scale-105 transition-all duration-150 ease-in-out text-lg"
-          >
-            🚀 Share on X
-          </button>
-          <Link href="/leaderboard" passHref>
-            <button className="bg-gray-600 hover:bg-gray-700 text-white font-semibold py-3 px-8 rounded-lg shadow-md hover:shadow-lg transform hover:scale-105 transition-all duration-150 ease-in-out text-lg">
-              View Leaderboard
-            </button>
-          </Link>
+        <div className="mt-10 text-center">
+          <div className="flex flex-wrap justify-center gap-3">
+            <ShareProfileButton 
+              walletAddress={walletAddress}
+              username={profileData.xUsername}
+              points={profileData.points}
+              airdropTier={profileData.highestAirdropTierLabel}
+            />
+            <Link href="/leaderboard" passHref>
+              <button className="bg-gray-600 hover:bg-gray-700 text-white font-semibold py-3 px-8 rounded-lg shadow-md hover:shadow-lg transform hover:scale-105 transition-all duration-150 ease-in-out text-lg">
+                View Leaderboard
+              </button>
+            </Link>
+          </div>
         </div>
       </div>
     </main>

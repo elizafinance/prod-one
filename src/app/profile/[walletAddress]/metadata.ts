@@ -1,5 +1,6 @@
 // SERVER-SIDE IMPORTS (ONLY for generateMetadata)
 import type { Metadata, ResolvingMetadata } from 'next';
+import { connectToDatabase, UserDocument } from '@/lib/mongodb';
 
 // SERVER-SIDE EXPORT: generateMetadata
 export async function generateMetadata(
@@ -16,23 +17,47 @@ export async function generateMetadata(
       openGraph: { images: [defaultOgImage] },
     };
   }
+  
+  // Fetch user data to create a more personalized OG image and metadata
+  let userData: UserDocument | null = null;
+  try {
+    const { db } = await connectToDatabase();
+    userData = await db.collection<UserDocument>('users').findOne({ walletAddress });
+  } catch (err) {
+    console.error("Error fetching user data for metadata:", err);
+  }
+  
+  // Create personalized title and description
+  const userName = userData?.xUsername ? `@${userData.xUsername}` : `${walletAddress.substring(0,6)}...`;
+  const pointsText = userData?.points ? `${userData.points.toLocaleString()} points` : '';
+  const tierText = userData?.highestAirdropTierLabel ? ` | ${userData.highestAirdropTierLabel} Tier` : '';
+  
+  const title = userData 
+    ? `${userName} | ${pointsText}${tierText} | ${siteName}`
+    : `Profile: ${walletAddress.substring(0,6)}... | ${siteName}`;
+    
+  const description = userData
+    ? `Check out ${userName}'s achievements on ${siteName}! ${pointsText}${tierText}`
+    : `Check out the achievements of this user on ${siteName}!`;
+  
   // Using the simplified OG image API for now
   const ogImageUrl = `https://claim.defairewards.net/api/og-image/${walletAddress}`;
  
   return {
-    title: `Profile: ${walletAddress.substring(0,6)}... | ${siteName}`,
-    description: `Check out the achievements of this user on ${siteName}!`,
+    title,
+    description,
     openGraph: {
-      title: `User Profile | ${siteName}`,
-      description: `Achievements of ${walletAddress.substring(0,6)}... on ${siteName}.`,
-      images: [{ url: ogImageUrl, width: 1200, height: 630, alt: `DeFAI Rewards Profile for ${walletAddress}` }],
+      title,
+      description,
+      images: [{ url: ogImageUrl, width: 1200, height: 630, alt: `DeFAI Rewards Profile for ${userName}` }],
       type: 'profile',
     },
     twitter: {
       card: 'summary_large_image',
-      title: `User Profile | ${siteName}`,
-      description: `Achievements of ${walletAddress.substring(0,6)}... on ${siteName}.`,
+      title,
+      description,
       images: [ogImageUrl],
+      creator: userData?.xUsername ? `@${userData.xUsername}` : undefined,
     },
   };
 } 

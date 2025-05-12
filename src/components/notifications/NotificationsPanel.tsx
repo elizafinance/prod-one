@@ -23,27 +23,36 @@ export default function NotificationsPanel({ isOpen, onClose, onUpdateUnreadCoun
     setError(null);
     console.log("[Notifications] Fetching notifications...");
     try {
+      console.log("[Notifications] Making API call to fetch notifications");
       const response = await fetch('/api/notifications/my-notifications?limit=10'); // Fetch latest 10 initially
       
+      console.log("[Notifications] API response status:", response.status);
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ error: response.statusText }));
         const errorMessage = errorData.error || `Failed to fetch notifications: ${response.status}`;
+        console.error("[Notifications] Response not OK:", errorMessage);
         throw new Error(errorMessage);
       }
       
       const data = await response.json();
-      console.log("[Notifications] Received:", data);
+      console.log("[Notifications] Received data:", data);
+      
+      if (!data.notifications) {
+        console.warn("[Notifications] No notifications array in response");
+      }
+      
       setNotifications(data.notifications || []);
       onUpdateUnreadCount(data.unreadCount || 0);
 
       if (markAsReadOnOpen && data.notifications && data.notifications.length > 0) {
         const unreadIds = data.notifications.filter((n: NotificationDocument) => !n.isRead).map((n: NotificationDocument) => n.notificationId);
+        console.log("[Notifications] Unread IDs to mark as read:", unreadIds);
         if (unreadIds.length > 0) {
           markNotificationsAsRead(unreadIds);
         }
       }
     } catch (err) {
-      console.error("[Notifications] Error:", err);
+      console.error("[Notifications] Error during fetch:", err);
       setError((err as Error).message || 'Could not load notifications.');
       onUpdateUnreadCount(0); // Reset unread count on error
     }
@@ -94,13 +103,12 @@ export default function NotificationsPanel({ isOpen, onClose, onUpdateUnreadCoun
 
   return (
     <div 
-      className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 transition-opacity duration-300 ease-in-out"
+      className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40"
       onClick={onClose} // Close if clicking outside the panel
     >
       <div 
-        className="fixed top-16 right-4 sm:right-8 w-full max-w-md bg-gray-800 shadow-2xl rounded-lg border border-gray-700 z-50 max-h-[70vh] flex flex-col transition-transform duration-300 ease-in-out transform scale-95 opacity-0 animate-in fade-in zoom-in-95 slide-in-from-top-2"
+        className="fixed top-16 right-4 sm:right-8 w-full max-w-md bg-gray-800 shadow-2xl rounded-lg border border-gray-700 z-50 max-h-[70vh] flex flex-col"
         onClick={(e) => e.stopPropagation()} // Prevent close when clicking inside panel
-        style={{ animationFillMode: 'forwards' }} // Ensure animation styles persist
       >
         <div className="flex justify-between items-center p-4 border-b border-gray-700">
           <h2 className="text-lg font-semibold text-white">Notifications</h2>

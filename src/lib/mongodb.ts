@@ -97,6 +97,8 @@ export interface SquadDocument {
   leaderWalletAddress: string; // Wallet address of the squad leader
   memberWalletAddresses: string[]; // Array of wallet addresses of squad members
   totalSquadPoints: number;
+  maxMembers?: number; // Maximum number of members allowed in this squad
+  tier?: number; // Tier level of the squad (1, 2, or 3)
   createdAt?: Date;
   updatedAt?: Date;
 }

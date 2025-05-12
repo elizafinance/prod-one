@@ -11,6 +11,22 @@ interface CreateSquadRequestBody {
   // leaderWalletAddress is now derived from session
 }
 
+// Squad tier configuration from environment variables with defaults
+const TIER_1_POINTS = parseInt(process.env.TIER_1_POINTS || '1000');
+const TIER_2_POINTS = parseInt(process.env.TIER_2_POINTS || '5000');
+const TIER_3_POINTS = parseInt(process.env.TIER_3_POINTS || '10000');
+const TIER_1_MAX_MEMBERS = parseInt(process.env.TIER_1_MAX_MEMBERS || '10');
+const TIER_2_MAX_MEMBERS = parseInt(process.env.TIER_2_MAX_MEMBERS || '50');
+const TIER_3_MAX_MEMBERS = parseInt(process.env.TIER_3_MAX_MEMBERS || '100');
+
+// Function to determine squad tier and max members based on points
+function getSquadTierInfo(points: number): { tier: number, maxMembers: number } {
+  if (points >= TIER_3_POINTS) return { tier: 3, maxMembers: TIER_3_MAX_MEMBERS };
+  if (points >= TIER_2_POINTS) return { tier: 2, maxMembers: TIER_2_MAX_MEMBERS };
+  if (points >= TIER_1_POINTS) return { tier: 1, maxMembers: TIER_1_MAX_MEMBERS };
+  return { tier: 0, maxMembers: 0 }; // Not eligible
+}
+
 // Function to check for profanity (simple case-insensitive check)
 function containsProfanity(name: string, list: string[]): boolean {
   const lowerCaseName = name.toLowerCase();
@@ -53,9 +69,16 @@ export async function POST(request: Request) {
     if (!leaderUser) {
       return NextResponse.json({ error: 'Authenticated leader user not found in database.' }, { status: 404 });
     }
-    if ((leaderUser.points || 0) < 10000) {
-      return NextResponse.json({ error: 'You need at least 10,000 DeFAI Points to create a squad.' }, { status: 403 });
+    
+    const userPoints = leaderUser.points || 0;
+    const { tier, maxMembers } = getSquadTierInfo(userPoints);
+    
+    if (tier === 0) {
+      return NextResponse.json({ 
+        error: `You need at least ${TIER_1_POINTS.toLocaleString()} DeFAI Points to create a squad.` 
+      }, { status: 403 });
     }
+    
     if (leaderUser.squadId) {
       return NextResponse.json({ error: 'You are already in a squad. Leave your current squad to create a new one.' }, { status: 400 });
     }
@@ -66,7 +89,7 @@ export async function POST(request: Request) {
     }
 
     const newSquadId = uuidv4();
-    const initialSquadPoints = leaderUser.points || 0;
+    const initialSquadPoints = userPoints;
 
     const newSquad: SquadDocument = {
       squadId: newSquadId,
@@ -75,6 +98,8 @@ export async function POST(request: Request) {
       leaderWalletAddress: leaderWalletAddress,
       memberWalletAddresses: [leaderWalletAddress],
       totalSquadPoints: initialSquadPoints,
+      maxMembers: maxMembers,
+      tier: tier,
       createdAt: new Date(),
       updatedAt: new Date(),
     };

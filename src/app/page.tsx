@@ -277,7 +277,7 @@ export default function HomePage() {
         return;
     }
     const airdropAmountStr = airdropCheckResult.toLocaleString();
-    const siteBaseUrl = "https://claim.defairewards.net"; 
+    const siteBaseUrl = "https://claim-staging.defairewards.net"; 
     const shareUrl = userData?.referralCode ? `${siteBaseUrl}/?ref=${userData.referralCode}` : siteBaseUrl;
     const twitterHandle = "DeFAIRewards";
     const tokenToBuy = "$DeFAI"; 
@@ -415,8 +415,8 @@ export default function HomePage() {
                 )}
               </div>
               <div className="flex items-center justify-center bg-gray-200 p-2 rounded">
-                <input type="text" readOnly value={`https://claim.defairewards.net/?ref=${userData.referralCode}`} className="text-gray-700 text-sm break-all bg-transparent outline-none flex-grow p-1" />
-                <button onClick={() => handleCopyToClipboard(`https://claim.defairewards.net/?ref=${userData.referralCode}`)} className="ml-2 py-1 px-2 text-xs bg-[#2563EB] text-white rounded hover:bg-blue-700 transition-colors">
+                <input type="text" readOnly value={`https://claim-staging.defairewards.net/?ref=${userData.referralCode}`} className="text-gray-700 text-sm break-all bg-transparent outline-none flex-grow p-1" />
+                <button onClick={() => handleCopyToClipboard(`https://claim-staging.defairewards.net/?ref=${userData.referralCode}`)} className="ml-2 py-1 px-2 text-xs bg-[#2563EB] text-white rounded hover:bg-blue-700 transition-colors">
                   Copy
                 </button>
               </div>

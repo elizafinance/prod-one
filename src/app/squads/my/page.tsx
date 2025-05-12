@@ -21,6 +21,13 @@ export default function MySquadPage() {
   // User points for verifying squad creation eligibility
   const [userPoints, setUserPoints] = useState<number | null>(null);
   const [isLoadingPoints, setIsLoadingPoints] = useState(false);
+  
+  // Tier requirements from server
+  const [tierRequirements, setTierRequirements] = useState<{ 
+    tiers: Array<{ tier: number, minPoints: number, maxMembers: number }>,
+    minRequiredPoints: number 
+  } | null>(null);
+  const [isFetchingTiers, setIsFetchingTiers] = useState(true);
 
   const fetchUserPoints = useCallback(async (walletAddress: string) => {
     if (!walletAddress || isLoadingPoints) return;
@@ -135,10 +142,45 @@ export default function MySquadPage() {
     }
   };
 
+  // Fetch tier requirements from the server
+  useEffect(() => {
+    async function fetchTierRequirements() {
+      setIsFetchingTiers(true);
+      try {
+        const res = await fetch('/api/squads/tier-requirements');
+        const data = await res.json();
+        if (res.ok) {
+          setTierRequirements(data);
+        }
+      } catch (err) {
+        console.error("Failed to fetch tier requirements:", err);
+      }
+      setIsFetchingTiers(false);
+    }
+    
+    fetchTierRequirements();
+  }, []);
+
   // Check if the user has enough points to create a squad
-  const canCreateSquad = userPoints !== null && userPoints >= 10000;
-  const minRequiredPoints = 10000;
+  const minRequiredPoints = tierRequirements?.minRequiredPoints || 1000;
+  const canCreateSquad = userPoints !== null && userPoints >= minRequiredPoints;
   const isUserLeader = mySquadData?.leaderWalletAddress === publicKey?.toBase58();
+
+  // Function to determine max members based on points
+  const getMaxMembersForPoints = (points: number | null) => {
+    if (!points || !tierRequirements?.tiers) return 'Loading...';
+    
+    // Sort by minPoints descending to check highest tier first
+    const sortedTiers = [...tierRequirements.tiers].sort((a, b) => b.minPoints - a.minPoints);
+    
+    for (const tier of sortedTiers) {
+      if (points >= tier.minPoints) {
+        return `Up to ${tier.maxMembers} members`;
+      }
+    }
+    
+    return 'Not eligible yet';
+  };
 
   return (
     <main className="flex flex-col items-center min-h-screen p-4 sm:p-8 bg-gradient-to-b from-gray-900 to-gray-800 text-white">
@@ -228,54 +270,41 @@ export default function MySquadPage() {
                 </div>
               ) : (
                 <>
-                  {canCreateSquad ? (
-                    <div className="space-y-3">
-                      <p className="text-green-600 font-medium">
-                        With {userPoints?.toLocaleString()} points, you&apos;re eligible to create your own squad!
-                      </p>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="mt-4 text-center">
+                    {canCreateSquad ? (
+                      <div className="mb-4 p-3 bg-green-800/20 rounded-lg border border-green-700">
+                        <p className="text-green-300">
+                          With {userPoints?.toLocaleString()} points, you&apos;re eligible to create your own squad!
+                          <br/>
+                          <span className="text-xs mt-1 block text-green-200">
+                            Your points allow for: {getMaxMembersForPoints(userPoints)}
+                          </span>
+                        </p>
                         <Link href="/squads/create" passHref>
-                          <button className="py-2 px-6 bg-green-500 hover:bg-green-600 text-white text-sm font-semibold rounded-lg transition-colors shadow hover:shadow-md w-full">
+                          <button className="mt-2 py-2 px-4 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-colors">
                             Create Your Squad
                           </button>
                         </Link>
-                        <Link href="/squads/browse" passHref>
-                          <button className="py-2 px-6 bg-blue-500 hover:bg-blue-600 text-white text-sm font-semibold rounded-lg transition-colors shadow hover:shadow-md w-full">
-                            Join Existing Squad
-                          </button>
-                        </Link>
                       </div>
-                    </div>
-                  ) : userPoints !== null ? (
-                    <div className="space-y-3">
-                      <p className="text-red-600 font-medium">
-                        You need at least {minRequiredPoints.toLocaleString()} points to create a squad.<br/>
-                        Current points: {userPoints.toLocaleString()}
-                      </p>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <Link href="/squads/browse" passHref>
-                          <button className="py-2 px-6 bg-blue-500 hover:bg-blue-600 text-white text-sm font-semibold rounded-lg transition-colors shadow hover:shadow-md w-full">
-                            Browse Squads
-                          </button>
-                        </Link>
-                        <Link href="/" passHref>
-                          <button className="py-2 px-6 bg-purple-500 hover:bg-purple-600 text-white text-sm font-semibold rounded-lg transition-colors shadow hover:shadow-md w-full">
-                            Earn More Points
-                          </button>
-                        </Link>
+                    ) : (
+                      <div className="mb-4 p-3 bg-gray-700/30 rounded-lg border border-gray-600">
+                        <p className="text-gray-400">
+                          You need at least {minRequiredPoints.toLocaleString()} points to create a squad.<br/>
+                          Your current points: <span className="font-semibold">{userPoints?.toLocaleString() || '0'}</span>
+                        </p>
                       </div>
-                    </div>
-                  ) : null}
+                    )}
+                  </div>
+                  
+                  {userCheckedNoSquad && (
+                    <button 
+                      onClick={handleForceRefresh} 
+                      className="py-2 px-4 bg-blue-400 hover:bg-blue-500 text-white text-sm font-semibold rounded-lg transition-colors shadow hover:shadow-md mt-3"
+                    >
+                      Refresh Squad Data
+                    </button>
+                  )}
                 </>
-              )}
-              
-              {userCheckedNoSquad && (
-                <button 
-                  onClick={handleForceRefresh} 
-                  className="py-2 px-4 bg-blue-400 hover:bg-blue-500 text-white text-sm font-semibold rounded-lg transition-colors shadow hover:shadow-md mt-3"
-                >
-                  Refresh Squad Data
-                </button>
               )}
             </div>
           )}

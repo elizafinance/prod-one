@@ -47,7 +47,13 @@ export async function POST(request: Request) {
         if (targetUser.squadId === squadId) return NextResponse.json({ error: 'Target user is already a member of this squad.' }, { status: 400 });
         return NextResponse.json({ error: 'Target user is already in another squad.' }, { status: 400 });
     }
-    if (squad.memberWalletAddresses.length >= (parseInt(process.env.MAX_SQUAD_MEMBERS || '10'))) { return NextResponse.json({ error: 'This squad is full.' }, { status: 400 }); }
+    
+    if (squad.maxMembers && squad.memberWalletAddresses.length >= squad.maxMembers) {
+      return NextResponse.json({ error: 'This squad has reached its maximum member capacity.' }, { status: 400 });
+    } else if (!squad.maxMembers && squad.memberWalletAddresses.length >= (parseInt(process.env.MAX_SQUAD_MEMBERS || '10'))) {
+      return NextResponse.json({ error: 'This squad is full.' }, { status: 400 });
+    }
+    
     const existingInvite = await invitationsCollection.findOne({squadId: squadId, invitedUserWalletAddress: targetUserWalletAddress, status: 'pending'});
     if (existingInvite) { return NextResponse.json({ error: 'An invitation is already pending.' }, { status: 400 }); }
 

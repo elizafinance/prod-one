@@ -17,6 +17,30 @@ export default function CreateSquadPage() {
   const [userPoints, setUserPoints] = useState<number | null>(null);
   const [pointsLoading, setPointsLoading] = useState(true);
   const [pointsError, setPointsError] = useState<string | null>(null);
+  const [tierRequirements, setTierRequirements] = useState<{ 
+    tiers: Array<{ tier: number, minPoints: number, maxMembers: number }>,
+    minRequiredPoints: number 
+  } | null>(null);
+  const [isFetchingTiers, setIsFetchingTiers] = useState(true);
+
+  // Fetch tier requirements from the server
+  useEffect(() => {
+    async function fetchTierRequirements() {
+      setIsFetchingTiers(true);
+      try {
+        const res = await fetch('/api/squads/tier-requirements');
+        const data = await res.json();
+        if (res.ok) {
+          setTierRequirements(data);
+        }
+      } catch (err) {
+        console.error("Failed to fetch tier requirements:", err);
+      }
+      setIsFetchingTiers(false);
+    }
+    
+    fetchTierRequirements();
+  }, []);
 
   useEffect(() => {
     async function fetchPoints() {
@@ -97,7 +121,8 @@ export default function CreateSquadPage() {
     setIsLoading(false);
   };
 
-  const canCreate = !pointsLoading && userPoints !== null && userPoints >= 10000;
+  const canCreate = !pointsLoading && userPoints !== null && 
+    tierRequirements !== null && userPoints >= tierRequirements.minRequiredPoints;
 
   return (
     <main className="flex flex-col items-center min-h-screen p-4 sm:p-8 bg-gradient-to-b from-gray-900 to-gray-800 text-white">
@@ -120,16 +145,25 @@ export default function CreateSquadPage() {
         )}
 
         {!pointsLoading && !canCreate && (
-          <div className="mb-6 p-4 bg-red-100 border border-red-300 rounded text-red-700 text-center">
-            {pointsError ? (
-              <span>{pointsError}</span>
-            ) : (
-              <>
-                You need at least <b>10,000 DeFAI Points</b> to create a squad.<br />
-                {userPoints === null && <span>Go to the Dashboard to activate your account and earn points.</span>}
-                {userPoints !== null && <span>Your current points: <b>{userPoints.toLocaleString()}</b></span>}
-              </>
-            )}
+          <div className="p-4 bg-red-900/20 border border-red-700 rounded-lg text-center my-4">
+            <p className="text-red-300">
+              You need at least <b>{tierRequirements?.minRequiredPoints?.toLocaleString() || '1,000'} DeFAI Points</b> to create a squad.<br />
+              <br />
+              <b>Squad Tiers:</b><br />
+              {tierRequirements?.tiers.map(tier => (
+                <span key={tier.tier}>
+                  {tier.minPoints.toLocaleString()} Points: Up to {tier.maxMembers} members<br />
+                </span>
+              )) || (
+                <>
+                  1,000 Points: Up to 10 members<br />
+                  5,000 Points: Up to 50 members<br />
+                  10,000 Points: Up to 100 members<br />
+                </>
+              )}
+              <br />
+              <span className="text-yellow-400">Your current points: {userPoints !== null ? userPoints.toLocaleString() : 'Loading...'}</span>
+            </p>
           </div>
         )}
 

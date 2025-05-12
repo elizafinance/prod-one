@@ -14,7 +14,7 @@ interface EnrichedSquadMember {
   points?: number;
 }
 interface SquadDetailsData extends SquadDocument {
-  membersFullDetails: EnrichedSquadMember[]; // Changed from optional to required as API now provides it
+  membersFullDetails?: EnrichedSquadMember[]; // Changed back to optional since API might not always provide it
 }
 
 export default function SquadDetailsPage() {
@@ -28,6 +28,7 @@ export default function SquadDetailsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isLeaving, setIsLeaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [hasLoadedInitialData, setHasLoadedInitialData] = useState(false);
 
   // State for editing squad info
   const [isEditingSquad, setIsEditingSquad] = useState(false);
@@ -44,7 +45,8 @@ export default function SquadDetailsPage() {
   const [isRevokingInvite, setIsRevokingInvite] = useState<string | null>(null); // invitationId being revoked
 
   const fetchSquadDetails = useCallback(async () => {
-    if (!squadId) return;
+    if (!squadId || !connected) return;
+    
     setIsLoading(true);
     setError(null);
     console.log(`[SquadDetailsPage] Fetching details for squadId: ${squadId}`);
@@ -58,6 +60,8 @@ export default function SquadDetailsPage() {
         setSquadDetails(data.squad as SquadDetailsData);
         setEditableSquadName(data.squad.name || ''); // Initialize edit form fields
         setEditableDescription(data.squad.description || '');
+        setHasLoadedInitialData(true);
+        
         // If current user is leader of this squad, fetch its pending sent invites
         if (data.squad.leaderWalletAddress === currentUserWalletAddress) {
           fetchSentPendingInvitesForSquad(data.squad.squadId);
@@ -68,11 +72,14 @@ export default function SquadDetailsPage() {
     } catch (err) {
       console.error("[SquadDetailsPage] Error fetching squad details:", err);
       setError((err as Error).message || 'Could not load squad details.');
+      setHasLoadedInitialData(true);
     }
     setIsLoading(false);
-  }, [squadId, currentUserWalletAddress]);
+  }, [squadId, connected, currentUserWalletAddress]);
 
   const fetchSentPendingInvitesForSquad = useCallback(async (currentSquadId: string) => {
+    if (!currentSquadId || !connected) return;
+    
     setIsFetchingSentInvites(true);
     try {
       const response = await fetch('/api/squads/invitations/sent'); 
@@ -90,15 +97,19 @@ export default function SquadDetailsPage() {
       setSentPendingInvites([]);
     }
     setIsFetchingSentInvites(false);
-  }, []);
+  }, [connected]);
 
   useEffect(() => {
-    fetchSquadDetails();
-    // Initial fetch of sent invites if user is leader and squadDetails are loaded
-    if (squadDetails && squadDetails.leaderWalletAddress === currentUserWalletAddress) {
-        fetchSentPendingInvitesForSquad(squadDetails.squadId);
+    // Only fetch once when page loads or squadId/connection changes
+    if (!hasLoadedInitialData) {
+      fetchSquadDetails();
     }
-  }, [fetchSquadDetails, squadDetails, currentUserWalletAddress]);
+  }, [fetchSquadDetails, hasLoadedInitialData]);
+
+  // Reset loading state when wallet or squad ID changes
+  useEffect(() => {
+    setHasLoadedInitialData(false);
+  }, [squadId, publicKey]);
 
   const handleLeaveSquad = async () => {
     if (!connected || !squadDetails) {

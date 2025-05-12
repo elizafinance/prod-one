@@ -16,6 +16,7 @@ export default function MySquadPage() {
   const [isFetchingSquad, setIsFetchingSquad] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [userCheckedNoSquad, setUserCheckedNoSquad] = useState(false);
+  const [hasLoadedData, setHasLoadedData] = useState(false);
   
   // User points for verifying squad creation eligibility
   const [userPoints, setUserPoints] = useState<number | null>(null);
@@ -50,7 +51,8 @@ export default function MySquadPage() {
   }, [isLoadingPoints]);
 
   const fetchMySquadData = useCallback(async (userWalletAddress: string) => {
-    if (!userWalletAddress || isFetchingSquad || userCheckedNoSquad) return;
+    // Skip fetch if already fetching, already determined user has no squad, or already loaded squad data
+    if (!userWalletAddress || isFetchingSquad || userCheckedNoSquad || (mySquadData && hasLoadedData)) return;
     
     setIsFetchingSquad(true);
     setError(null);
@@ -62,10 +64,12 @@ export default function MySquadPage() {
         if (data.squad) {
           console.log("[MySquadPage] Squad data received:", data.squad);
           setMySquadData(data.squad as MySquadData);
+          setHasLoadedData(true);
           setUserCheckedNoSquad(false);
         } else {
           console.log("[MySquadPage] User not in a squad or no squad data.");
           setMySquadData(null);
+          setHasLoadedData(true);
           setUserCheckedNoSquad(true);
           
           // If user is not in a squad, fetch their points to check eligibility for creating one
@@ -79,6 +83,7 @@ export default function MySquadPage() {
         setMySquadData(null);
         if (response.status === 404) {
           setUserCheckedNoSquad(true);
+          setHasLoadedData(true);
           // Also fetch points if we get a 404
           if (userWalletAddress) {
             fetchUserPoints(userWalletAddress);
@@ -89,14 +94,18 @@ export default function MySquadPage() {
       console.error("[MySquadPage] Error fetching squad data:", error);
       setError((error as Error).message);
       setMySquadData(null);
+      setHasLoadedData(true);
     }
     setIsFetchingSquad(false);
-  }, [isFetchingSquad, userCheckedNoSquad, fetchUserPoints]);
+  }, [isFetchingSquad, userCheckedNoSquad, fetchUserPoints, mySquadData, hasLoadedData]);
 
   useEffect(() => {
     let isActive = true;
     
-    if (connected && publicKey && !userCheckedNoSquad) {
+    // Only fetch if connected with wallet and either:
+    // 1. We haven't determined if user has no squad OR
+    // 2. We haven't loaded any data yet
+    if (connected && publicKey && (!userCheckedNoSquad && !hasLoadedData)) {
       const timer = setTimeout(() => {
         if (isActive) {
           fetchMySquadData(publicKey.toBase58());
@@ -108,17 +117,20 @@ export default function MySquadPage() {
         clearTimeout(timer);
       };
     }
-  }, [connected, publicKey, fetchMySquadData, userCheckedNoSquad]);
+  }, [connected, publicKey, fetchMySquadData, userCheckedNoSquad, hasLoadedData]);
 
   useEffect(() => {
+    // Reset checks when wallet changes
     if (publicKey) {
       setUserCheckedNoSquad(false);
+      setHasLoadedData(false);
     }
   }, [publicKey]);
 
   const handleForceRefresh = () => {
     if (connected && publicKey) {
       setUserCheckedNoSquad(false);
+      setHasLoadedData(false);
       fetchMySquadData(publicKey.toBase58());
     }
   };

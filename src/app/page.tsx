@@ -54,6 +54,7 @@ interface UserData {
   xUsername?: string;
   highestAirdropTierLabel?: string;
   squadId?: string;
+  walletAddress?: string;
 }
 
 interface MySquadData extends SquadDocument {}
@@ -467,6 +468,19 @@ export default function HomePage() {
               </div>
             )}
           </div>
+
+          {/* Link to Public Profile */}
+          {userData.walletAddress && (
+            <div className="w-full max-w-md mt-6 mb-4 text-center">
+              <Link href={`/profile/${userData.walletAddress}`} passHref>
+                <button 
+                  className="py-2.5 px-6 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-lg shadow-md hover:shadow-lg transform hover:scale-105 transition-all duration-150 ease-in-out"
+                >
+                  View My Public Showcase
+                </button>
+              </Link>
+            </div>
+          )}
 
           {/* Pending Squad Invitations Section */}
           {!mySquadData && pendingInvites.length > 0 && (

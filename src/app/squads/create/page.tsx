@@ -15,19 +15,26 @@ export default function CreateSquadPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [userPoints, setUserPoints] = useState<number | null>(null);
+  const [pointsLoading, setPointsLoading] = useState(true);
+  const [pointsError, setPointsError] = useState<string | null>(null);
 
   useEffect(() => {
     async function fetchPoints() {
+      setPointsLoading(true);
+      setPointsError(null);
       if (connected && publicKey) {
         try {
           const res = await fetch(`/api/users/points?address=${publicKey.toBase58()}`);
           const data = await res.json();
           if (res.ok && typeof data.points === 'number') {
             setUserPoints(data.points);
+            setPointsLoading(false);
             return;
+          } else {
+            setPointsError(data.error || 'Could not fetch points from server.');
           }
         } catch (err) {
-          // fall through to localStorage fallback
+          setPointsError('Could not fetch points from server.');
         }
       }
       // Fallback to localStorage
@@ -37,9 +44,13 @@ export default function CreateSquadPage() {
           const parsed = JSON.parse(stored);
           if (typeof parsed.points === 'number') {
             setUserPoints(parsed.points);
+            setPointsLoading(false);
+            return;
           }
         }
       } catch {}
+      setPointsLoading(false);
+      setPointsError('Could not determine your points. Please visit the Dashboard.');
     }
     fetchPoints();
   }, [connected, publicKey]);
@@ -86,7 +97,7 @@ export default function CreateSquadPage() {
     setIsLoading(false);
   };
 
-  const canCreate = userPoints !== null && userPoints >= 10000;
+  const canCreate = !pointsLoading && userPoints !== null && userPoints >= 10000;
 
   return (
     <main className="flex flex-col items-center min-h-screen p-4 sm:p-8 bg-gradient-to-b from-gray-900 to-gray-800 text-white">
@@ -98,11 +109,27 @@ export default function CreateSquadPage() {
           <p className="text-gray-300 mt-2">Lead your team to victory and earn rewards together!</p>
         </div>
 
-        {!canCreate && (
+        {pointsLoading && (
+          <div className="mb-6 p-4 bg-blue-100 border border-blue-300 rounded text-blue-700 text-center flex flex-col items-center">
+            <svg className="animate-spin h-6 w-6 mb-2 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            Checking eligibility...
+          </div>
+        )}
+
+        {!pointsLoading && !canCreate && (
           <div className="mb-6 p-4 bg-red-100 border border-red-300 rounded text-red-700 text-center">
-            You need at least <b>10,000 DeFAI Points</b> to create a squad.<br />
-            {userPoints === null && <span>Go to the Dashboard to activate your account and earn points.</span>}
-            {userPoints !== null && <span>Your current points: <b>{userPoints.toLocaleString()}</b></span>}
+            {pointsError ? (
+              <span>{pointsError}</span>
+            ) : (
+              <>
+                You need at least <b>10,000 DeFAI Points</b> to create a squad.<br />
+                {userPoints === null && <span>Go to the Dashboard to activate your account and earn points.</span>}
+                {userPoints !== null && <span>Your current points: <b>{userPoints.toLocaleString()}</b></span>}
+              </>
+            )}
           </div>
         )}
 
@@ -120,7 +147,7 @@ export default function CreateSquadPage() {
               placeholder="The Legends"
               maxLength={30}
               required
-              disabled={!canCreate}
+              disabled={!canCreate || pointsLoading}
             />
           </div>
 
@@ -136,7 +163,7 @@ export default function CreateSquadPage() {
               className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none text-white placeholder-gray-400"
               placeholder="A brief description of your squad's mission..."
               maxLength={150}
-              disabled={!canCreate}
+              disabled={!canCreate || pointsLoading}
             />
           </div>
 
@@ -144,7 +171,7 @@ export default function CreateSquadPage() {
 
           <button
             type="submit"
-            disabled={isLoading || !connected || !canCreate}
+            disabled={isLoading || !connected || !canCreate || pointsLoading}
             className="w-full py-3 px-5 bg-green-500 hover:bg-green-600 disabled:bg-gray-500 text-white font-semibold rounded-lg shadow-md hover:shadow-lg transform hover:scale-105 transition-all duration-150 ease-in-out disabled:opacity-70 disabled:cursor-not-allowed"
           >
             {isLoading ? (
@@ -155,7 +182,7 @@ export default function CreateSquadPage() {
                 </svg>
                 Creating Squad...
               </span>
-            ) : 'Create Squad'}
+            ) : pointsLoading ? 'Checking...' : 'Create Squad'}
           </button>
         </form>
         

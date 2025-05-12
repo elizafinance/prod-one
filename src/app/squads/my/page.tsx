@@ -14,9 +14,11 @@ export default function MySquadPage() {
   const [mySquadData, setMySquadData] = useState<MySquadData | null>(null);
   const [isFetchingSquad, setIsFetchingSquad] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [userCheckedNoSquad, setUserCheckedNoSquad] = useState(false);
 
   const fetchMySquadData = useCallback(async (userWalletAddress: string) => {
-    if (!userWalletAddress || isFetchingSquad) return;
+    if (!userWalletAddress || isFetchingSquad || userCheckedNoSquad) return;
+    
     setIsFetchingSquad(true);
     setError(null);
     console.log("[MySquadPage] Fetching squad data for:", userWalletAddress);
@@ -27,14 +29,19 @@ export default function MySquadPage() {
         if (data.squad) {
           console.log("[MySquadPage] Squad data received:", data.squad);
           setMySquadData(data.squad as MySquadData);
+          setUserCheckedNoSquad(false);
         } else {
           console.log("[MySquadPage] User not in a squad or no squad data.");
           setMySquadData(null);
+          setUserCheckedNoSquad(true);
         }
       } else {
         console.error("[MySquadPage] Failed to fetch squad data:", data.error || response.statusText);
         setError(data.error || response.statusText);
         setMySquadData(null);
+        if (response.status === 404) {
+          setUserCheckedNoSquad(true);
+        }
       }
     } catch (error) {
       console.error("[MySquadPage] Error fetching squad data:", error);
@@ -42,13 +49,37 @@ export default function MySquadPage() {
       setMySquadData(null);
     }
     setIsFetchingSquad(false);
-  }, [isFetchingSquad]);
+  }, [isFetchingSquad, userCheckedNoSquad]);
 
   useEffect(() => {
+    let isActive = true;
+    
+    if (connected && publicKey && !userCheckedNoSquad) {
+      const timer = setTimeout(() => {
+        if (isActive) {
+          fetchMySquadData(publicKey.toBase58());
+        }
+      }, 500);
+      
+      return () => {
+        isActive = false;
+        clearTimeout(timer);
+      };
+    }
+  }, [connected, publicKey, fetchMySquadData, userCheckedNoSquad]);
+
+  useEffect(() => {
+    if (publicKey) {
+      setUserCheckedNoSquad(false);
+    }
+  }, [publicKey]);
+
+  const handleForceRefresh = () => {
     if (connected && publicKey) {
+      setUserCheckedNoSquad(false);
       fetchMySquadData(publicKey.toBase58());
     }
-  }, [connected, publicKey, fetchMySquadData]);
+  };
 
   return (
     <main className="flex flex-col items-center min-h-screen p-4 sm:p-8 bg-gradient-to-b from-gray-900 to-gray-800 text-white">
@@ -69,7 +100,17 @@ export default function MySquadPage() {
           </div>
         )}
         {!isFetchingSquad && !mySquadData && !error && (
-          <p className="text-center text-gray-600">You are not currently in a squad.</p>
+          <div className="text-center">
+            <p className="text-center text-gray-600 mb-3">You are not currently in a squad.</p>
+            {userCheckedNoSquad && (
+              <button 
+                onClick={handleForceRefresh} 
+                className="py-2 px-4 bg-blue-400 hover:bg-blue-500 text-white text-sm font-semibold rounded-lg transition-colors shadow hover:shadow-md"
+              >
+                Refresh Squad Data
+              </button>
+            )}
+          </div>
         )}
         <div className="mt-6 text-center">
           <Link href="/">

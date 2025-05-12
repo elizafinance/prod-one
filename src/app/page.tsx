@@ -74,6 +74,7 @@ export default function HomePage() {
   const [userData, setUserData] = useState<UserData | null>(null);
   const [mySquadData, setMySquadData] = useState<MySquadData | null>(null);
   const [isFetchingSquad, setIsFetchingSquad] = useState(false);
+  const [userCheckedNoSquad, setUserCheckedNoSquad] = useState(false);
   const [initialReferrer, setInitialReferrer] = useState<string | null>(null);
   const [pendingInvites, setPendingInvites] = useState<SquadInvitationDocument[]>([]);
   const [isFetchingInvites, setIsFetchingInvites] = useState(false);
@@ -86,7 +87,7 @@ export default function HomePage() {
   }, []);
 
   const fetchMySquadData = useCallback(async (userWalletAddress: string) => {
-    if (!userWalletAddress || isFetchingSquad) return;
+    if (!userWalletAddress || isFetchingSquad || userCheckedNoSquad) return;
     console.log("[HomePage] Fetching squad data for:", userWalletAddress);
     setIsFetchingSquad(true);
     try {
@@ -96,21 +97,26 @@ export default function HomePage() {
         if (data.squad) {
           console.log("[HomePage] Squad data received:", data.squad);
           setMySquadData(data.squad as MySquadData);
+          setUserCheckedNoSquad(false);
         } else {
           console.log("[HomePage] User not in a squad or no squad data.");
           setMySquadData(null);
+          setUserCheckedNoSquad(true);
         }
       } else {
         const errorData = await response.json();
         console.error("[HomePage] Failed to fetch squad data:", errorData.error || response.statusText);
         setMySquadData(null);
+        if (response.status === 404) {
+          setUserCheckedNoSquad(true);
+        }
       }
     } catch (error) {
       console.error("[HomePage] Error fetching squad data:", error);
       setMySquadData(null);
     }
     setIsFetchingSquad(false);
-  }, [isFetchingSquad]);
+  }, [isFetchingSquad, userCheckedNoSquad]);
 
   const fetchPendingInvites = useCallback(async () => {
     if (!wallet.connected || !session) return; // Need session for authenticated API call
@@ -171,8 +177,8 @@ export default function HomePage() {
     if (authStatus === "authenticated" && session?.user?.xId && wallet.connected && wallet.publicKey && !isRewardsActive && !isActivatingRewards) {
       const dbIdForApi = session.user.dbId === null ? undefined : session.user.dbId;
       activateRewardsAndFetchData(wallet.publicKey.toBase58(), session.user.xId, dbIdForApi);
-    } else if (authStatus === "authenticated" && wallet.connected && wallet.publicKey && isRewardsActive && userData && !mySquadData && !isFetchingSquad) {
-      // If rewards active, userData loaded, but no squad data yet (e.g. on refresh or if activate-rewards didn't fetch it)
+    } else if (authStatus === "authenticated" && wallet.connected && wallet.publicKey && isRewardsActive && userData && !mySquadData && !isFetchingSquad && !userCheckedNoSquad) {
+      // Only fetch squad data if we haven't already determined the user has no squad
       console.log("[HomePage] Rewards active, attempting to fetch squad data because mySquadData is null/empty.");
       fetchMySquadData(wallet.publicKey.toBase58());
     }
@@ -184,9 +190,17 @@ export default function HomePage() {
       setIsRewardsActive(false);
       setUserData(null);
       setMySquadData(null);
+      setUserCheckedNoSquad(false);
     }
-  }, [authStatus, session, wallet.connected, wallet.publicKey, isRewardsActive, isActivatingRewards, activateRewardsAndFetchData, userData, mySquadData, fetchMySquadData, isFetchingSquad, pendingInvites, fetchPendingInvites]);
+  }, [authStatus, session, wallet.connected, wallet.publicKey, isRewardsActive, isActivatingRewards, activateRewardsAndFetchData, userData, mySquadData, fetchMySquadData, isFetchingSquad, pendingInvites, fetchPendingInvites, userCheckedNoSquad]);
   
+  // Reset the userCheckedNoSquad flag when wallet changes
+  useEffect(() => {
+    if (wallet.publicKey) {
+      setUserCheckedNoSquad(false);
+    }
+  }, [wallet.publicKey]);
+
   const handleInitialAirdropCheck = async () => {
     const addressToCheck = typedAddress.trim();
     if (!addressToCheck) {

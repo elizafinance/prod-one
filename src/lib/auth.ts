@@ -57,8 +57,8 @@ export const authOptions: AuthOptions = {
           const usersCollection = db.collection<UserDocument>('users');
           const actionsCollection = db.collection<ActionDocument>('actions');
 
-          const xUserId = twitterProfile.id_str || user.id;
-          console.log("[NextAuth SignIn] Extracted xUserId:", xUserId);
+          const xUserId = String(twitterProfile.id_str || user.id);
+          console.log("[NextAuth SignIn] Extracted xUserId (ensured string):", xUserId);
 
           if (!xUserId) {
             console.error('[NextAuth SignIn] X User ID not found in profile. Denying access.');

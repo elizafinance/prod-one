@@ -101,6 +101,9 @@ export default function HomePage() {
   const [isFetchingInvites, setIsFetchingInvites] = useState(false);
   const [isProcessingInvite, setIsProcessingInvite] = useState<string | null>(null); // invitationId being processed
 
+  // ---> Add state for squad invite ID from URL
+  const [squadInviteIdFromUrl, setSquadInviteIdFromUrl] = useState<string | null>(null);
+
   // State for DeFAI balance check
   const [isCheckingDefaiBalance, setIsCheckingDefaiBalance] = useState(false);
   const [hasSufficientDefai, setHasSufficientDefai] = useState<boolean | null>(null); // null = not checked, false = insufficient, true = sufficient
@@ -123,6 +126,15 @@ export default function HomePage() {
        const savedRefCode = localStorage.getItem('referralCode');
        if (savedRefCode) setInitialReferrer(savedRefCode);
     }
+
+    // ---> Read squadInvite parameter
+    const squadInviteParam = urlParams.get('squadInvite');
+    if (squadInviteParam) {
+      // Optionally persist this too, or just keep in state
+      setSquadInviteIdFromUrl(squadInviteParam);
+      console.log("[HomePage] Squad Invite ID from URL:", squadInviteParam);
+    }
+
   }, []);
 
   const fetchMySquadData = useCallback(async (userWalletAddress: string) => {
@@ -241,7 +253,11 @@ export default function HomePage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          walletAddress: connectedWalletAddress, xUserId: xUserId, userDbId: userDbId, referrerCodeFromQuery: initialReferrer 
+          walletAddress: connectedWalletAddress, 
+          xUserId: xUserId, 
+          userDbId: userDbId, 
+          referrerCodeFromQuery: initialReferrer, 
+          squadInviteIdFromUrl: squadInviteIdFromUrl // ---> Pass squad invite ID 
         }),
       });
       const data: UserData & { message?: string, error?: string, isNewUser?: boolean } = await response.json();
@@ -264,7 +280,7 @@ export default function HomePage() {
         // After successfully activating rewards, fetch squad data AND pending invites
         if (connectedWalletAddress) {
           fetchMySquadData(connectedWalletAddress);
-          fetchPendingInvites(); // Fetch invites after activating rewards
+          fetchPendingInvites(); // Fetch invites AFTER activation, which should now include the auto-generated one
         }
         // ON SUCCESSFUL ACTIVATION/FETCH: Trigger balance check
         if (wallet.publicKey) { // Ensure wallet.publicKey is available
@@ -308,7 +324,7 @@ export default function HomePage() {
       setPendingInvites([]);
     }
     setIsActivatingRewards(false);
-  }, [initialReferrer, fetchMySquadData, fetchPendingInvites, connection, wallet.publicKey, checkDefaiBalance]);
+  }, [initialReferrer, squadInviteIdFromUrl, fetchMySquadData, fetchPendingInvites, connection, wallet.publicKey, checkDefaiBalance]);
 
   useEffect(() => {
     if (authStatus === "authenticated" && session?.user?.xId && wallet.connected && wallet.publicKey && !isRewardsActive && !isActivatingRewards) {

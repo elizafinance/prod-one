@@ -640,21 +640,21 @@ export default function SquadDetailsPage() {
               </div>
 
               {/* Leader Referral Link Section */}
-              {squadDetails.leaderReferralCode && (
+              {squadDetails.leaderReferralCode && squadDetails.squadId && (
                 <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg mb-6">
-                  <h4 className="text-md font-semibold text-gray-800 mb-2">Your Referral Link:</h4>
+                  <h4 className="text-md font-semibold text-gray-800 mb-2">Squad Invite & Referral Link:</h4>
                   <p className="text-xs text-gray-600 mb-2">
-                    Share this link! Your invitee needs to sign in with X first before connecting their wallet via your link to count as a referral.
+                    Share this link! New users clicking this will be credited to your referral count AND automatically invited to this squad after activating.
                   </p>
                   <div className="flex items-center justify-center bg-gray-200 p-2 rounded">
                     <input 
                       type="text" 
                       readOnly 
-                      value={`https://squad.defairewards.net/?ref=${squadDetails.leaderReferralCode}`}
+                      value={`https://squad.defairewards.net/?ref=${squadDetails.leaderReferralCode}&squadInvite=${squadDetails.squadId}`}
                       className="text-gray-700 text-sm break-all bg-transparent outline-none flex-grow p-1"
                     />
                     <button 
-                      onClick={() => handleCopyToClipboard(`https://squad.defairewards.net/?ref=${squadDetails.leaderReferralCode}`)}
+                      onClick={() => handleCopyToClipboard(`https://squad.defairewards.net/?ref=${squadDetails.leaderReferralCode}&squadInvite=${squadDetails.squadId}`)}
                       className="ml-2 py-1 px-2 text-xs bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
                     >
                       Copy

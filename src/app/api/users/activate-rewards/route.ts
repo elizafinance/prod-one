@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
-import { connectToDatabase, UserDocument, ActionDocument, ReferralBoost, SquadDocument } from '@/lib/mongodb';
+import { connectToDatabase, UserDocument, ActionDocument, ReferralBoost, SquadDocument, SquadInvitationDocument } from '@/lib/mongodb';
 import airdropDataList from '@/data/airdropData.json'; // For checking airdrop amount
 import { randomBytes } from 'crypto';
-import { Db } from 'mongodb';
+import { Db, ObjectId } from 'mongodb';
 
 interface AirdropGsheetEntry {
   Account: string;
@@ -54,12 +54,13 @@ interface ActivateRequestBody {
   xUserId?: string;       // This is the X/Twitter User ID from session
   userDbId?: string;      // This is the DB ID from session (optional, xUserId is primary)
   referrerCodeFromQuery?: string | null;
+  squadInviteIdFromUrl?: string | null;
 }
 
 export async function POST(request: Request) {
   try {
     const body: ActivateRequestBody = await request.json();
-    const { walletAddress: newSolanaWalletAddress, xUserId, userDbId, referrerCodeFromQuery } = body;
+    const { walletAddress: newSolanaWalletAddress, xUserId, userDbId, referrerCodeFromQuery, squadInviteIdFromUrl } = body;
 
     if (!newSolanaWalletAddress) {
       return NextResponse.json({ error: 'Wallet address is required' }, { status: 400 });
@@ -75,6 +76,7 @@ export async function POST(request: Request) {
     const usersCollection = db.collection<UserDocument>('users');
     const actionsCollection = db.collection<ActionDocument>('actions');
     const squadsCollection = db.collection<SquadDocument>('squads');
+    const squadInvitesCollection = db.collection<SquadInvitationDocument>('squadInvitations');
 
     console.log(`[Activate Rewards] Processing activation for xUserId: ${xUserId}, Solana Wallet: ${newSolanaWalletAddress}`);
 
@@ -89,7 +91,8 @@ export async function POST(request: Request) {
     console.log(`[Activate Rewards] Found user by xUserId: ${xUserId}. Current DB walletAddress: ${userToUpdate.walletAddress}. New Solana wallet: ${newSolanaWalletAddress}`);
 
     // Step 2: Check if the new Solana wallet is already linked to a *different* X account
-    if (userToUpdate.walletAddress !== newSolanaWalletAddress) { // Only check if wallet is actually changing
+    const isFirstWalletLinkForUser = userToUpdate && userToUpdate.walletAddress !== newSolanaWalletAddress;
+    if (isFirstWalletLinkForUser) {
         const conflictingUser = await usersCollection.findOne({ 
             walletAddress: newSolanaWalletAddress, 
             xUserId: { $ne: xUserId } // Look for this wallet linked to a *different* xUserId
@@ -103,7 +106,6 @@ export async function POST(request: Request) {
         }
         console.log(`[Activate Rewards] No conflict found for Solana wallet ${newSolanaWalletAddress}. Proceeding to link it to xUserId ${xUserId}.`);
     }
-
 
     // Step 3: Prepare updates for the user (points, completed actions, etc.)
     // Initialize from the found user (userToUpdate)
@@ -301,13 +303,69 @@ export async function POST(request: Request) {
         updateData.referredBy = userToUpdate.referredBy;
     }
 
+    // ---> Variable to track if a new user account was essentially created/activated
+    // We consider it "new" if the wallet is being linked for the first time.
+    const isNewUserActivation = isFirstWalletLinkForUser;
 
     console.log(`[Activate Rewards] Finalizing update for user xUserId: ${xUserId}. New walletAddress: ${newSolanaWalletAddress}. Points: ${currentPoints}`);
-    await usersCollection.updateOne(
+    const userUpdateResult = await usersCollection.updateOne(
       { xUserId: xUserId }, // Find by xUserId
       { $set: updateData }
     );
-    
+
+    // ---> START: Create squad invitation if conditions met
+    let squadInviteCreated = false;
+    if (squadInviteIdFromUrl && isNewUserActivation) { // Only process if squad ID provided AND it's the first activation for this wallet link
+      console.log(`[Activate Rewards] Processing squad invite. Squad ID: ${squadInviteIdFromUrl}, User Wallet: ${newSolanaWalletAddress}`);
+      
+      // 1. Find the target squad
+      const targetSquad = await squadsCollection.findOne({ squadId: squadInviteIdFromUrl });
+      
+      if (targetSquad) {
+          // 2. Check if squad is full
+          const maxMembers = parseInt(process.env.NEXT_PUBLIC_MAX_SQUAD_MEMBERS || '10', 10);
+          if (targetSquad.memberWalletAddresses.length < maxMembers) {
+              // 3. Check if user is already in THIS squad or ANY squad
+              if (targetSquad.memberWalletAddresses.includes(newSolanaWalletAddress)) {
+                 console.log(`[Activate Rewards] User ${newSolanaWalletAddress} is already a member of target squad ${squadInviteIdFromUrl}. No invite needed.`);
+              } else if (userToUpdate.squadId) { // Check if user is already in *any* squad (based on pre-update state)
+                 console.log(`[Activate Rewards] User ${newSolanaWalletAddress} is already in a different squad (${userToUpdate.squadId}). Cannot auto-invite.`);
+              } else {
+                  // 4. Check for existing *pending* invites for this user to this squad
+                  const existingPendingInvite = await squadInvitesCollection.findOne({
+                      invitedUserWalletAddress: newSolanaWalletAddress,
+                      squadId: targetSquad.squadId,
+                      status: 'pending'
+                  });
+
+                  if (!existingPendingInvite) {
+                      // 5. Create the pending invitation
+                      const newInvitation: Omit<SquadInvitationDocument, '_id'> = {
+                          invitationId: new ObjectId().toHexString(),
+                          squadId: targetSquad.squadId,
+                          squadName: targetSquad.name,
+                          invitedByUserWalletAddress: targetSquad.leaderWalletAddress,
+                          invitedUserWalletAddress: newSolanaWalletAddress,
+                          status: 'pending',
+                          createdAt: new Date(),
+                          updatedAt: new Date(),
+                      };
+                      await squadInvitesCollection.insertOne(newInvitation);
+                      squadInviteCreated = true;
+                      console.log(`[Activate Rewards] Successfully created pending squad invitation for ${newSolanaWalletAddress} to squad ${targetSquad.squadId}`);
+                  } else {
+                      console.log(`[Activate Rewards] User ${newSolanaWalletAddress} already has a pending invite to squad ${targetSquad.squadId}.`);
+                  }
+              }
+          } else {
+              console.log(`[Activate Rewards] Target squad ${squadInviteIdFromUrl} is full. Cannot create invitation.`);
+          }
+      } else {
+          console.warn(`[Activate Rewards] Squad with ID ${squadInviteIdFromUrl} not found. Cannot create invitation.`);
+      }
+    }
+    // ---> END: Create squad invitation logic
+
     // If user joined/is in a squad AND gained points this session, update squad points
     // Re-fetch userToUpdate to get potentially updated squadId if referral changed squad status (unlikely here)
     const potentiallyUpdatedUser = await usersCollection.findOne({ xUserId });
@@ -322,22 +380,19 @@ export async function POST(request: Request) {
       console.log(`[Activate Rewards] Updated squad ${potentiallyUpdatedUser.squadId} points by ${pointsGainedThisSession} for user ${xUserId}`);
     }
 
-
-    // Fetch the fully updated user for the response (now identified by xUserId, but its walletAddress field is updated)
+    // Fetch the fully updated user for the response
     const finalUser = await usersCollection.findOne({ xUserId: xUserId });
 
-    if (!finalUser) { // Should not happen if updateOne was successful
+    if (!finalUser) {
         console.error(`[Activate Rewards] CRITICAL: Failed to re-fetch user ${xUserId} after update.`);
         return NextResponse.json({ error: 'Failed to finalize user activation. Please try again.' }, { status: 500 });
     }
     
-    // The session's walletAddress might still be the old one (e.g., the xUserId) until next login.
-    // The client-side `userData` will be updated with this response.
-    // APIs using `getServerSession` will get the latest from the token, which is updated on new login/token refresh.
-    // The critical part is that the DB is now consistent.
-
     return NextResponse.json({
-      message: 'Rewards activated/updated successfully. Wallet linked to your X account.',
+      message: squadInviteCreated 
+                 ? 'Rewards activated! Wallet linked & squad invite sent.' 
+                 : 'Rewards activated/updated successfully. Wallet linked to your X account.',
+      isNewUser: isNewUserActivation, // ---> Pass back isNewUser status for modal trigger
       points: finalUser.points,
       referralCode: finalUser.referralCode,
       completedActions: finalUser.completedActions,

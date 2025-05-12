@@ -5,7 +5,9 @@ import { Inter, Orbitron, Space_Grotesk } from "next/font/google";
 import "./globals.css";
 import { UmiProvider } from "@/providers/umiProvider";
 // import Header from "@/components/header";
-import { Toaster } from "@/components/ui/toaster";
+import { Toaster as ShadcnToaster } from "@/components/ui/toaster";
+import { Toaster as SonnerToaster } from "sonner";
+import SessionProviderWrapper from "@/providers/sessionProviderWrapper";
 
 const inter = Inter({ subsets: ["latin"], variable: '--font-inter' });
 const orbitron = Orbitron({ 
@@ -49,22 +51,23 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <WalletAdapterProvider>
-      <UmiProvider>
-        <html lang="en" className={`${inter.variable} ${orbitron.variable} ${spaceGrotesk.variable}`}>
-          <body
-            className={"flex flex-col min-h-screen gap-4 font-sans"}
-          >
-            <ThemeProviderWrapper>
-              {/* <div className="flex flex-col items-center pt-24 gap-4 w-full">
-                <Header />
-              </div> */}
-              {children}
-              <Toaster />
-            </ThemeProviderWrapper>
-          </body>
-        </html>
-      </UmiProvider>
-    </WalletAdapterProvider>
+    <html lang="en" className={`${inter.variable} ${orbitron.variable} ${spaceGrotesk.variable}`}>
+      <body className={"flex flex-col min-h-screen gap-4 font-sans"}>
+        <SessionProviderWrapper>
+          <WalletAdapterProvider>
+            <UmiProvider>
+              <ThemeProviderWrapper>
+                {/* <div className="flex flex-col items-center pt-24 gap-4 w-full">
+                  <Header />
+                </div> */}
+                {children}
+                <ShadcnToaster />
+                <SonnerToaster richColors position="bottom-right" />
+              </ThemeProviderWrapper>
+            </UmiProvider>
+          </WalletAdapterProvider>
+        </SessionProviderWrapper>
+      </body>
+    </html>
   );
 }

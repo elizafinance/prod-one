@@ -31,10 +31,10 @@ const tierStyles: { [key: string]: string } = {
 const badgeDisplayMap: { [key: string]: { icon: string; label: string; color: string; isSpecial?: boolean; glowColor?: string } } = {
   pioneer_badge: { icon: "🧭", label: "Pioneer", color: "bg-green-600 text-white" }, // Slightly darker green
   legend_tier_badge: { icon: "🌟", label: "Legend Tier", color: "bg-yellow-500 text-black" },
-  generous_donor_badge: {
-    icon: "✨",
-    label: "Generous Donor",
-    color: "bg-violet-600 text-white",
+  generous_donor_badge: { 
+    icon: "✨", 
+    label: "Generous Donor", 
+    color: "bg-violet-600 text-white", 
     isSpecial: true,
     glowColor: "rgba(139, 92, 246, 0.7)" // Purple glow remains suitable
   },

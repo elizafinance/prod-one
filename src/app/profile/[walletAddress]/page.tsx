@@ -51,7 +51,7 @@ const badgeDisplayMap: { [key: string]: { icon: string; label: string; color: st
   generous_donor_badge: { 
     icon: "✨", 
     label: "Generous Donor", 
-    color: "bg-violet-600 text-white",
+    color: "bg-violet-600 text-white", 
     isSpecial: true,
     glowColor: "rgba(139, 92, 246, 0.7)"
   },

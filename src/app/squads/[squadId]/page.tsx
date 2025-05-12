@@ -478,13 +478,13 @@ export default function SquadDetailsPage() {
                         >
                           {isKickingMember === member.walletAddress ? 'Transferring...' : 'Make Leader'}
                         </button>
-                        <button 
-                          onClick={() => handleKickMember(member.walletAddress)}
-                          disabled={isKickingMember === member.walletAddress}
+                      <button 
+                        onClick={() => handleKickMember(member.walletAddress)}
+                        disabled={isKickingMember === member.walletAddress}
                           className="px-2 py-1 text-xs bg-red-500 hover:bg-red-600 text-white rounded-md disabled:opacity-50"
-                        >
-                          {isKickingMember === member.walletAddress ? 'Kicking...' : 'Kick'}
-                        </button>
+                      >
+                        {isKickingMember === member.walletAddress ? 'Kicking...' : 'Kick'}
+                      </button>
                       </>
                     )}
                   </div>

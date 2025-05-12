@@ -375,12 +375,12 @@ export default function HomePage() {
             </div>
             {airdropCheckResult !== null && (
                 <div className="mt-6 p-5 bg-green-50 border border-green-200 rounded-lg text-center shadow-sm">
-                  {typeof airdropCheckResult === 'number' ? (
+                {typeof airdropCheckResult === 'number' ? (
                       airdropCheckResult > 0 ? (
                         <p className="text-center text-3xl font-bold mb-4 animate-pulse">
                           Eligible for: <span className="text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 via-orange-500 to-red-500">{airdropCheckResult.toLocaleString()}</span> $AIR!
-                        </p>
-                      ) : (
+                    </p>
+                ) : (
                         <p className="text-center text-lg text-gray-600 mb-4">
                           This address does not qualify for the $AIR airdrop (amount: {airdropCheckResult}).
                         </p>

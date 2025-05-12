@@ -23,6 +23,11 @@ const DonationBadgeForm: React.FC<DonationBadgeFormProps> = ({ onBadgeEarned }) 
   const donationAddress = process.env.NEXT_PUBLIC_DONATION_WALLET_ADDRESS || '';
   
   const sendDonation = async () => {
+    // Temporarily disabled functionality
+    toast.info('Donation functionality is temporarily disabled. Coming back soon!');
+    return;
+
+    /* 
     if (!wallet.publicKey || !wallet.signTransaction) {
       toast.error('Please connect your wallet first');
       return;
@@ -81,9 +86,12 @@ const DonationBadgeForm: React.FC<DonationBadgeFormProps> = ({ onBadgeEarned }) 
     } finally {
       setIsLoading(false);
     }
+    */
   };
   
   const verifyDonation = async (signature: string) => {
+    // Temporarily disabled functionality
+    /* 
     if (!signature.trim()) {
       // This case should ideally not be reached if we remove manual input
       // but keep it as a safeguard or for potential future internal use.
@@ -122,6 +130,7 @@ const DonationBadgeForm: React.FC<DonationBadgeFormProps> = ({ onBadgeEarned }) 
     } finally {
       setVerifying(false);
     }
+    */
   };
   
   return (
@@ -143,11 +152,15 @@ const DonationBadgeForm: React.FC<DonationBadgeFormProps> = ({ onBadgeEarned }) 
         Support DeFAI Rewards by donating {donationAmount} SOL and earn this exclusive glowing badge that will make you stand out on the leaderboard!
       </p>
       
+      <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-md mb-4">
+        <p className="text-center text-yellow-700">⚠️ Donation feature temporarily disabled. Coming back soon!</p>
+      </div>
+      
       {donationAddress ? (
         <>
           <button
             onClick={sendDonation}
-            disabled={isLoading || !wallet.connected}
+            disabled={true}
             className="w-full py-2 px-4 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-md shadow disabled:opacity-70 mb-3"
           >
             {isLoading ? 'Sending...' : `Donate ${donationAmount} SOL Now`}

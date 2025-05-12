@@ -21,7 +21,7 @@ export async function GET(request: Request) {
     const squadsCollection = db.collection<SquadDocument>('squads');
 
     // Step 2: Fetch the user from DB using the authenticated xId to get their canonical walletAddress
-    const userFromDb = await usersCollection.findOne({ xId: userXId });
+    const userFromDb = await usersCollection.findOne({ xUserId: userXId });
     if (!userFromDb) {
       return NextResponse.json({ error: 'User record not found in database for authenticated xId.' }, { status: 404 });
     }
@@ -42,7 +42,7 @@ export async function GET(request: Request) {
     const squad = await squadsCollection.findOne({ squadId: userFromDb.squadId });
     if (!squad) {
       // Data inconsistency, clear user's squadId from their DB record
-      await usersCollection.updateOne({ xId: userXId }, { $unset: { squadId: "" }, $set: {updatedAt: new Date()} });
+      await usersCollection.updateOne({ xUserId: userXId }, { $unset: { squadId: "" }, $set: {updatedAt: new Date()} });
       return NextResponse.json({ error: 'Squad not found, user data corrected. Please try joining a squad again.', squad: null }, { status: 404 });
     }
     

@@ -374,14 +374,23 @@ export default function HomePage() {
                 </button>
             </div>
             {airdropCheckResult !== null && (
-                <div className="mt-4 p-4 bg-gray-100 rounded-md text-center w-full">
-                {typeof airdropCheckResult === 'number' ? (
-                    <p className="text-lg text-gray-800">
-                    This address qualifies for: <span className="font-bold text-xl text-green-600">{airdropCheckResult.toLocaleString()}</span> $AIR tokens.
-                    </p>
-                ) : (
-                    <p className="text-lg text-red-600">{airdropCheckResult}</p>
-                )}
+                <div className="mt-6 p-5 bg-green-50 border border-green-200 rounded-lg text-center shadow-sm">
+                  {typeof airdropCheckResult === 'number' ? (
+                      airdropCheckResult > 0 ? (
+                        <p className="text-center text-3xl font-bold mb-4 animate-pulse">
+                          Eligible for: <span className="text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 via-orange-500 to-red-500">{airdropCheckResult.toLocaleString()}</span> $AIR!
+                        </p>
+                      ) : (
+                        <p className="text-center text-lg text-gray-600 mb-4">
+                          This address does not qualify for the $AIR airdrop (amount: {airdropCheckResult}).
+                        </p>
+                      )
+                    ) : (
+                        <p className="text-center text-lg text-red-600 mb-4">
+                            Airdrop Status: {airdropCheckResult}
+                        </p>
+                    )
+                  }
                 </div>
             )}
         </div>

@@ -414,12 +414,20 @@ export default function HomePage() {
         <div className="w-full max-w-lg mt-2 flex flex-col items-center">
            <p className="text-center text-sm text-gray-600 mb-1">Wallet: <span className="font-mono">{wallet.publicKey!.toBase58().substring(0,6)}...{wallet.publicKey!.toBase58().substring(wallet.publicKey!.toBase58().length - 4)}</span></p>
           {userData.points !== null && (
-            <p className="mb-2 text-2xl font-bold font-spacegrotesk text-purple-600 text-center">DeFAI Points: {userData.points.toLocaleString()}</p>
+            <div className="my-4 text-center"> {/* Wrapper for label and number */}
+              <p className="text-lg text-gray-600 mb-1">DeFAI Points</p>
+              <p className="text-5xl font-extrabold animate-pulse mb-2 font-spacegrotesk text-transparent bg-clip-text bg-gradient-to-r from-purple-500 via-pink-500 to-orange-500">
+                {userData.points.toLocaleString()}
+              </p>
+            </div>
           )}
           {typeof userData.airdropAmount === 'number' && (
-             <p className="text-center text-md text-gray-700 mb-4">
-                Airdrop for this wallet: <span className="font-semibold text-green-600">{userData.airdropAmount.toLocaleString()} $AIR</span>
-             </p>
+             <div className="my-4 text-center"> {/* Wrapper for label and number */}
+                <p className="text-lg text-gray-600 mb-1">$AIR Airdrop for this Wallet</p>
+                <p className="text-4xl font-bold animate-pulse text-transparent bg-clip-text bg-gradient-to-r from-green-400 via-teal-500 to-cyan-500">
+                    {userData.airdropAmount.toLocaleString()} $AIR
+                </p>
+             </div>
           )}
           
           {userData.referralCode && (

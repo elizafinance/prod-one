@@ -451,13 +451,15 @@ export default function HomePage() {
 
           {/* Display Active Referral Boosts */}
           {userData.activeReferralBoosts && userData.activeReferralBoosts.length > 0 && (
-            <div className="w-full max-w-md p-5 bg-yellow-400/20 border-2 border-dashed border-yellow-600 rounded-xl shadow-lg mt-6 mb-4">
-              <h3 className="text-xl font-bold text-yellow-500 mb-3 text-center">🚀 Active Referral Boosts!</h3>
-              <ul className="space-y-2">
+            <div className="w-full max-w-md p-5 bg-gradient-to-br from-indigo-50 to-purple-50 border border-purple-200 rounded-xl shadow-lg mt-6 mb-4">
+              <h3 className="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600 mb-3 text-center">
+                🚀 Active Referral Boosts!
+              </h3>
+              <ul className="space-y-3">
                 {userData.activeReferralBoosts.map(boost => (
-                  <li key={boost.boostId} className="p-3 bg-yellow-600/30 rounded-lg">
-                    <p className="font-semibold text-yellow-100">{boost.description}</p>
-                    <p className="text-sm text-yellow-200">Remaining Uses: {boost.remainingUses}</p>
+                  <li key={boost.boostId} className="p-4 bg-white border border-gray-200 rounded-lg shadow-sm">
+                    <p className="font-semibold text-indigo-700">{boost.description}</p>
+                    <p className="text-sm text-gray-600 mt-1">Remaining Uses: <span className="font-medium text-purple-700">{boost.remainingUses}</span></p>
                   </li>
                 ))}
               </ul>

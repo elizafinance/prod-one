@@ -11,16 +11,21 @@ const REQUIRED_DONATION_AMOUNT = 0.1 * LAMPORTS_PER_SOL;
 // The badge ID for the donation badge
 const DONATION_BADGE_ID = 'generous_donor_badge';
 
+// This API route verifies a donation transaction and awards a badge if valid
 export async function POST(request: Request) {
+  console.log('[VerifyDonation API] Starting verification process');
+  
   // Check authentication
   const session = await getServerSession(authOptions);
   if (!session || !session.user) {
+    console.error('[VerifyDonation API] User not authenticated');
     return NextResponse.json({ error: 'User not authenticated' }, { status: 401 });
   }
   
   // Get the user's wallet address from the session
   const userWalletAddress = (session.user as any).walletAddress;
   if (!userWalletAddress) {
+    console.error('[VerifyDonation API] Wallet address not found in session');
     return NextResponse.json({ error: 'Wallet address not found in session' }, { status: 400 });
   }
   
@@ -28,6 +33,7 @@ export async function POST(request: Request) {
     const { transactionSignature } = await request.json();
     
     if (!transactionSignature) {
+      console.error('[VerifyDonation API] Transaction signature is required but was not provided');
       return NextResponse.json({ error: 'Transaction signature is required' }, { status: 400 });
     }
     
@@ -40,11 +46,13 @@ export async function POST(request: Request) {
     const connection = new Connection(rpcUrl);
     
     // Get the transaction details
+    console.log(`[VerifyDonation API] Getting transaction details for signature: ${transactionSignature}`);
     const transaction = await connection.getTransaction(transactionSignature, {
       maxSupportedTransactionVersion: 0
     });
     
     if (!transaction) {
+      console.error('[VerifyDonation API] Transaction not found on chain');
       return NextResponse.json({ error: 'Transaction not found' }, { status: 404 });
     }
     
@@ -111,6 +119,7 @@ export async function POST(request: Request) {
     }
     
     if (!isValid) {
+      console.error('[VerifyDonation API] Transaction verification failed');
       return NextResponse.json({ 
         error: 'Transaction verification failed. Ensure you sent at least 0.1 SOL to the correct address.' 
       }, { status: 400 });
@@ -123,11 +132,13 @@ export async function POST(request: Request) {
     // Get the user
     const user = await usersCollection.findOne({ walletAddress: userWalletAddress });
     if (!user) {
+      console.error(`[VerifyDonation API] User with wallet ${userWalletAddress} not found in DB`);
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
     
     // Check if the user already has the badge
     if (user.earnedBadgeIds && user.earnedBadgeIds.includes(DONATION_BADGE_ID)) {
+      console.log(`[VerifyDonation API] User ${userWalletAddress} already has the badge`);
       return NextResponse.json({ 
         message: 'You already have the Generous Donor badge!',
         alreadyEarned: true
@@ -137,6 +148,7 @@ export async function POST(request: Request) {
     // Add the badge to the user
     const earnedBadgeIds = user.earnedBadgeIds || [];
     
+    console.log(`[VerifyDonation API] Updating user ${userWalletAddress} with badge and points`);
     await usersCollection.updateOne(
       { walletAddress: userWalletAddress },
       { 
@@ -161,6 +173,7 @@ export async function POST(request: Request) {
       undefined
     );
     
+    console.log(`[VerifyDonation API] Successfully awarded badge to ${userWalletAddress}`);
     // Return success
     return NextResponse.json({
       message: 'Congratulations! You earned the Generous Donor badge and 250 points!',

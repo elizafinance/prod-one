@@ -3,11 +3,16 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useWallet } from '@solana/wallet-adapter-react'; // For "You are here" highlight
+import GlowingBadge from '@/components/GlowingBadge';
+import UserAvatar from '@/components/UserAvatar';
 
 interface LeaderboardEntry {
   walletAddress: string;
   points: number;
   highestAirdropTierLabel?: string;
+  xUsername?: string;
+  xProfileImageUrl?: string;
+  earnedBadgeIds?: string[];
 }
 
 // Tier styles mapping - customize these Tailwind classes!
@@ -20,6 +25,19 @@ const tierStyles: { [key: string]: string } = {
   master: 'bg-indigo-500 text-white border border-indigo-400',
   grandmaster: 'bg-purple-600 text-white border border-purple-500',
   legend: 'bg-pink-600 text-white border border-pink-500 font-bold italic',
+};
+
+// Badge styles mapping
+const badgeDisplayMap: { [key: string]: { icon: string; label: string; color: string; isSpecial?: boolean; glowColor?: string } } = {
+  pioneer_badge: { icon: "🧭", label: "Pioneer", color: "bg-green-500 text-white" },
+  legend_tier_badge: { icon: "🌟", label: "Legend Tier", color: "bg-yellow-500 text-black" },
+  generous_donor_badge: { 
+    icon: "✨", 
+    label: "Generous Donor", 
+    color: "bg-violet-600 text-white", 
+    isSpecial: true,
+    glowColor: "rgba(139, 92, 246, 0.7)" // Purple glow for the donor badge
+  },
 };
 
 export default function LeaderboardPage() {
@@ -50,8 +68,34 @@ export default function LeaderboardPage() {
     fetchLeaderboard();
   }, []);
 
-  // For animated points, consider a library like react-countup
-  // Example: <CountUp end={entry.points} duration={1} separator="," />
+  // Helper function to display badges
+  const renderBadges = (badges?: string[]) => {
+    if (!badges || badges.length === 0) return null;
+    
+    return (
+      <div className="flex flex-wrap gap-1 mt-1">
+        {badges.map(badgeId => {
+          const badge = badgeDisplayMap[badgeId];
+          if (!badge) return null;
+          
+          return badge.isSpecial ? (
+            <GlowingBadge
+              key={badgeId}
+              icon={badge.icon}
+              label={badge.label}
+              color={badge.color}
+              glowColor={badge.glowColor || "rgba(255, 255, 255, 0.5)"}
+              size="sm"
+            />
+          ) : (
+            <span key={badgeId} className={`px-2 py-0.5 text-xs font-semibold rounded-full ${badge.color}`}>
+              {badge.icon}
+            </span>
+          );
+        })}
+      </div>
+    );
+  };
 
   return (
     <main className="flex flex-col items-center min-h-screen p-4 sm:p-8 bg-gradient-to-b from-gray-900 to-gray-800 text-white">
@@ -91,7 +135,7 @@ export default function LeaderboardPage() {
                 <tr>
                   <th className="text-left py-4 px-4 sm:px-6 font-semibold text-gray-300 tracking-wider">Rank</th>
                   <th className="text-left py-4 px-4 sm:px-6 font-semibold text-gray-300 tracking-wider">Contender</th>
-                  <th className="text-left py-4 px-4 sm:px-6 font-semibold text-gray-300 tracking-wider">Airdrop Tier</th>
+                  <th className="text-left py-4 px-4 sm:px-6 font-semibold text-gray-300 tracking-wider">Tier & Badges</th>
                   <th className="text-right py-4 px-4 sm:px-6 font-semibold text-gray-300 tracking-wider">Points</th>
                 </tr>
               </thead>
@@ -121,6 +165,12 @@ export default function LeaderboardPage() {
                     rowClasses += " ring-2 ring-purple-400 scale-105 z-10 bg-purple-500/30 shadow-lg"; 
                   }
 
+                  // Check if user has the generous donor badge for extra highlighting
+                  const hasGenerousDonorBadge = entry.earnedBadgeIds?.includes('generous_donor_badge');
+                  if (hasGenerousDonorBadge) {
+                    rowClasses += " bg-violet-900/20 hover:bg-violet-900/30";
+                  }
+
                   const tierLabel = entry.highestAirdropTierLabel || '-';
                   // Ensure tierStyles access is safe with toLowerCase() only if label exists
                   const tierStyleKey = entry.highestAirdropTierLabel ? entry.highestAirdropTierLabel.toLowerCase() : 'default';
@@ -129,11 +179,33 @@ export default function LeaderboardPage() {
                   return (
                     <tr key={entry.walletAddress + index + rank} className={rowClasses}>
                       <td className="py-4 px-4 sm:px-6 font-medium text-gray-200 align-middle">{rankDisplay}</td>
-                      <td className="py-4 px-4 sm:px-6 font-mono text-sm text-gray-300 align-middle">{entry.walletAddress}</td>
                       <td className="py-4 px-4 sm:px-6 align-middle">
-                        <span className={`px-3 py-1 text-xs font-semibold rounded-full ${tierStyle}`}>
-                          {tierLabel}
-                        </span>
+                        <div className="flex items-center gap-3">
+                          <UserAvatar 
+                            profileImageUrl={entry.xProfileImageUrl} 
+                            username={entry.xUsername}
+                            size="sm"
+                          />
+                          <div>
+                            {entry.xUsername ? (
+                              <Link href={`/profile/${entry.walletAddress}`} passHref>
+                                <span className="text-gray-200 hover:text-white cursor-pointer hover:underline">@{entry.xUsername}</span>
+                              </Link>
+                            ) : (
+                              <Link href={`/profile/${entry.walletAddress}`} passHref>
+                                <span className="font-mono text-sm text-gray-300 hover:text-white cursor-pointer hover:underline">{entry.walletAddress}</span>
+                              </Link>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="py-4 px-4 sm:px-6 align-middle">
+                        <div>
+                          <span className={`px-3 py-1 text-xs font-semibold rounded-full ${tierStyle}`}>
+                            {tierLabel}
+                          </span>
+                          {entry.earnedBadgeIds && renderBadges(entry.earnedBadgeIds)}
+                        </div>
                       </td>
                       <td className="text-right py-4 px-4 sm:px-6 font-bold text-lg text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-500 align-middle">
                         {entry.points.toLocaleString()}

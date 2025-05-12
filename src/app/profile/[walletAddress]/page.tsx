@@ -8,6 +8,8 @@ import { useWallet } from '@solana/wallet-adapter-react';
 import { toast } from 'sonner';
 import UserAvatar from '@/components/UserAvatar';
 import ShareProfileButton from '@/components/ShareProfileButton';
+import GlowingBadge from '@/components/GlowingBadge';
+import DonationBadgeForm from '@/components/DonationBadgeForm';
 
 // INTERFACES AND CONSTANTS used by the Client Component
 interface PublicProfileSquadInfo {
@@ -43,9 +45,16 @@ const tierStyles: { [key: string]: string } = {
   grandmaster: 'bg-purple-600 text-white border border-purple-500',
   legend: 'bg-pink-600 text-white border border-pink-500 font-bold italic',
 };
-const badgeDisplayMap: { [key: string]: { icon: string; label: string; color: string } } = {
+const badgeDisplayMap: { [key: string]: { icon: string; label: string; color: string; isSpecial?: boolean; glowColor?: string } } = {
   pioneer_badge: { icon: "🧭", label: "Pioneer", color: "bg-green-500 text-white" },
   legend_tier_badge: { icon: "🌟", label: "Legend Tier", color: "bg-yellow-500 text-black" },
+  generous_donor_badge: { 
+    icon: "✨", 
+    label: "Generous Donor", 
+    color: "bg-violet-600 text-white", 
+    isSpecial: true,
+    glowColor: "rgba(139, 92, 246, 0.7)" // Purple glow for the donor badge
+  },
 };
 
 // CLIENT COMPONENT DEFINITION
@@ -143,9 +152,20 @@ export default function UserProfilePage() {
                 {profileData.earnedBadgeIds.map(badgeId => {
                   const badge = badgeDisplayMap[badgeId];
                   return badge ? (
-                    <span key={badgeId} className={`px-3 py-1 text-xs font-semibold rounded-full ${badge.color}`}>
-                      {badge.icon} {badge.label}
-                    </span>
+                    badge.isSpecial ? (
+                      <GlowingBadge
+                        key={badgeId}
+                        icon={badge.icon}
+                        label={badge.label}
+                        color={badge.color}
+                        glowColor={badge.glowColor || "rgba(255, 255, 255, 0.5)"}
+                        size="md"
+                      />
+                    ) : (
+                      <span key={badgeId} className={`px-3 py-1 text-xs font-semibold rounded-full ${badge.color}`}>
+                        {badge.icon} {badge.label}
+                      </span>
+                    )
                   ) : (
                     <span key={badgeId} className="px-3 py-1 text-xs font-semibold rounded-full bg-gray-600 text-gray-200">
                       {badgeId.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())} 
@@ -154,6 +174,28 @@ export default function UserProfilePage() {
                 })}
               </div>
             </div>
+          )}
+          {/* Special Badge Opportunity - only show on own profile */}
+          {loggedInUserWalletAddress && loggedInUserWalletAddress === walletAddress && 
+            (!profileData.earnedBadgeIds || !profileData.earnedBadgeIds.includes('generous_donor_badge')) && (
+            <DonationBadgeForm 
+              onBadgeEarned={() => {
+                // Refetch profile data to show the new badge
+                if (walletAddress) {
+                  fetch(`/api/users/public-profile/${walletAddress}`)
+                    .then(response => {
+                      if (response.ok) return response.json();
+                      throw new Error('Failed to refresh profile.');
+                    })
+                    .then(data => {
+                      setProfileData(data);
+                    })
+                    .catch(err => {
+                      console.error("Error refreshing profile:", err);
+                    });
+                }
+              }}
+            />
           )}
           {/* Referrals Made */}
           <div className="p-6 bg-white/5 rounded-lg shadow-lg">

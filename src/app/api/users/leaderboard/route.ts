@@ -8,14 +8,24 @@ export async function GET(request: Request) {
     const { db } = await connectToDatabase();
     const usersCollection = db.collection<UserDocument>('users');
 
-    const leaderboard = await usersCollection
-      .find({}, { projection: { walletAddress: 1, points: 1, highestAirdropTierLabel: 1, _id: 0 } }) // Select necessary fields
-      .sort({ points: -1 }) // Sort by points descending
-      .limit(LEADERBOARD_LIMIT)
-      .toArray();
+    // Update the projection to include earnedBadgeIds
+    const allUsersWithPoints = await usersCollection.find(
+      { points: { $gt: 0 } },
+      { 
+        projection: { 
+          walletAddress: 1, 
+          points: 1, 
+          highestAirdropTierLabel: 1,
+          xUsername: 1,
+          xProfileImageUrl: 1,
+          earnedBadgeIds: 1,
+          _id: 0 
+        } 
+      }
+    ).sort({ points: -1 }).toArray();
 
     // Simple masking for wallet addresses for display
-    const maskedLeaderboard = leaderboard.map(user => {
+    const maskedLeaderboard = allUsersWithPoints.map(user => {
       const originalWalletAddress = user.walletAddress;
       const maskedAddress = originalWalletAddress 
         ? `${originalWalletAddress.substring(0, 6)}...${originalWalletAddress.substring(originalWalletAddress.length - 4)}` 
@@ -29,7 +39,7 @@ export async function GET(request: Request) {
     return NextResponse.json(maskedLeaderboard);
 
   } catch (error) {
-    console.error("Error fetching leaderboard:", error);
+    console.error("Error fetching leaderboard data:", error);
     return NextResponse.json({ error: 'Failed to fetch leaderboard data' }, { status: 500 });
   }
 } 

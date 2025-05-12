@@ -276,7 +276,7 @@ export default function HomePage() {
       {authStatus !== "authenticated" || !isRewardsActive || !wallet.connected ? (
         <div className="w-full max-w-lg mb-8">
             <p className="text-center mb-4 text-black text-base sm:text-lg">
-            Welcome to the DeFAIRewards $AIRdrop checker. First, check if an address is eligible for the airdrop.
+            Welcome to the DeFAIRewards $AIRdrop checker. First, check if an address is eligible for the airdrop. Sign in with X and connect your wallet to activate your defAIRewards account.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-2 mb-4">
                 <input

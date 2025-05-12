@@ -793,7 +793,7 @@ export default function HomePage() {
               Squad Goals! Welcome to defAIRewards!
             </DialogTitle>
             <DialogDescription className="text-center text-gray-700 pt-2">
-              You've successfully activated your account. Here's how to get started:
+              You have successfully activated your account. Here is how to get started:
             </DialogDescription>
           </DialogHeader>
           <div className="py-4 space-y-3 text-sm text-gray-800">
@@ -812,7 +812,7 @@ export default function HomePage() {
               }}
               className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-bold py-2 px-4 rounded-lg shadow-md hover:shadow-lg transition-all"
             >
-              Let's Go!
+              LFG!
             </Button>
           </DialogFooter>
         </DialogContent>

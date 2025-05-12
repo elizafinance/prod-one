@@ -1,11 +1,12 @@
 import { NextResponse } from 'next/server';
-import { connectToDatabase, SquadDocument, UserDocument } from '@/lib/mongodb';
+import { connectToDatabase, UserDocument, SquadDocument } from '@/lib/mongodb';
 
+// Enriched types for squad details
 interface EnrichedSquadMember {
   walletAddress: string;
   xUsername?: string;
+  xProfileImageUrl?: string;
   points?: number;
-  // Add other fields you might want to display from UserDocument, e.g., xProfileImageUrl
 }
 
 interface EnrichedSquadData extends SquadDocument {
@@ -37,7 +38,7 @@ export async function GET(
     if (squad.memberWalletAddresses && squad.memberWalletAddresses.length > 0) {
       const memberUsers = await usersCollection.find(
         { walletAddress: { $in: squad.memberWalletAddresses } },
-        { projection: { walletAddress: 1, xUsername: 1, points: 1, _id: 0 } }
+        { projection: { walletAddress: 1, xUsername: 1, xProfileImageUrl: 1, points: 1, _id: 0 } }
       ).toArray();
       
       // Create a map for quick lookup
@@ -54,6 +55,7 @@ export async function GET(
         membersFullDetails.push({
           walletAddress: walletAddr,
           xUsername: memberDetail?.xUsername,
+          xProfileImageUrl: memberDetail?.xProfileImageUrl,
           points: memberDetail?.points,
         });
       }

@@ -9,6 +9,7 @@ interface PublicProfileSquadInfo {
 interface PublicProfileData {
   maskedWalletAddress: string;
   xUsername?: string;
+  xProfileImageUrl?: string;
   points: number;
   highestAirdropTierLabel?: string;
   referralsMadeCount?: number;
@@ -17,8 +18,8 @@ interface PublicProfileData {
 }
 
 function maskWalletAddress(address: string): string {
-  if (!address || address.length < 10) return address || 'N/A';
-  return `${address.substring(0, 6)}...${address.substring(address.length - 4)}`;
+  if (!address || address.length < 8) return address;
+  return `${address.substring(0, 4)}...${address.substring(address.length - 4)}`;
 }
 
 export async function GET(
@@ -53,6 +54,7 @@ export async function GET(
     const publicData: PublicProfileData = {
       maskedWalletAddress: maskWalletAddress(user.walletAddress || walletAddress),
       xUsername: user.xUsername,
+      xProfileImageUrl: user.xProfileImageUrl,
       points: user.points || 0,
       highestAirdropTierLabel: user.highestAirdropTierLabel,
       referralsMadeCount: user.referralsMadeCount || 0,

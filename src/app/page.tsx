@@ -10,6 +10,7 @@ import dynamic from 'next/dynamic'; // Import dynamic
 import { useSession, signIn, signOut } from "next-auth/react"; // NextAuth hooks
 import { ReferralBoost, SquadDocument, SquadInvitationDocument } from '@/lib/mongodb'; // Import the ReferralBoost interface and SquadDocument
 import { BellIcon } from '@heroicons/react/24/outline'; // Example icon, install @heroicons/react
+import UserAvatar from "@/components/UserAvatar";
 
 // Dynamically import WalletMultiButton
 const WalletMultiButtonDynamic = dynamic(
@@ -59,6 +60,14 @@ interface UserData {
 
 interface MySquadData extends SquadDocument {}
 
+// Add an interface for the enriched squad invitation that includes inviter info
+interface EnrichedSquadInvitation extends SquadInvitationDocument {
+  inviterInfo?: {
+    xUsername?: string;
+    xProfileImageUrl?: string;
+  }
+}
+
 export default function HomePage() {
   const { data: session, status: authStatus } = useSession();
   const wallet = useWallet();
@@ -76,7 +85,7 @@ export default function HomePage() {
   const [isFetchingSquad, setIsFetchingSquad] = useState(false);
   const [userCheckedNoSquad, setUserCheckedNoSquad] = useState(false);
   const [initialReferrer, setInitialReferrer] = useState<string | null>(null);
-  const [pendingInvites, setPendingInvites] = useState<SquadInvitationDocument[]>([]);
+  const [pendingInvites, setPendingInvites] = useState<EnrichedSquadInvitation[]>([]);
   const [isFetchingInvites, setIsFetchingInvites] = useState(false);
   const [isProcessingInvite, setIsProcessingInvite] = useState<string | null>(null); // invitationId being processed
 
@@ -476,12 +485,23 @@ export default function HomePage() {
               <ul className="space-y-3">
                 {pendingInvites.map(invite => (
                   <li key={invite.invitationId} className="p-3 bg-white/80 rounded-lg shadow">
-                    <p className="text-sm text-gray-700 mb-1">
-                      You have been invited to join <strong className="text-teal-600">{invite.squadName}</strong>
-                      {invite.invitedByUserWalletAddress && 
-                        <span className="text-xs block text-gray-500"> (Invited by: {invite.invitedByUserWalletAddress.substring(0,6)}...)</span>
-                      }
-                    </p>
+                    <div className="flex items-center gap-2 mb-2">
+                      <UserAvatar 
+                        profileImageUrl={invite.inviterInfo?.xProfileImageUrl} 
+                        username={invite.inviterInfo?.xUsername}
+                        size="sm"
+                      />
+                      <div>
+                        <p className="text-sm text-gray-700">
+                          You have been invited to join <strong className="text-teal-600">{invite.squadName}</strong>
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          Invited by: {invite.inviterInfo?.xUsername ? 
+                            `@${invite.inviterInfo.xUsername}` : 
+                            `${invite.invitedByUserWalletAddress.substring(0,6)}...`}
+                        </p>
+                      </div>
+                    </div>
                     <div className="flex gap-2 mt-2">
                       <button 
                         onClick={() => handleInviteAction(invite.invitationId, 'accept')}

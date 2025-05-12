@@ -6,6 +6,7 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { toast } from 'sonner';
+import UserAvatar from '@/components/UserAvatar';
 
 // INTERFACES AND CONSTANTS used by the Client Component
 interface PublicProfileSquadInfo {
@@ -15,6 +16,7 @@ interface PublicProfileSquadInfo {
 interface PublicProfileData {
   maskedWalletAddress: string;
   xUsername?: string;
+  xProfileImageUrl?: string;
   points: number;
   highestAirdropTierLabel?: string;
   referralsMadeCount?: number;
@@ -121,7 +123,13 @@ export default function UserProfilePage() {
     <main className="flex flex-col items-center min-h-screen p-4 sm:p-8 bg-gradient-to-b from-gray-900 to-gray-800 text-white">
       <div className="w-full max-w-2xl mx-auto my-10 bg-white/10 backdrop-blur-md shadow-2xl rounded-xl p-6 sm:p-10">
         
-        <div className="text-center mb-8">
+        <div className="flex flex-col items-center text-center mb-8">
+          <UserAvatar 
+            profileImageUrl={profileData.xProfileImageUrl} 
+            username={profileData.xUsername}
+            size="lg"
+            className="mb-4"
+          />
           <h1 className="text-4xl font-bold font-spacegrotesk tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-purple-400 via-pink-500 to-red-500 mb-2">
             User Showcase
           </h1>

@@ -6,11 +6,13 @@ import Link from 'next/link';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { toast } from 'sonner';
 import { SquadDocument, SquadInvitationDocument } from '@/lib/mongodb'; // Added SquadInvitationDocument
+import UserAvatar from "@/components/UserAvatar";
 
 // Updated interface to match the enriched data from the new API
 interface EnrichedSquadMember {
   walletAddress: string;
   xUsername?: string;
+  xProfileImageUrl?: string;
   points?: number;
 }
 interface SquadDetailsData extends SquadDocument {
@@ -37,8 +39,12 @@ export default function SquadDetailsPage() {
   const [isSavingEdit, setIsSavingEdit] = useState(false);
 
   const [isKickingMember, setIsKickingMember] = useState<string | null>(null); // Store walletAddress of member being kicked
+  const [inviteType, setInviteType] = useState<'wallet' | 'twitter'>('wallet');
   const [inviteeWalletAddress, setInviteeWalletAddress] = useState('');
+  const [inviteeTwitterHandle, setInviteeTwitterHandle] = useState('');
   const [isSendingInvite, setIsSendingInvite] = useState(false);
+  const [isSearchingTwitterUser, setIsSearchingTwitterUser] = useState(false);
+  const [foundTwitterUser, setFoundTwitterUser] = useState<{ walletAddress: string, xUsername: string, xProfileImageUrl?: string } | null>(null);
 
   const [sentPendingInvites, setSentPendingInvites] = useState<SquadInvitationDocument[]>([]);
   const [isFetchingSentInvites, setIsFetchingSentInvites] = useState(false);
@@ -210,25 +216,80 @@ export default function SquadDetailsPage() {
     setIsKickingMember(null);
   };
 
+  const searchUserByTwitterHandle = async () => {
+    if (!inviteeTwitterHandle.trim()) {
+      toast.error("Please enter a Twitter handle to search.");
+      return;
+    }
+    
+    setIsSearchingTwitterUser(true);
+    setFoundTwitterUser(null);
+    
+    try {
+      const handle = inviteeTwitterHandle.trim();
+      const response = await fetch(`/api/users/by-twitter-handle?handle=${encodeURIComponent(handle)}`);
+      const data = await response.json();
+      
+      if (response.ok && data) {
+        setFoundTwitterUser(data);
+        toast.success(`Found user: @${data.xUsername}`);
+      } else {
+        toast.error(data.error || "User not found.");
+      }
+    } catch (err) {
+      toast.error("An error occurred while searching for the user.");
+      console.error("Twitter user search error:", err);
+    }
+    
+    setIsSearchingTwitterUser(false);
+  };
+
   const handleSendInvite = async () => {
-    if (!squadDetails || !inviteeWalletAddress.trim()) {
+    if (!squadDetails) {
+      toast.error("Squad details not available.");
+      return;
+    }
+    
+    // Check if we have a valid input based on the selected invite type
+    if (inviteType === 'wallet' && !inviteeWalletAddress.trim()) {
       toast.error("Please enter a wallet address to invite.");
       return;
     }
+    
+    if (inviteType === 'twitter') {
+      if (!foundTwitterUser) {
+        if (!inviteeTwitterHandle.trim()) {
+          toast.error("Please enter a Twitter handle to invite.");
+        } else {
+          toast.error("Please search for the Twitter user first.");
+        }
+        return;
+      }
+    }
+    
     setIsSendingInvite(true);
     try {
+      // Prepare request body based on invite type
+      const requestBody = {
+        squadId: squadDetails.squadId,
+        ...(inviteType === 'wallet' 
+          ? { targetUserWalletAddress: inviteeWalletAddress.trim() }
+          : { targetTwitterHandle: inviteeTwitterHandle.trim() })
+      };
+      
       const response = await fetch('/api/squads/invitations/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          squadId: squadDetails.squadId,
-          targetUserWalletAddress: inviteeWalletAddress.trim(),
-        }),
+        body: JSON.stringify(requestBody),
       });
+      
       const data = await response.json();
       if (response.ok) {
         toast.success(data.message || "Invitation sent successfully!");
-        setInviteeWalletAddress(''); // Clear input field
+        // Reset form
+        setInviteeWalletAddress('');
+        setInviteeTwitterHandle('');
+        setFoundTwitterUser(null);
       } else {
         toast.error(data.error || "Failed to send invitation.");
       }
@@ -347,9 +408,16 @@ export default function SquadDetailsPage() {
             {squadDetails.membersFullDetails && squadDetails.membersFullDetails.length > 0 ? (
               squadDetails.membersFullDetails.map(member => (
                 <li key={member.walletAddress} className="p-3 bg-gray-700/60 rounded text-sm text-gray-300 flex justify-between items-center hover:bg-gray-600/60 transition-colors">
-                  <div>
-                    <span className="font-mono block">{member.xUsername ? `@${member.xUsername}` : `${member.walletAddress.substring(0,8)}...${member.walletAddress.substring(member.walletAddress.length - 4)}`}</span>
-                    <span className="text-xs text-purple-300">Points: {member.points?.toLocaleString() || 'N/A'}</span>
+                  <div className="flex items-center gap-3">
+                    <UserAvatar 
+                      profileImageUrl={member.xProfileImageUrl}
+                      username={member.xUsername}
+                      size="sm"
+                    />
+                    <div>
+                      <span className="font-mono block">{member.xUsername ? `@${member.xUsername}` : `${member.walletAddress.substring(0,8)}...${member.walletAddress.substring(member.walletAddress.length - 4)}`}</span>
+                      <span className="text-xs text-purple-300">Points: {member.points?.toLocaleString() || 'N/A'}</span>
+                    </div>
                   </div>
                   <div className="flex items-center space-x-2">
                     {member.walletAddress === currentUserWalletAddress && <span className="text-xs px-2 py-1 bg-purple-500 text-white rounded-full">You</span>}
@@ -367,7 +435,7 @@ export default function SquadDetailsPage() {
                 </li>
               ))
             ) : (
-                 <li className="p-2 text-sm text-gray-400">No member details available or squad is empty.</li>
+              <li className="p-2 text-sm text-gray-400">No member details available or squad is empty.</li>
             )}
           </ul>
         </div>
@@ -392,26 +460,102 @@ export default function SquadDetailsPage() {
               
               <div className="p-4 bg-black/20 rounded-lg mb-6">
                 <h4 className="text-md font-semibold text-gray-100 mb-2">Invite New Member:</h4>
-                <div className="space-y-2">
-                  <label htmlFor="inviteeWallet" className="block text-sm font-medium text-gray-200">Wallet Address to Invite:</label>
-                  <div className="flex gap-2">
-                    <input 
-                      type="text" 
-                      id="inviteeWallet" 
-                      value={inviteeWalletAddress} 
-                      onChange={(e) => setInviteeWalletAddress(e.target.value)} 
-                      className="flex-grow p-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400"
-                      placeholder="Enter wallet address"
-                    />
-                    <button 
-                      onClick={handleSendInvite}
-                      disabled={isSendingInvite || !inviteeWalletAddress.trim()}
-                      className="py-2 px-4 bg-sky-500 hover:bg-sky-600 text-white font-semibold rounded-md shadow disabled:opacity-70"
-                    >
-                      {isSendingInvite ? 'Sending...' : 'Send Invite'}
-                    </button>
-                  </div>
+                <div className="flex mb-4 bg-gray-800 rounded-lg p-1 w-fit">
+                  <button 
+                    onClick={() => setInviteType('wallet')}
+                    className={`px-3 py-1.5 text-sm font-medium rounded ${
+                      inviteType === 'wallet' 
+                        ? 'bg-sky-500 text-white' 
+                        : 'text-gray-300 hover:text-white'
+                    }`}
+                  >
+                    By Wallet
+                  </button>
+                  <button 
+                    onClick={() => {
+                      setInviteType('twitter');
+                      setFoundTwitterUser(null);
+                    }}
+                    className={`px-3 py-1.5 text-sm font-medium rounded ${
+                      inviteType === 'twitter' 
+                        ? 'bg-sky-500 text-white' 
+                        : 'text-gray-300 hover:text-white'
+                    }`}
+                  >
+                    By Twitter
+                  </button>
                 </div>
+                
+                {inviteType === 'wallet' ? (
+                  <div className="space-y-2">
+                    <label htmlFor="inviteeWallet" className="block text-sm font-medium text-gray-200">
+                      Wallet Address to Invite:
+                    </label>
+                    <div className="flex gap-2">
+                      <input 
+                        type="text" 
+                        id="inviteeWallet" 
+                        value={inviteeWalletAddress} 
+                        onChange={(e) => setInviteeWalletAddress(e.target.value)} 
+                        className="flex-grow p-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400"
+                        placeholder="Enter wallet address"
+                      />
+                      <button 
+                        onClick={handleSendInvite}
+                        disabled={isSendingInvite || !inviteeWalletAddress.trim()}
+                        className="py-2 px-4 bg-sky-500 hover:bg-sky-600 text-white font-semibold rounded-md shadow disabled:opacity-70"
+                      >
+                        {isSendingInvite ? 'Sending...' : 'Send Invite'}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <label htmlFor="inviteeTwitter" className="block text-sm font-medium text-gray-200">
+                        Twitter Handle to Invite:
+                      </label>
+                      <div className="flex gap-2">
+                        <input 
+                          type="text" 
+                          id="inviteeTwitter" 
+                          value={inviteeTwitterHandle} 
+                          onChange={(e) => setInviteeTwitterHandle(e.target.value)} 
+                          className="flex-grow p-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400"
+                          placeholder="Enter Twitter handle (with or without @)"
+                        />
+                        <button 
+                          onClick={searchUserByTwitterHandle}
+                          disabled={isSearchingTwitterUser || !inviteeTwitterHandle.trim()}
+                          className="py-2 px-4 bg-indigo-500 hover:bg-indigo-600 text-white font-semibold rounded-md shadow disabled:opacity-70"
+                        >
+                          {isSearchingTwitterUser ? 'Searching...' : 'Search'}
+                        </button>
+                      </div>
+                    </div>
+                    
+                    {foundTwitterUser && (
+                      <div className="p-3 bg-gray-800 rounded-lg flex items-center gap-3">
+                        <UserAvatar 
+                          profileImageUrl={foundTwitterUser.xProfileImageUrl} 
+                          username={foundTwitterUser.xUsername}
+                          size="md"
+                        />
+                        <div className="flex-grow">
+                          <p className="text-white font-medium">@{foundTwitterUser.xUsername}</p>
+                          <p className="text-xs text-gray-400">{foundTwitterUser.walletAddress.substring(0, 6)}...{foundTwitterUser.walletAddress.substring(foundTwitterUser.walletAddress.length - 4)}</p>
+                        </div>
+                        <button 
+                          onClick={handleSendInvite}
+                          disabled={isSendingInvite}
+                          className="py-1.5 px-3 bg-sky-500 hover:bg-sky-600 text-white font-semibold rounded-md text-sm shadow disabled:opacity-70"
+                        >
+                          {isSendingInvite ? 'Sending...' : 'Send Invite'}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div className="p-4 bg-black/20 rounded-lg mb-6">

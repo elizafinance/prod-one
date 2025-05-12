@@ -1,14 +1,21 @@
 import { NextResponse } from 'next/server';
-import { connectToDatabase, SquadInvitationDocument } from '@/lib/mongodb';
+import { connectToDatabase, SquadInvitationDocument, UserDocument } from '@/lib/mongodb';
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
+
+interface EnrichedSquadInvitation extends SquadInvitationDocument {
+  inviterInfo?: {
+    xUsername?: string;
+    xProfileImageUrl?: string;
+  }
+}
 
 export async function GET(request: Request) {
   const session = await getServerSession(authOptions);
   console.log('[MyPendingInvitesAPI] Session:', JSON.stringify(session));
   let currentUserWalletAddress = '';
-  if (session && session.user && typeof session.user.walletAddress === 'string') {
-    currentUserWalletAddress = session.user.walletAddress;
+  if (session && session.user && typeof (session.user as any).walletAddress === 'string') {
+    currentUserWalletAddress = (session.user as any).walletAddress;
   }
   if (!session || !session.user || !currentUserWalletAddress) {
     console.warn('[MyPendingInvitesAPI] Not authenticated or walletAddress missing. Session:', session);
@@ -19,6 +26,7 @@ export async function GET(request: Request) {
   try {
     const { db } = await connectToDatabase();
     const invitationsCollection = db.collection<SquadInvitationDocument>('squad_invitations');
+    const usersCollection = db.collection<UserDocument>('users');
 
     const pendingInvitations = await invitationsCollection.find({
       invitedUserWalletAddress: currentUserWalletAddress,
@@ -26,7 +34,36 @@ export async function GET(request: Request) {
     }).sort({ createdAt: -1 }).toArray(); // Sort by newest first
     console.log('[MyPendingInvitesAPI] Pending invitations found:', pendingInvitations);
 
-    return NextResponse.json({ invitations: pendingInvitations });
+    // Get wallet addresses of inviters to fetch their profile info
+    const inviterWallets = pendingInvitations.map(invite => invite.invitedByUserWalletAddress);
+    const inviterUsers = await usersCollection.find(
+      { walletAddress: { $in: inviterWallets } },
+      { projection: { walletAddress: 1, xUsername: 1, xProfileImageUrl: 1, _id: 0 } }
+    ).toArray();
+
+    // Create a map for quick lookup
+    const inviterUserMap = new Map<string, Partial<UserDocument>>();
+    inviterUsers.forEach(user => {
+      if (user.walletAddress) {
+        inviterUserMap.set(user.walletAddress, user);
+      }
+    });
+
+    // Enrich the invitations with inviter info
+    const enrichedInvitations: EnrichedSquadInvitation[] = pendingInvitations.map(invite => {
+      const inviterInfo = inviterUserMap.get(invite.invitedByUserWalletAddress);
+      return {
+        ...invite,
+        inviterInfo: inviterInfo 
+          ? { 
+              xUsername: inviterInfo.xUsername,
+              xProfileImageUrl: inviterInfo.xProfileImageUrl
+            } 
+          : undefined
+      };
+    });
+
+    return NextResponse.json({ invitations: enrichedInvitations });
 
   } catch (error) {
     console.error("Error fetching pending squad invitations:", error);

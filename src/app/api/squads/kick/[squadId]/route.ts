@@ -37,11 +37,21 @@ export async function POST(
     if (squad.leaderWalletAddress !== leaderWalletAddress) { return NextResponse.json({ error: 'Only leader can kick.' }, { status: 403 });}
     if (!squad.memberWalletAddresses.includes(memberWalletAddressToKick)) { return NextResponse.json({ error: 'User not in squad.' }, { status: 400 });}
 
-    await squadsCollection.updateOne({ squadId: squadIdToManage }, { $pull: { memberWalletAddresses: memberWalletAddressToKick }, $set: { updatedAt: new Date() }});
-    await usersCollection.updateOne({ walletAddress: memberWalletAddressToKick }, { $unset: { squadId: "" }, $set: { updatedAt: new Date() }});
-
     const kickedUserDoc = await usersCollection.findOne({ walletAddress: memberWalletAddressToKick });
+    if (!kickedUserDoc) { return NextResponse.json({ error: 'Member to kick not found in database.' }, { status: 404 });}
+    const pointsToDeduct = kickedUserDoc.points || 0;
     const kickedUserXUsername = kickedUserDoc?.xUsername || memberWalletAddressToKick;
+
+    await squadsCollection.updateOne(
+      { squadId: squadIdToManage }, 
+      { 
+        $pull: { memberWalletAddresses: memberWalletAddressToKick }, 
+        $inc: { totalSquadPoints: -pointsToDeduct },
+        $set: { updatedAt: new Date() }
+      }
+    );
+    
+    await usersCollection.updateOne({ walletAddress: memberWalletAddressToKick }, { $unset: { squadId: "" }, $set: { updatedAt: new Date() }});
 
     await createNotification(
       db, memberWalletAddressToKick, 'squad_kicked',

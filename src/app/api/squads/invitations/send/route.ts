@@ -43,9 +43,9 @@ export async function POST(request: Request) {
     if (squad.leaderWalletAddress !== invitingUserWalletAddress) { return NextResponse.json({ error: 'Only the squad leader can send invitations.' }, { status: 403 }); }
     const targetUser = await usersCollection.findOne({ walletAddress: targetUserWalletAddress });
     if (!targetUser) { return NextResponse.json({ error: 'Target user to invite does not exist.' }, { status: 404 }); }
-    if (targetUser.squadId) { 
-        if (targetUser.squadId === squadId) return NextResponse.json({ error: 'Target user is already a member of this squad.' }, { status: 400 });
-        return NextResponse.json({ error: 'Target user is already in another squad.' }, { status: 400 });
+    
+    if (targetUser.squadId === squadId) {
+        return NextResponse.json({ error: 'Target user is already a member of this squad.' }, { status: 400 });
     }
     
     if (squad.maxMembers && squad.memberWalletAddresses.length >= squad.maxMembers) {

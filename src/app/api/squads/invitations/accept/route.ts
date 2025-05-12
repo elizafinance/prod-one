@@ -55,10 +55,52 @@ export async function POST(request: Request) {
     if (!user) {
       return NextResponse.json({ error: 'Authenticated user not found in database.' }, { status: 404 }); // Should not happen
     }
+
+    let pointsToContribute = user.points || 0;
+    
+    // If user is already in a squad, leave that squad first
     if (user.squadId) {
-      // Decline the current invite as user is already in a squad
-      await invitationsCollection.updateOne({ invitationId }, { $set: { status: 'declined', updatedAt: new Date(), notes: 'User already in a squad' } });
-      return NextResponse.json({ error: 'You are already in a squad. Invitation automatically declined.' }, { status: 400 });
+      console.log(`User ${currentUserWalletAddress} is leaving squad ${user.squadId} to join ${invitation.squadId}`);
+      
+      const currentSquad = await squadsCollection.findOne({ squadId: user.squadId });
+      if (currentSquad) {
+        // If they're the squad leader, reject (they must transfer leadership or disband first)
+        if (currentSquad.leaderWalletAddress === currentUserWalletAddress) {
+          await invitationsCollection.updateOne(
+            { invitationId }, 
+            { $set: { status: 'declined', updatedAt: new Date(), notes: 'User is a squad leader' } }
+          );
+          return NextResponse.json({ 
+            error: 'You are the leader of your current squad. Transfer leadership or disband your squad first.' 
+          }, { status: 400 });
+        }
+        
+        // Remove user from their current squad and deduct their points
+        await squadsCollection.updateOne(
+          { squadId: user.squadId },
+          { 
+            $pull: { memberWalletAddresses: currentUserWalletAddress },
+            $inc: { totalSquadPoints: -pointsToContribute },
+            $set: { updatedAt: new Date() }
+          }
+        );
+        
+        // Notify current squad members that user has left
+        for (const memberAddr of currentSquad.memberWalletAddresses) {
+          if (memberAddr !== currentUserWalletAddress) {
+            await createNotification(
+              db, 
+              memberAddr, 
+              'squad_member_left',
+              `@${currentUserXUsername} has left your squad "${currentSquad.name}" to join another squad.`,
+              currentSquad.squadId,
+              currentSquad.name,
+              currentUserWalletAddress,
+              currentUserXUsername
+            );
+          }
+        }
+      }
     }
 
     // 3. Check target squad status (exists, not full)
@@ -67,13 +109,15 @@ export async function POST(request: Request) {
       await invitationsCollection.updateOne({ invitationId }, { $set: { status: 'revoked', updatedAt: new Date(), notes: 'Squad no longer exists' } });
       return NextResponse.json({ error: 'The squad for this invitation no longer exists.' }, { status: 404 });
     }
-    if (squadToJoin.memberWalletAddresses.length >= MAX_SQUAD_MEMBERS) {
+    
+    // Check against maxMembers if that property exists
+    const memberLimit = squadToJoin.maxMembers || MAX_SQUAD_MEMBERS;
+    if (squadToJoin.memberWalletAddresses.length >= memberLimit) {
       await invitationsCollection.updateOne({ invitationId }, { $set: { status: 'declined', updatedAt: new Date(), notes: 'Squad was full' } });
       return NextResponse.json({ error: 'The squad is full.' }, { status: 400 });
     }
     
     // 4. Process joining the squad (similar to /api/squads/join)
-    const pointsToContribute = user.points || 0;
     await squadsCollection.updateOne(
       { squadId: invitation.squadId },
       {

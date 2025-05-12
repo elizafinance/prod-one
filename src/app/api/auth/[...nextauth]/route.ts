@@ -48,29 +48,37 @@ const authOptions: AuthOptions = {
   },
   callbacks: {
     async signIn({ user, account, profile }: { user: NextAuthUser, account: Account | null, profile?: Profile | TwitterProfile }) {
+      console.log("[NextAuth SignIn] Received data:", { user, account, profile });
       if (account?.provider === "twitter" && profile) {
         const twitterProfile = profile as TwitterProfile;
+        console.log("[NextAuth SignIn] Processing Twitter profile:", twitterProfile);
         try {
           const { db } = await connectToDatabase();
+          console.log("[NextAuth SignIn] Connected to database.");
           const usersCollection = db.collection<UserDocument>('users');
           const actionsCollection = db.collection<ActionDocument>('actions');
 
           const xUserId = twitterProfile.id_str || user.id;
+          console.log("[NextAuth SignIn] Extracted xUserId:", xUserId);
+
           if (!xUserId) {
-            console.error('X User ID not found in profile');
+            console.error('[NextAuth SignIn] X User ID not found in profile. Denying access.');
             return false;
           }
 
           let dbUser = await usersCollection.findOne({ xUserId });
+          console.log("[NextAuth SignIn] Found dbUser:", dbUser);
 
           if (!dbUser) {
+            console.log("[NextAuth SignIn] User not found in DB, creating new user for xUserId:", xUserId);
             const newReferralCode = await generateUniqueReferralCode(db);
-            // Ensure optional fields are undefined if null or not present
             const xUsername = twitterProfile.screen_name || user.name || undefined;
             const xProfileImageUrl = twitterProfile.profile_image_url_https || user.image || undefined;
+            console.log("[NextAuth SignIn] New user details:", { newReferralCode, xUsername, xProfileImageUrl });
 
             const newUserDocData: Omit<UserDocument, '_id'> = {
               xUserId: xUserId,
+              walletAddress: xUserId, // Using xUserId as walletAddress for new X users if no other wallet is linked yet
               xUsername: xUsername,
               xProfileImageUrl: xProfileImageUrl,
               points: POINTS_INITIAL_CONNECTION,
@@ -79,8 +87,11 @@ const authOptions: AuthOptions = {
               createdAt: new Date(),
               updatedAt: new Date(),
             };
+            console.log("[NextAuth SignIn] Inserting new user document:", newUserDocData);
             const result = await usersCollection.insertOne(newUserDocData as UserDocument);
+            console.log("[NextAuth SignIn] New user insert result:", result);
             
+            console.log("[NextAuth SignIn] Inserting initial_connection action for xUserId:", xUserId);
             await actionsCollection.insertOne({
                 walletAddress: xUserId, 
                 actionType: 'initial_connection',
@@ -88,26 +99,34 @@ const authOptions: AuthOptions = {
                 timestamp: new Date(),
                 notes: `New user via X login: ${xUserId}`
             });
+            console.log("[NextAuth SignIn] Action inserted.");
             (user as NextAuthUser & { dbId?: string }).dbId = result.insertedId.toHexString();
           } else {
+            console.log("[NextAuth SignIn] User found in DB, updating for xUserId:", xUserId);
             (user as NextAuthUser & { dbId?: string }).dbId = dbUser._id!.toHexString();
-            // Ensure optional fields are undefined if null or not present for update
             const xUsername = twitterProfile.screen_name || user.name || undefined;
             const xProfileImageUrl = twitterProfile.profile_image_url_https || user.image || undefined;
+            console.log("[NextAuth SignIn] Updating user with details:", { xUsername, xProfileImageUrl });
             await usersCollection.updateOne({ xUserId }, { $set: { 
               xUsername: xUsername,
               xProfileImageUrl: xProfileImageUrl, 
               updatedAt: new Date()
             }});
+            console.log("[NextAuth SignIn] User update complete.");
           }
           (user as NextAuthUser & { xId?: string }).xId = xUserId;
+          console.log("[NextAuth SignIn] Sign-in successful for xUserId:", xUserId, ". Returning true.");
           return true;
         } catch (error) {
-          console.error("Error during signIn callback:", error);
+          console.error("[NextAuth SignIn] Error during signIn callback:", error);
+          console.log("[NextAuth SignIn] Denying access due to error. Returning false.");
           return false;
         }
       }
-      return true;
+      console.log("[NextAuth SignIn] Account provider not Twitter or no profile. Check configuration. Returning false by default for this case.");
+      // If the provider is not Twitter, or profile is missing, you might want to deny access
+      // or handle it differently. For now, returning false if it's not the expected Twitter flow.
+      return false;
     },
     async jwt({ token, user }: { token: JWT; user?: NextAuthUser; account?: Account | null; profile?: Profile }) {
       if (user && (user as NextAuthUser & { xId?: string }).xId) {

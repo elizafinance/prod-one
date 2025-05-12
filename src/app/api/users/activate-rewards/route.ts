@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { connectToDatabase, UserDocument, ActionDocument } from '@/lib/mongodb';
+import { connectToDatabase, UserDocument, ActionDocument, ReferralBoost, SquadDocument } from '@/lib/mongodb';
 import airdropDataList from '@/data/airdropData.json'; // For checking airdrop amount
 import { randomBytes } from 'crypto';
 import { Db } from 'mongodb';
@@ -66,6 +66,7 @@ export async function POST(request: Request) {
     const { db } = await connectToDatabase();
     const usersCollection = db.collection<UserDocument>('users');
     const actionsCollection = db.collection<ActionDocument>('actions');
+    const squadsCollection = db.collection<SquadDocument>('squads');
 
     let user = await usersCollection.findOne({ walletAddress });
     let airdropAmount = 0;
@@ -75,22 +76,24 @@ export async function POST(request: Request) {
     }
 
     let currentPoints = 0;
-    let currentReferralCode: string | undefined = undefined; // Ensure type consistency
+    let pointsGainedThisSession = 0;
+    let currentReferralCode: string | undefined = undefined;
     let currentCompletedActions: string[] = [];
 
     if (!user) {
       // New user: Create them
       const newReferralCode = await generateUniqueReferralCode(db);
-      currentPoints = POINTS_INITIAL_CONNECTION; // Base points for initial connection
+      currentPoints = POINTS_INITIAL_CONNECTION;
+      pointsGainedThisSession += POINTS_INITIAL_CONNECTION;
       currentCompletedActions.push('initial_connection');
 
-      // Add points for first wallet connection
       currentPoints += CONNECT_WALLET_POINTS;
+      pointsGainedThisSession += CONNECT_WALLET_POINTS;
       currentCompletedActions.push(CONNECT_WALLET_ACTION_ID);
 
-      const newUserDocData: Omit<UserDocument, '_id'> = { // Use Omit to satisfy type for insertOne
+      const newUserDocData: Omit<UserDocument, '_id'> = {
         walletAddress,
-        xUserId: walletAddress, // Assuming walletAddress can serve as xUserId
+        xUserId: walletAddress,
         points: currentPoints,
         referralCode: newReferralCode,
         completedActions: currentCompletedActions,
@@ -125,7 +128,6 @@ export async function POST(request: Request) {
       if (!user) { 
         throw new Error("Failed to create and retrieve new user after insert.");
       }
-      // user is now the full document from DB, currentPoints and currentReferralCode already set for new user
 
       await actionsCollection.insertOne({
         walletAddress,
@@ -134,7 +136,6 @@ export async function POST(request: Request) {
         timestamp: new Date(),
       });
 
-      // Log the new wallet connection action for new user
       await actionsCollection.insertOne({
         walletAddress,
         actionType: CONNECT_WALLET_ACTION_ID,
@@ -148,10 +149,10 @@ export async function POST(request: Request) {
       currentPoints = user.points || 0;
       currentCompletedActions = user.completedActions || [];
 
-      // Ensure initial_connection points if missing for this existing wallet-based user
       if (!currentCompletedActions.includes('initial_connection')) {
         console.log(`[Activate Rewards] Existing user ${walletAddress} missing initial_connection. Adding.`);
         currentPoints += POINTS_INITIAL_CONNECTION;
+        pointsGainedThisSession += POINTS_INITIAL_CONNECTION;
         currentCompletedActions.push('initial_connection');
         await actionsCollection.insertOne({
           walletAddress,
@@ -162,10 +163,10 @@ export async function POST(request: Request) {
         });
       }
 
-      // Award points for first wallet connection if not already done
       if (!currentCompletedActions.includes(CONNECT_WALLET_ACTION_ID)) {
         console.log(`[Activate Rewards] Existing user ${walletAddress} first time wallet connect. Adding points.`);
         currentPoints += CONNECT_WALLET_POINTS;
+        pointsGainedThisSession += CONNECT_WALLET_POINTS;
         currentCompletedActions.push(CONNECT_WALLET_ACTION_ID);
         await actionsCollection.insertOne({
           walletAddress,
@@ -178,39 +179,48 @@ export async function POST(request: Request) {
 
       if (!user.referralCode) {
         currentReferralCode = await generateUniqueReferralCode(db); 
-        // The update for this referralCode will happen in the final updateOne
       } else {
         currentReferralCode = user.referralCode;
       }
     }
 
-    // Award points for airdrop amount thresholds (only once)
+    // Award points for airdrop amount thresholds
     if (airdropAmount > 0) {
       for (const threshold of AIRDROP_THRESHOLDS) {
         if (airdropAmount >= threshold.amount && !currentCompletedActions.includes(threshold.tier_action_id)) {
           currentPoints += threshold.points;
-          if (!currentCompletedActions.includes(threshold.tier_action_id)) { // Double check before pushing
-            currentCompletedActions.push(threshold.tier_action_id);
-          }
+          pointsGainedThisSession += threshold.points;
+          currentCompletedActions.push(threshold.tier_action_id);
           await actionsCollection.insertOne({
             walletAddress,
             actionType: threshold.tier_action_id,
             pointsAwarded: threshold.points,
             timestamp: new Date(),
           });
-          // break; // Removed to award points for all qualified tiers
         }
       }
     }
 
+    // Update squad points if user is in a squad and gained points this session
+    const finalUserForSquadCheck = await usersCollection.findOne({ walletAddress });
+    if (finalUserForSquadCheck?.squadId && pointsGainedThisSession > 0) {
+      await squadsCollection.updateOne(
+        { squadId: finalUserForSquadCheck.squadId },
+        { 
+          $inc: { totalSquadPoints: pointsGainedThisSession },
+          $set: { updatedAt: new Date() }
+        }
+      );
+      console.log(`Updated squad ${finalUserForSquadCheck.squadId} points by ${pointsGainedThisSession}`);
+    }
+
     // Determine the user's highest airdrop tier label
     let userHighestAirdropTierLabel: string | undefined = undefined;
-    for (const threshold of AIRDROP_THRESHOLDS) { // AIRDROP_THRESHOLDS is sorted highest to lowest
+    for (const threshold of AIRDROP_THRESHOLDS) {
       if (currentCompletedActions.includes(threshold.tier_action_id)) {
-        // Extract a user-friendly label, e.g., "Legend" from "airdrop_tier_legend"
         userHighestAirdropTierLabel = threshold.tier_action_id.replace('airdrop_tier_', '');
         userHighestAirdropTierLabel = userHighestAirdropTierLabel.charAt(0).toUpperCase() + userHighestAirdropTierLabel.slice(1);
-        break; // Found the highest tier
+        break;
       }
     }
 
@@ -219,20 +229,26 @@ export async function POST(request: Request) {
       { $set: { 
           points: currentPoints, 
           completedActions: currentCompletedActions, 
-          referralCode: currentReferralCode, // Ensure referral code is saved if newly generated for existing user
-          highestAirdropTierLabel: userHighestAirdropTierLabel, // Store the tier label
+          referralCode: currentReferralCode,
+          highestAirdropTierLabel: userHighestAirdropTierLabel,
           updatedAt: new Date() 
         } 
       },
-      { upsert: true } // Ensure user is created if somehow missed in the initial check (defensive)
+      { upsert: true }
     );
+
+    const finalUser = await usersCollection.findOne({ walletAddress });
 
     return NextResponse.json({
       message: user ? 'Rewards activated/updated.' : 'User created and rewards activated.',
-      points: currentPoints,
-      referralCode: currentReferralCode,
-      completedActions: currentCompletedActions,
-      airdropAmount: airdropAmount 
+      points: finalUser?.points || currentPoints,
+      referralCode: finalUser?.referralCode || currentReferralCode,
+      completedActions: finalUser?.completedActions || currentCompletedActions,
+      airdropAmount: airdropAmount, 
+      activeReferralBoosts: finalUser?.activeReferralBoosts || [],
+      referralsMadeCount: finalUser?.referralsMadeCount || 0,
+      xUsername: finalUser?.xUsername,
+      highestAirdropTierLabel: finalUser?.highestAirdropTierLabel
     });
 
   } catch (error) {

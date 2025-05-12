@@ -64,8 +64,18 @@ export interface UserDocument {
   completedActions?: string[];
   highestAirdropTierLabel?: string;
   referralsMadeCount?: number;
+  activeReferralBoosts?: ReferralBoost[];
+  squadId?: string; // ID of the squad the user belongs to
   createdAt?: Date;
   updatedAt?: Date;
+}
+
+export interface ReferralBoost {
+  boostId: string;
+  type: 'percentage_bonus_referrer';
+  value: number;
+  remainingUses: number;
+  description: string;
 }
 
 // Example of how you might define an Action interface
@@ -76,4 +86,55 @@ export interface ActionDocument {
   pointsAwarded: number;
   timestamp?: Date;
   notes?: string;
+}
+
+export interface SquadDocument {
+  _id?: any;
+  squadId: string; // Unique identifier for the squad
+  name: string; // Name of the squad, should ideally be unique
+  description?: string;
+  leaderWalletAddress: string; // Wallet address of the squad leader
+  memberWalletAddresses: string[]; // Array of wallet addresses of squad members
+  totalSquadPoints: number;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
+export interface SquadInvitationDocument {
+  _id?: any;
+  invitationId: string; // Unique ID for the invitation
+  squadId: string;       // ID of the squad inviting
+  squadName: string;     // Name of the squad (for display in invite)
+  invitedByUserWalletAddress: string; // Wallet address of the user who sent the invite (e.g., squad leader)
+  invitedUserWalletAddress: string; // Wallet address of the user being invited
+  status: 'pending' | 'accepted' | 'declined' | 'revoked'; // Status of the invitation
+  createdAt?: Date;
+  // expiresAt?: Date; // Optional: for time-limited invites, can be added later
+  updatedAt?: Date; // To track when the status last changed
+}
+
+export type NotificationType =
+  | 'squad_invite_received'
+  | 'squad_invite_accepted'
+  | 'squad_invite_declined'
+  | 'squad_invite_revoked'
+  | 'squad_member_joined'    // When someone (not self) joins your squad
+  | 'squad_member_left'      // When someone (not self) leaves your squad
+  | 'squad_kicked'           // When you are kicked from a squad
+  | 'squad_leader_changed'   // When your squad's leader changes
+  | 'squad_disbanded';       // When your squad is disbanded
+  // Add more types as needed, e.g., for Community Quests, Power-ups earned, etc.
+
+export interface NotificationDocument {
+  _id?: any;
+  notificationId: string; // Unique ID for the notification
+  recipientWalletAddress: string; // The user who should receive this notification
+  type: NotificationType;
+  message: string; // User-friendly message, e.g., "@UserX invited you to join Squad Y!"
+  relatedSquadId?: string;
+  relatedSquadName?: string; // For easier display without extra lookup
+  relatedUserWalletAddress?: string; // e.g., who sent invite, who joined/left
+  relatedUserXUsername?: string; // For easier display
+  isRead: boolean;
+  createdAt?: Date;
 } 

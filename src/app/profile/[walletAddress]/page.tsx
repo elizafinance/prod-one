@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation'; // useRouter for back button
 import Link from 'next/link'; // For a link back to home or leaderboard
+import { useWallet } from '@solana/wallet-adapter-react';
+import { toast } from 'sonner'; // Ensure sonner is imported
 
 interface PublicProfileData {
   maskedWalletAddress: string;
@@ -28,6 +30,8 @@ export default function UserProfilePage() {
   const params = useParams();
   const router = useRouter();
   const walletAddress = params.walletAddress as string;
+  const { publicKey } = useWallet();
+  const loggedInUserWalletAddress = publicKey?.toBase58();
 
   const [profileData, setProfileData] = useState<PublicProfileData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -59,16 +63,50 @@ export default function UserProfilePage() {
     }
   }, [walletAddress]);
 
-  const handleShareToX = () => {
+  const handleShareToX = async () => {
     if (!profileData) return;
     let shareText = `Check out this profile on DeFAI Rewards! Wallet: ${profileData.maskedWalletAddress}, Points: ${profileData.points.toLocaleString()}`;
     if (profileData.highestAirdropTierLabel) {
       shareText += `, Tier: ${profileData.highestAirdropTierLabel}`;
     }
-    shareText += ` | @DeFAIRewards`; // Add your platform's Twitter handle
+    shareText += ` | @DeFAIRewards`; // Remember to update this to your actual X handle
     const profileUrl = window.location.href;
     const twitterIntentUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(profileUrl)}`;
+    
     window.open(twitterIntentUrl, '_blank');
+
+    if (loggedInUserWalletAddress && loggedInUserWalletAddress === walletAddress) {
+      try {
+        toast.info('Checking for profile share bonus...'); // Inform user action is processing
+        const response = await fetch('/api/actions/log-profile-share', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ walletAddress: loggedInUserWalletAddress }),
+        });
+        if (response.ok) {
+          const result = await response.json();
+          console.log('Profile share logged, API result:', result);
+          if (result.boostActivated) {
+            toast.success("Referral Frenzy Boost Activated! Next 3 referrals get +50% points!");
+          } else if (result.awardedPoints && result.awardedPoints > 0) {
+            toast.success(`Successfully shared profile! +${result.awardedPoints} points.`);
+          } else {
+            toast.success('Profile share acknowledged!'); // Generic success if no points/boost
+          }
+          // Optionally, trigger a refresh of user data on the main dashboard here
+          // This might involve a global state update or a custom event.
+        } else {
+          const errorData = await response.json();
+          toast.error(errorData.error || 'Failed to log profile share.');
+          console.error('Failed to log profile share for boost activation', errorData);
+        }
+      } catch (error) {
+        toast.error('Error logging profile share.');
+        console.error('Error calling log-profile-share API:', error);
+      }
+    }
   };
 
   if (isLoading) {

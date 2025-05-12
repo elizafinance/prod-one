@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { connectToDatabase, UserDocument, ActionDocument } from '@/lib/mongodb';
+import { connectToDatabase, UserDocument, ActionDocument, SquadDocument } from '@/lib/mongodb';
 import { randomBytes } from 'crypto'; // For generating referral code if user is new
 import { Db } from 'mongodb'; // Import Db type
 
@@ -59,32 +59,12 @@ export async function POST(request: Request) {
     const { db } = await connectToDatabase();
     const usersCollection = db.collection<UserDocument>('users');
     const actionsCollection = db.collection<ActionDocument>('actions');
+    const squadsCollection = db.collection<SquadDocument>('squads');
 
     let user = await usersCollection.findOne({ walletAddress });
 
-    // If user doesn't exist, create them with initial points and referral code
-    // This scenario assumes that an action here might be a user's first interaction.
-    // The 'initial_connection' points should ideally be handled by a dedicated registration or first-event API (like check-airdrop).
-    // For simplicity here, if a user is created via this endpoint, they don't get the 100 initial points automatically,
-    // but that logic is present in the check-airdrop route.
     if (!user) {
-      const newReferralCode = await generateUniqueReferralCode(db); // Use unique generator
-      // User created here gets 0 initial points, points for this action will be added below.
-      // The 100 initial_connection points are tied to the check-airdrop or get-code flows.
-      const newUserDoc: UserDocument = {
-        walletAddress,
-        xUserId: walletAddress, // Assuming walletAddress can serve as xUserId if no X ID is present
-        points: 0, // Start with 0, action points will be added below
-        referralCode: newReferralCode,
-        completedActions: [],
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
-      const insertResult = await usersCollection.insertOne(newUserDoc);
-      user = await usersCollection.findOne({ _id: insertResult.insertedId }); 
-      if (!user) {
-        return NextResponse.json({ error: 'Failed to create new user' }, { status: 500 });
-      }
+      return NextResponse.json({ error: 'User not found. Please ensure account is activated.' }, { status: 404 });
     }
 
     const completedActions = user.completedActions || [];
@@ -105,6 +85,18 @@ export async function POST(request: Request) {
       { walletAddress },
       { $set: { points: updatedPoints, completedActions: updatedCompletedActions, updatedAt: new Date() } }
     );
+
+    // Update squad points if user is in a squad
+    if (user.squadId) {
+      await squadsCollection.updateOne(
+        { squadId: user.squadId },
+        { 
+          $inc: { totalSquadPoints: pointsAwarded },
+          $set: { updatedAt: new Date() }
+        }
+      );
+      console.log(`Updated squad ${user.squadId} points by ${pointsAwarded} from social action by ${walletAddress}`);
+    }
 
     await actionsCollection.insertOne({
       walletAddress,

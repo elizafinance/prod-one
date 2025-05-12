@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { connectToDatabase, UserDocument, ActionDocument } from '@/lib/mongodb';
+import { connectToDatabase, UserDocument, ActionDocument, ReferralBoost, SquadDocument } from '@/lib/mongodb';
 // import { randomBytes } from 'crypto'; // Not needed here if new users are created with codes elsewhere
 
 interface RequestBody {
@@ -22,6 +22,7 @@ export async function POST(request: Request) {
     const { db } = await connectToDatabase();
     const usersCollection = db.collection<UserDocument>('users');
     const actionsCollection = db.collection<ActionDocument>('actions');
+    const squadsCollection = db.collection<SquadDocument>('squads');
 
     // Find the referrer by their referral code
     const referrer = await usersCollection.findOne({ referralCode });
@@ -50,23 +51,76 @@ export async function POST(request: Request) {
     }
     
     // Award points to referrer
+    let pointsToAwardReferrer = POINTS_REFERRAL_BONUS_FOR_REFERRER;
+    let bonusFromBoost = 0;
+    let appliedBoostDescription: string | undefined = undefined;
+
+    let updatedReferrerBoosts = referrer.activeReferralBoosts || [];
+
+    if (updatedReferrerBoosts && updatedReferrerBoosts.length > 0) {
+      const activeBoostIndex = updatedReferrerBoosts.findIndex(
+        boost => boost.type === 'percentage_bonus_referrer' && boost.remainingUses > 0
+      );
+
+      if (activeBoostIndex !== -1) {
+        const boost = updatedReferrerBoosts[activeBoostIndex];
+        bonusFromBoost = Math.floor(POINTS_REFERRAL_BONUS_FOR_REFERRER * boost.value);
+        pointsToAwardReferrer += bonusFromBoost;
+        appliedBoostDescription = boost.description;
+
+        updatedReferrerBoosts[activeBoostIndex].remainingUses -= 1;
+        if (updatedReferrerBoosts[activeBoostIndex].remainingUses <= 0) {
+          // Remove boost if uses are exhausted
+          updatedReferrerBoosts.splice(activeBoostIndex, 1);
+        }
+      }
+    }
+
     await usersCollection.updateOne(
-      { walletAddress: referrer.walletAddress },
+      { walletAddress: referrer.walletAddress }, // Query by walletAddress, not _id from potentially stale referrer object
       { 
         $inc: { 
-          points: POINTS_REFERRAL_BONUS_FOR_REFERRER,
-          referralsMadeCount: 1 // Increment referrals made count
+          points: pointsToAwardReferrer,
+          referralsMadeCount: 1
         },
-        $set: { updatedAt: new Date() }
+        $set: { 
+          updatedAt: new Date(),
+          activeReferralBoosts: updatedReferrerBoosts // Save updated boosts array
+        }
       }
     );
+    
+    // Update referrer's squad points if they are in a squad
+    if (referrer.squadId && pointsToAwardReferrer > 0) { // pointsToAwardReferrer includes standard + boost
+      await squadsCollection.updateOne(
+        { squadId: referrer.squadId },
+        { 
+          $inc: { totalSquadPoints: pointsToAwardReferrer },
+          $set: { updatedAt: new Date() }
+        }
+      );
+      console.log(`Updated squad ${referrer.squadId} points by ${pointsToAwardReferrer} from referral by ${referrer.walletAddress}`);
+    }
+
+    // Log the standard referral action
     await actionsCollection.insertOne({
       walletAddress: referrer.walletAddress,
       actionType: 'referral_bonus',
-      pointsAwarded: POINTS_REFERRAL_BONUS_FOR_REFERRER,
+      pointsAwarded: POINTS_REFERRAL_BONUS_FOR_REFERRER, // Log standard points
       timestamp: new Date(),
       notes: `Referred ${newWalletAddress}`
     });
+
+    // If bonus points were awarded from a boost, log that separately
+    if (bonusFromBoost > 0) {
+      await actionsCollection.insertOne({
+        walletAddress: referrer.walletAddress,
+        actionType: 'referral_powerup_bonus',
+        pointsAwarded: bonusFromBoost,
+        timestamp: new Date(),
+        notes: `Bonus from power-up: ${appliedBoostDescription || 'Referral Boost'} for referring ${newWalletAddress}`
+      });
+    }
 
     // Create or update the new user, linking them to the referrer
     if (!newUser) {
@@ -94,7 +148,7 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json({ 
-      message: `Referral successful! Referrer (${referrer.walletAddress}) earned ${POINTS_REFERRAL_BONUS_FOR_REFERRER} points.` 
+      message: `Referral successful! Referrer (${referrer.walletAddress}) earned ${pointsToAwardReferrer} points (includes ${bonusFromBoost} bonus).` 
     });
 
   } catch (error) {

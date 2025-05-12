@@ -37,8 +37,14 @@ const DonationBadgeForm: React.FC<DonationBadgeFormProps> = ({ onBadgeEarned }) 
     setIsLoading(true);
     
     try {
-      // Create connection to Solana
-      const connection = new Connection(process.env.NEXT_PUBLIC_SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com');
+      // Create connection to Solana using Helius RPC URL
+      const rpcUrl = process.env.NEXT_PUBLIC_HELIUS_RPC_URL;
+      if (!rpcUrl) {
+        toast.error('RPC URL is not configured. Please contact support.');
+        setIsLoading(false);
+        return;
+      }
+      const connection = new Connection(rpcUrl);
       
       // Create a new transaction
       const transaction = new Transaction().add(
@@ -127,10 +133,10 @@ const DonationBadgeForm: React.FC<DonationBadgeFormProps> = ({ onBadgeEarned }) 
           glowColor="rgba(139, 92, 246, 0.7)"
           size="md"
         />
-        <span className="text-gray-300">+250 Points</span>
+        <span className="text-gray-700">+250 Points</span>
       </div>
       
-      <p className="text-gray-200 mb-6">
+      <p className="text-black mb-6">
         Support DeFAI Rewards by donating {donationAmount} SOL and earn this exclusive glowing badge that will make you stand out on the leaderboard!
       </p>
       

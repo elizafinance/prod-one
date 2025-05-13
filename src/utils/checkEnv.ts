@@ -6,6 +6,7 @@ export function checkRequiredEnvVars() {
   const requiredVars = [
     'NEXT_PUBLIC_SOLANA_RPC_URL',
     'NEXT_PUBLIC_DEFAI_CONTRACT_ADDRESS',
+    'NEXT_PUBLIC_REQUIRED_DEFAI_AMOUNT',
   ];
 
   const missingVars = requiredVars.filter(

@@ -76,7 +76,13 @@ interface EnrichedSquadInvitation extends SquadInvitationDocument {
   }
 }
 
-const REQUIRED_DEFAI_AMOUNT = 100; // Require 100 whole tokens
+const envRequiredDefaiAmount = process.env.NEXT_PUBLIC_REQUIRED_DEFAI_AMOUNT;
+let REQUIRED_DEFAI_AMOUNT = envRequiredDefaiAmount ? parseInt(envRequiredDefaiAmount, 10) : 5000;
+
+if (isNaN(REQUIRED_DEFAI_AMOUNT)) {
+  console.warn(`Invalid NEXT_PUBLIC_REQUIRED_DEFAI_AMOUNT: "${envRequiredDefaiAmount}". Defaulting to 5000.`);
+  REQUIRED_DEFAI_AMOUNT = 5000;
+}
 
 export default function HomePage() {
   const { data: session, status: authStatus, update: updateSession } = useSession();

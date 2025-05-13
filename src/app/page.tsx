@@ -374,7 +374,7 @@ export default function HomePage() {
                 </button>
             </div>
             {airdropCheckResult !== null && (
-                <div className="mt-6 p-5 bg-green-50 border border-green-200 rounded-lg text-center shadow-sm">
+                <div className="mt-6 p-5 bg-blue-50 border border-blue-200 rounded-lg text-center shadow-sm">
                   {typeof airdropCheckResult === 'number' ? (
                       airdropCheckResult > 0 ? (
                         <p className="text-center text-3xl font-bold mb-4 animate-pulse">

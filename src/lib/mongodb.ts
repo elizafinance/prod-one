@@ -69,6 +69,8 @@ export interface UserDocument {
   earnedBadgeIds?: string[]; // New field for storing earned badge identifiers
   createdAt?: Date;
   updatedAt?: Date;
+  current_tier_name?: string;
+  tier_updated_at?: Date;
 }
 
 export interface ReferralBoost {
@@ -125,8 +127,12 @@ export type NotificationType =
   | 'squad_member_left'      // When someone (not self) leaves your squad
   | 'squad_kicked'           // When you are kicked from a squad
   | 'squad_leader_changed'   // When your squad's leader changes
-  | 'squad_disbanded';       // When your squad is disbanded
-  // Add more types as needed, e.g., for Community Quests, Power-ups earned, etc.
+  | 'squad_disbanded'
+  // Community Quest Notifications
+  | 'quest_reward_received' // User received a reward from a completed quest
+  | 'quest_newly_active'    // A new quest has become active (general notification, or targeted later)
+  | 'quest_completed_community' // A quest the user participated in was completed by the community
+  | 'quest_failed_community';   // A quest the user participated in failed or expired
 
 export interface NotificationDocument {
   _id?: any;
@@ -134,6 +140,9 @@ export interface NotificationDocument {
   recipientWalletAddress: string; // The user who should receive this notification
   type: NotificationType;
   message: string; // User-friendly message, e.g., "@UserX invited you to join Squad Y!"
+  relatedQuestId?: string; // Link to the quest
+  relatedQuestTitle?: string; // For easier display
+  reward_details_summary?: string; // e.g., "+500 Points", "Special NFT Unlocked!"
   relatedSquadId?: string;
   relatedSquadName?: string; // For easier display without extra lookup
   relatedUserWalletAddress?: string; // e.g., who sent invite, who joined/left

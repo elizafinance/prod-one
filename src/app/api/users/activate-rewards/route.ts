@@ -3,6 +3,8 @@ import { connectToDatabase, UserDocument, ActionDocument, ReferralBoost, SquadDo
 import airdropDataList from '@/data/airdropData.json'; // For checking airdrop amount
 import { randomBytes } from 'crypto';
 import { Db, ObjectId } from 'mongodb';
+import { rabbitmqService } from '@/services/rabbitmq.service';
+import { rabbitmqConfig } from '@/config/rabbitmq.config';
 
 interface AirdropGsheetEntry {
   Account: string;
@@ -242,6 +244,25 @@ export async function POST(request: Request) {
                         { $inc: { totalSquadPoints: pointsToAwardReferrer }, $set: { updatedAt: new Date() } } // Use pointsToAwardReferrer which includes boost
                     );
                     console.log(`[Activate Rewards] Squad update result: matchedCount=${squadUpdateResult.matchedCount}, modifiedCount=${squadUpdateResult.modifiedCount}`);
+                }
+
+                // Publish user.referred.success event
+                try {
+                  const eventPayload = {
+                    userId: newSolanaWalletAddress, // The user who was referred and activated wallet
+                    referredByUserId: referrer.walletAddress, // The user who made the referral
+                    timestamp: new Date().toISOString(),
+                    // questRelevantValue: 1 // Each successful referral counts as 1
+                  };
+                  await rabbitmqService.publishToExchange(
+                    rabbitmqConfig.eventsExchange,
+                    rabbitmqConfig.routingKeys.userReferredSuccess,
+                    eventPayload
+                  );
+                  console.log('[Activate Rewards] Successfully published user.referred.success event:', eventPayload);
+                } catch (publishError) {
+                  console.error('[Activate Rewards] Failed to publish user.referred.success event:', publishError);
+                  // Log and continue, core activation & referral logic succeeded.
                 }
             } else {
                 console.log(`[Activate Rewards] Referrer validation failed: referrer wallet address is ${referrer.walletAddress || 'missing'}, new user wallet is ${newSolanaWalletAddress}`);

@@ -5,6 +5,7 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
+import { FaGift, FaUsers, FaExclamationCircle, FaCheckCircle } from 'react-icons/fa'; // Example icons
 
 // Define UnifiedNotification structure (consistent with NotificationsPanel)
 interface UnifiedNotification {
@@ -20,9 +21,28 @@ interface UnifiedNotification {
   ctaText?: string; 
 }
 
+// Re-use NotificationDocument structure from lib/mongodb.ts, adapt for display
+export interface NotificationDisplayData {
+  _id?: any; // MongoDB ObjectId
+  notificationId: string; 
+  recipientWalletAddress: string; 
+  type: string; // NotificationType as string
+  message: string; 
+  relatedQuestId?: string;
+  relatedQuestTitle?: string;
+  reward_details_summary?: string;
+  relatedSquadId?: string;
+  relatedSquadName?: string; 
+  relatedUserWalletAddress?: string; 
+  relatedUserXUsername?: string; 
+  relatedInvitationId?: string; 
+  isRead: boolean;
+  createdAt?: string; // ISO date string
+}
+
 interface NotificationItemProps {
-  notification: UnifiedNotification; // Use UnifiedNotification
-  onMarkAsRead: (notificationId: string) => void; 
+  notification: NotificationDisplayData;
+  onMarkAsRead: (notificationId: string) => Promise<void>; // Callback to mark as read
 }
 
 // Basic icons (replace with actual icon components if you have them)
@@ -30,36 +50,44 @@ const SquadIcon = () => <div className="w-6 h-6 rounded-full bg-indigo-500 flex 
 const UserIcon = () => <span className="mr-2">👤</span>;
 const InfoIcon = () => <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-white">i</div>;
 
-export default function NotificationItem({ notification, onMarkAsRead }: NotificationItemProps) {
+const getIconForNotificationType = (type: string) => {
+  if (type.includes('quest_reward')) return <FaGift className="text-green-400 mr-3 text-xl" />;
+  if (type.includes('quest_completed')) return <FaCheckCircle className="text-blue-400 mr-3 text-xl" />;
+  if (type.includes('quest')) return <FaUsers className="text-purple-400 mr-3 text-xl" />;
+  if (type.includes('squad')) return <FaUsers className="text-teal-400 mr-3 text-xl" />;
+  return <FaExclamationCircle className="text-yellow-400 mr-3 text-xl" />;
+};
+
+const NotificationItem: React.FC<NotificationItemProps> = ({ notification, onMarkAsRead }) => {
   const router = useRouter();
   const [isProcessing, setIsProcessing] = useState<string | null>(null);
   
-  const getIcon = () => {
-    if (notification.type === 'squad_invite') return <SquadIcon />;
-    // Add more icon logic based on notification.type for 'generic_notification'
-    return <InfoIcon />;
+  const timeAgo = (dateString?: string) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    const now = new Date();
+    const seconds = Math.round((now.getTime() - date.getTime()) / 1000);
+    const minutes = Math.round(seconds / 60);
+    const hours = Math.round(minutes / 60);
+    const days = Math.round(hours / 24);
+
+    if (seconds < 60) return `${seconds}s ago`;
+    if (minutes < 60) return `${minutes}m ago`;
+    if (hours < 24) return `${hours}h ago`;
+    return `${days}d ago`;
   };
 
-  const isSquadInvite = notification.type === 'squad_invite';
-
   const handleNotificationClick = () => {
-    // For squad invites, clicking might not mark as read directly; actions (accept/decline) do.
-    // For generic notifications, this could call onMarkAsRead.
-    if (!notification.isRead && notification.type === 'generic_notification') {
-      onMarkAsRead(notification._id); // Use _id
+    if (!notification.isRead) {
+      onMarkAsRead(notification.notificationId);
     }
-    
-    // Navigate based on notification type or ctaLink
-    if (notification.ctaLink) {
-        router.push(notification.ctaLink);
-    } else if (notification.type === 'squad_invite' && notification.squadId) {
-      router.push(`/squads/${notification.squadId}`);
-    }
+    // Navigation logic can be added here if clicking the notification should redirect
+    // For example, if relatedQuestId, navigate to /quests/[relatedQuestId]
   };
 
   const handleAcceptInvite = async (e: React.MouseEvent) => {
     e.stopPropagation(); 
-    if (!isSquadInvite || !notification.squadId) return;
+    if (!notification.type.includes('squad') || !notification.relatedSquadId) return;
     
     setIsProcessing('accept');
     try {
@@ -75,8 +103,8 @@ export default function NotificationItem({ notification, onMarkAsRead }: Notific
         // onMarkAsRead(notification._id); // Accepting effectively makes it "read" or acted upon.
         // Refreshing notifications in the panel is handled by the panel's fetchNotifications after markAsRead
         // For now, parent panel will refetch. Consider direct state update if needed.
-        if (notification.squadId) {
-          router.push(`/squads/${notification.squadId}`);
+        if (notification.relatedSquadId) {
+          router.push(`/squads/${notification.relatedSquadId}`);
         }
       } else {
         toast.error(data.error || 'Failed to accept invitation');
@@ -90,7 +118,7 @@ export default function NotificationItem({ notification, onMarkAsRead }: Notific
 
   const handleDeclineInvite = async (e: React.MouseEvent) => {
     e.stopPropagation(); 
-    if (!isSquadInvite) return;
+    if (!notification.type.includes('squad')) return;
 
     setIsProcessing('decline');
     try {
@@ -115,55 +143,44 @@ export default function NotificationItem({ notification, onMarkAsRead }: Notific
     setIsProcessing(null);
   };
 
-  return (
-    <li 
-      className={`p-3 border-b border-gray-700 last:border-b-0 hover:bg-gray-700/30 transition-colors ${notification.isRead ? 'opacity-75' : 'bg-gray-700/20'}`}
-      onClick={isSquadInvite ? undefined : handleNotificationClick} // Only allow general click for non-squad invites
+  const content = (
+    <div 
+      className={`p-3 flex items-start hover:bg-gray-700/70 cursor-pointer transition-colors ${notification.isRead ? 'opacity-70' : ''}`}
+      onClick={handleNotificationClick}
     >
-      <div className="flex items-start">
-        <div className="flex-shrink-0 mt-0.5 mr-3">
-          {getIcon()}
-        </div>
-        <div className="flex-grow">
-          <p className={`text-sm ${notification.isRead ? 'text-gray-400' : 'text-gray-100'} mb-1 break-words`}>
-            {notification.message}
-            {notification.type === 'squad_invite' && notification.squadName && 
-              <span className="font-semibold"> {notification.squadName}</span>
-            }
-          </p>
-          <p className="text-xs text-gray-500 mt-0.5">
-            {new Date(notification.createdAt || Date.now()).toLocaleString()} 
-            {notification.ctaText && notification.ctaLink &&
-              <Link href={notification.ctaLink} className="ml-2 text-blue-400 hover:underline" onClick={(e)=> e.stopPropagation()}>{notification.ctaText}</Link>
-            }
-          </p>
-          
-          {/* Action buttons for squad invites */}
-          {isSquadInvite && !notification.isRead && (
-            <div className="mt-2 flex space-x-2">
-              <button 
-                className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white text-xs rounded-md transition-colors disabled:opacity-50"
-                onClick={handleAcceptInvite}
-                disabled={isProcessing !== null}
-              >
-                {isProcessing === 'accept' ? 'Accepting...' : 'Accept'}
-              </button>
-              <button 
-                className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white text-xs rounded-md transition-colors disabled:opacity-50"
-                onClick={handleDeclineInvite}
-                disabled={isProcessing !== null}
-              >
-                {isProcessing === 'decline' ? 'Declining...' : 'Decline'}
-              </button>
-            </div>
-          )}
-        </div>
-        {!notification.isRead && (
-          <div className="ml-2 flex-shrink-0">
-            <span className="w-2 h-2 bg-blue-500 rounded-full inline-block" title="Unread"></span>
-          </div>
-        )}
+      <div className="flex-shrink-0 mt-1">
+        {getIconForNotificationType(notification.type)}
       </div>
-    </li>
+      <div className="flex-grow">
+        <p className={`text-sm ${notification.isRead ? 'text-gray-400' : 'text-gray-100'}`}>
+          {notification.message}
+        </p>
+        {notification.relatedQuestTitle && (
+          <p className="text-xs text-blue-400 mt-0.5">Quest: {notification.relatedQuestTitle}</p>
+        )}
+        {notification.reward_details_summary && (
+          <p className="text-xs text-green-400 mt-0.5">Reward: {notification.reward_details_summary}</p>
+        )}
+        <p className="text-xs text-gray-500 mt-1">{timeAgo(notification.createdAt)}</p>
+      </div>
+      {!notification.isRead && (
+        <div className="ml-2 flex-shrink-0 self-center">
+          <span className="w-2.5 h-2.5 bg-blue-500 rounded-full inline-block"></span>
+        </div>
+      )}
+    </div>
   );
-} 
+
+  if (notification.relatedQuestId) {
+    return (
+      <Link href={`/quests/${notification.relatedQuestId}`} className="block w-full">
+        {content}
+      </Link>
+    );
+  }
+  // Add other link types here, e.g., for squad invites, user profiles etc.
+
+  return content; // Fallback for notifications that are not directly linkable for now
+};
+
+export default NotificationItem; 

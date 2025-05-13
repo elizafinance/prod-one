@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 // import { NotificationDocument } from '@/lib/mongodb'; // Will use UnifiedNotification instead
-import NotificationItem from './NotificationItem';
+import NotificationItem, { NotificationDisplayData } from './NotificationItem';
 import { toast } from 'sonner';
 import Link from 'next/link';
+import { FaBell, FaTimes } from 'react-icons/fa';
 
 // Define UnifiedNotification structure (can be moved to a shared types file)
 interface UnifiedNotification {
@@ -21,6 +22,12 @@ interface UnifiedNotification {
   ctaText?: string; // Call to action text
 }
 
+// Define the structure of the API response for notifications
+interface NotificationsApiResponse {
+  notifications: NotificationDisplayData[];
+  unreadCount: number;
+}
+
 interface NotificationsPanelProps {
   isOpen: boolean;
   onClose: () => void;
@@ -28,18 +35,21 @@ interface NotificationsPanelProps {
 }
 
 export default function NotificationsPanel({ isOpen, onClose, onUpdateUnreadCount }: NotificationsPanelProps) {
-  const [notifications, setNotifications] = useState<UnifiedNotification[]>([]); // Use UnifiedNotification
+  const [notifications, setNotifications] = useState<NotificationDisplayData[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showErrorDetails, setShowErrorDetails] = useState(false);
 
-  const fetchNotifications = useCallback(async (markAsReadOnOpen = false) => {
+  const panelRef = useRef<HTMLDivElement>(null); // For click outside to close
+
+  const fetchNotifications = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     console.log("[Notifications] Fetching notifications...");
     try {
       console.log("[Notifications] Making API call to fetch notifications");
-      const response = await fetch('/api/notifications/my-notifications?limit=10'); // Fetch latest 10 initially
+      const response = await fetch('/api/notifications');
       
       console.log("[Notifications] API response status:", response.status);
       if (!response.ok) {
@@ -49,7 +59,7 @@ export default function NotificationsPanel({ isOpen, onClose, onUpdateUnreadCoun
         throw new Error(errorMessage);
       }
       
-      const data: { notifications: UnifiedNotification[], unreadCount: number } = await response.json();
+      const data: NotificationsApiResponse = await response.json();
       console.log("[Notifications] Received data:", data);
       
       if (!data.notifications) {
@@ -57,12 +67,13 @@ export default function NotificationsPanel({ isOpen, onClose, onUpdateUnreadCoun
       }
       
       setNotifications(data.notifications || []);
+      setUnreadCount(data.unreadCount || 0);
       onUpdateUnreadCount(data.unreadCount || 0);
 
-      if (markAsReadOnOpen && data.notifications && data.notifications.length > 0) {
+      if (data.notifications && data.notifications.length > 0) {
         // Mark as read logic might need to change if we don't have a generic isRead for invites
         // For now, this attempts to mark items that have an _id and an isRead property if API supported it
-        const unreadIds = data.notifications.filter((n: UnifiedNotification) => !n.isRead).map((n: UnifiedNotification) => n._id);
+        const unreadIds = data.notifications.filter((n: NotificationDisplayData) => !n.isRead).map((n: NotificationDisplayData) => n.notificationId);
         console.log("[Notifications] Unread IDs to mark as read:", unreadIds);
         if (unreadIds.length > 0) {
           // markNotificationsAsRead(unreadIds); // This API might need adjustment for different notification types
@@ -79,9 +90,24 @@ export default function NotificationsPanel({ isOpen, onClose, onUpdateUnreadCoun
 
   useEffect(() => {
     if (isOpen) {
-      fetchNotifications(true); // Fetch and mark as read when panel opens
+      fetchNotifications();
     }
   }, [isOpen, fetchNotifications]);
+
+  // Click outside to close handler
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (panelRef.current && !panelRef.current.contains(event.target as Node)) {
+        onClose();
+      }
+    }
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isOpen, onClose]);
 
   const markNotificationsAsRead = async (notificationIds: string[]) => {
     try {
@@ -119,26 +145,53 @@ export default function NotificationsPanel({ isOpen, onClose, onUpdateUnreadCoun
     fetchNotifications();
   };
 
+  // This function is passed to NotificationItem and must match its expected signature
+  const handleMarkNotificationAsRead = async (notificationId: string): Promise<void> => {
+    try {
+      const response = await fetch(`/api/notifications/${notificationId}/read`, { method: 'PUT' });
+      if (!response.ok) {
+        const errData = await response.json();
+        // Potentially log this error or show a toast to the user
+        console.error('Failed to mark notification as read:', errData.error || response.status);
+        // Do not throw here if optimistic update is preferred, or throw to revert
+        return; // Or throw error to be caught by a higher-level handler if needed
+      }
+      // Optimistically update UI
+      setNotifications(prev => prev.map(n => n.notificationId === notificationId ? { ...n, isRead: true } : n));
+      setUnreadCount(prev => Math.max(0, prev - 1));
+    } catch (err: any) {
+      console.error("Error in handleMarkNotificationAsRead:", err);
+      // Potentially show a toast error to the user
+    }
+  };
+
   if (!isOpen) return null;
 
   return (
-    <div 
-      className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40"
-      onClick={onClose} // Close if clicking outside the panel
-    >
-      <div 
-        className="fixed top-16 right-4 sm:right-8 w-full max-w-md bg-gray-800 shadow-2xl rounded-lg border border-gray-700 z-50 max-h-[70vh] flex flex-col"
-        onClick={(e) => e.stopPropagation()} // Prevent close when clicking inside panel
+    <div className="relative" ref={panelRef}>
+      <button 
+        onClick={onClose} 
+        className="relative p-2 rounded-full hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 transition-colors"
+        aria-label="Toggle Notifications"
       >
-        <div className="flex justify-between items-center p-4 border-b border-gray-700">
-          <h2 className="text-lg font-semibold text-white">Notifications</h2>
-          {notifications.some(n => !n.isRead) && (
-             <button onClick={handleMarkAllAsRead} className="text-xs text-blue-400 hover:underline">Mark all as read</button>
-          )}
-          <button onClick={onClose} className="text-gray-400 hover:text-white">&times;</button>
-        </div>
+        <FaBell className="h-6 w-6 text-gray-300 hover:text-white" />
+        {unreadCount > 0 && (
+          <span className="absolute top-0 right-0 block h-2.5 w-2.5 transform -translate-y-1/2 translate-x-1/2">
+            <span className="absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75 animate-ping"></span>
+            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-600"></span>
+          </span>
+        )}
+      </button>
 
-        <div className="overflow-y-auto flex-grow">
+      {isOpen && (
+        <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-gray-800 border border-gray-700 rounded-lg shadow-xl z-50 overflow-hidden flex flex-col" style={{ maxHeight: 'calc(100vh - 100px)' }}>
+          <div className="flex justify-between items-center p-3 border-b border-gray-700">
+            <h3 className="text-md font-semibold text-gray-100">Notifications</h3>
+            <button onClick={onClose} className="text-gray-400 hover:text-white">
+              <FaTimes />
+            </button>
+          </div>
+
           {isLoading && (
             <div className="p-8 flex justify-center items-center">
               <div className="animate-spin h-8 w-8 border-t-2 border-b-2 border-blue-500 rounded-full"></div>
@@ -171,20 +224,26 @@ export default function NotificationsPanel({ isOpen, onClose, onUpdateUnreadCoun
           )}
 
           {!isLoading && !error && notifications.length > 0 && (
-            <ul>
+            <div className="overflow-y-auto flex-grow">
               {notifications.map(notif => (
-                <NotificationItem key={notif._id} notification={notif} onMarkAsRead={handleMarkOneAsRead} />
+                <NotificationItem 
+                  key={notif.notificationId} 
+                  notification={notif} 
+                  onMarkAsRead={handleMarkNotificationAsRead}
+                />
               ))}
-            </ul>
+            </div>
+          )}
+          
+          {notifications.length > 0 && (
+            <div className="p-2 border-t border-gray-700 text-center">
+                <Link href="/notifications" className="text-sm text-blue-400 hover:underline" onClick={onClose}>
+                    View all notifications
+                </Link>
+            </div>
           )}
         </div>
-        
-        <div className="p-3 border-t border-gray-700 text-center">
-            <Link href="/notifications" passHref>
-                 <span onClick={onClose} className="text-sm text-blue-400 hover:underline cursor-pointer">View all notifications</span>
-            </Link>
-        </div>
-      </div>
+      )}
     </div>
   );
 } 

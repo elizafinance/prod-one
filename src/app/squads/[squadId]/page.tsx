@@ -23,7 +23,7 @@ interface SquadDetailsData extends SquadDocument {
 export default function SquadDetailsPage() {
   const params = useParams();
   const router = useRouter();
-  const squadId = params.squadId as string;
+  const squadId = params?.squadId as string;
   const { publicKey, connected } = useWallet();
   const currentUserWalletAddress = publicKey?.toBase58();
 

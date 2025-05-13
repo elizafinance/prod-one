@@ -60,7 +60,7 @@ const badgeDisplayMap: { [key: string]: { icon: string; label: string; color: st
 export default function UserProfilePage() {
   const params = useParams();
   const router = useRouter();
-  const walletAddress = params.walletAddress as string;
+  const walletAddress = params?.walletAddress as string;
   const { publicKey } = useWallet();
   const loggedInUserWalletAddress = publicKey?.toBase58();
 

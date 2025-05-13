@@ -604,8 +604,8 @@ export default function HomePage() {
           
           {/* Other sections */}
           {showInsufficientBalanceMessage && (
-            <div className="w-full my-6 p-5 bg-orange-50 border border-orange-200 rounded-lg text-center shadow-md">
-              <h3 className="text-xl font-semibold text-orange-700 mb-3">Action Required: Hold DeFAI Tokens</h3>
+            <div className="w-full my-6 p-5 bg-blue-50 border border-blue-200 rounded-lg text-center shadow-md">
+              <h3 className="text-xl font-semibold text-blue-700 mb-3">Action Required: Hold DeFAI Tokens</h3>
               <p className="text-gray-700 mb-4">
                 To participate in the DeFAI Rewards points system and access all features, you need to hold at least {REQUIRED_DEFAI_AMOUNT} $DeFAI tokens in your connected wallet ({wallet.publicKey?.toBase58().substring(0,6)}...).
               </p>

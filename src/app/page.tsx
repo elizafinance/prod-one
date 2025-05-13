@@ -561,23 +561,31 @@ export default function HomePage() {
               </button>
             </div>
             {airdropCheckResult !== null && (
-              <div className="mt-6 p-5 bg-green-50 border border-green-200 rounded-lg text-center shadow-sm">
-                {typeof airdropCheckResult === 'number' ? (
-                  airdropCheckResult > 0 ? (
-                    <p className="text-center text-3xl font-bold mb-4 animate-pulse">
-                      Eligible for: <span className="text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 via-orange-500 to-red-500">{airdropCheckResult.toLocaleString()}</span> $AIR!
-                    </p>
-                  ) : (
-                    <p className="text-center text-lg text-gray-600 mb-4">
-                      This address does not qualify for the $AIR airdrop (amount: {airdropCheckResult}).
-                    </p>
-                  )
-                ) : (
-                  <p className="text-center text-lg text-red-600 mb-4">
-                    Airdrop Status: {airdropCheckResult}
-                  </p>
-                )}
-              </div>
+                <div className="mt-6 p-5 bg-blue-50 border border-blue-200 rounded-lg text-center shadow-sm">
+                  {typeof airdropCheckResult === 'number' ? (
+                      airdropCheckResult > 0 ? (
+                        <p className="text-center text-3xl font-bold mb-4 animate-pulse">
+                          Eligible for: <span className="text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 via-orange-500 to-red-500">{airdropCheckResult.toLocaleString()}</span> $AIR!
+                        </p>
+                      ) : (
+                        <div>
+                          <p className="text-center text-lg text-gray-600 mb-4">
+                            You dont qualify because your $DEFAI balance is zero.
+                          </p>
+                          <Link href="https://dexscreener.com/solana/3jiwexdwzxjva2yd8aherfsrn7a97qbwmdz8i4q6mh7y" target="_blank" rel="noopener noreferrer">
+                            <button className="text-white font-semibold py-2 px-4 rounded-full transition-all duration-150 ease-in-out hover:scale-105 hover:shadow-lg hover:shadow-blue-500/50 whitespace-nowrap" style={{ backgroundColor: '#2563EB' }}>
+                              <ChartIcon /> Buy $Defai
+                            </button>
+                          </Link>
+                        </div>
+                      )
+                    ) : (
+                        <p className="text-center text-lg text-red-600 mb-4">
+                            Airdrop Status: {airdropCheckResult}
+                        </p>
+                    )
+                  }
+                </div>
             )}
           </div>
         ) : null}

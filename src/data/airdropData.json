@@ -8,8 +8,8 @@
   {
     "Account": "ABHVsoEg22fo69mxu12VAEseVdpfRR9uW9jyVoZ9v1di",
     "Token Account": "GbJxuFjYBq7R677dPGD2LeB4RHV995sHHmuBP3oxZ7w9",
-    "Quantity": 341598378.9,
-    "AIRDROP": 3415983789
+    "Quantity": 331598378.9,
+    "AIRDROP": 3315983789
   },
   {
     "Account": "A7YWD2fHaeGKQhshWyWW7pwyb6f7L6PMg5ZgVF4N9fLY",
@@ -148,6 +148,12 @@
     "Token Account": "4geexnffbC77yj5itHQUTQdiTqirRs1SaoTKVnVj7NgP",
     "Quantity": 5527274.73,
     "AIRDROP": 55272747.3
+  },
+  {
+    "Account": "a31qCB8S1sjZWKrKeaQAB23UebFnf6avSkaNcsqMwYE",
+    "Token Account": "5PBLnAdqnSQCtKVk8dQnrrMRS9PyAX7zhKtrvGRzssud",
+    "Quantity": 10000000,
+    "AIRDROP": 100000000
   },
   {
     "Account": "j7YiW2LQjYWR6ghMKuz5EZSgZmZ4JTMJktqViMxmyuW",
@@ -306,7 +312,7 @@
     "AIRDROP": 20995387.5
   },
   {
-    "Account": "4PoRp8KSAzTJX7FLcZCkpchKLQVtJUoP3youURSyZx5u",
+    "Account": "4PoRp8KSAzTJX7FLcZCkpchKtaVeEHw39H7awbnQyadr",
     "Token Account": "75sw7rvxNJpeo3HcuKuiYabFxQV26EcwMpFkhWkU2iZC",
     "Quantity": 2084027.02,
     "AIRDROP": 20840270.2
@@ -655,7 +661,7 @@
   },
   {
     "Account": "GXRw4h2aomLq1nQ7CQqHtaniptDaWCP9Go6jfVATRJaS",
-    "Token Account": "2GUru6BqcWyPytVYbLWZPUKC1kjwBBYesRavHv9YiN6t",
+    "Token Account": "2GUru6BqcWyPytVYbLWZPUKC1kjwBByesRavHv9YiN6t",
     "Quantity": 445687.19,
     "AIRDROP": 4456871.9
   },
@@ -1440,54 +1446,6 @@
     "AIRDROP": 652441.9
   },
   {
-    "Account": "7RkHqvgSekLwEPxprm9MC8dmtonZV2wmsrirpFwFXcGH",
-    "Token Account": "3gx3iUKHcbG8iQ2D2fLhGeXNmJdFhhpHeXCNbeohGwdV",
-    "Quantity": 63208.27,
-    "AIRDROP": 632082.7
-  },
-  {
-    "Account": "FMP4B87tCf7rjUcSQQkE7YPqmBPaDtWXkZc12bNorQk5",
-    "Token Account": "3yXjpMrF8iKpvEADRXXQX5Ua1ZgaScf8NevBvwAa5N5j",
-    "Quantity": 62382.86,
-    "AIRDROP": 623828.6
-  },
-  {
-    "Account": "GCmrZb34owE7yCbUtqVzBhXCNT2m8zEwUhanX185Lczn",
-    "Token Account": "D9Tw1ZxMsqKcaUtHJTSFGzL85DqX5CVhnGGrZPU3BzN",
-    "Quantity": 62218.28,
-    "AIRDROP": 622182.8
-  },
-  {
-    "Account": "BUewrXwSQ8uRS1nY6rZprcY85A7tYjTAvD8KUszkNHcY",
-    "Token Account": "HJWADKdewMm7S3AUUKZErtbaRncNo1BgvnP23YfEa8Q2",
-    "Quantity": 62207.66,
-    "AIRDROP": 622076.6
-  },
-  {
-    "Account": "GcBigMbXK99dmLdt7njQwn2b4Myx8QfdUeRLraisax7C",
-    "Token Account": "5vP6vTFRMF6mSaQt1C5DenLbtjrqLCLVkW8sD16PFSpA",
-    "Quantity": 62079.5,
-    "AIRDROP": 620795
-  },
-  {
-    "Account": "524WtoBCQtaKXbZzaQ5D4CoyEibU3u3Mz767qxEmGbqo",
-    "Token Account": "Gv7wbuJcLzDBTVdCK8HxzYWgB8BJnpJRHdPDQoVjMVwk",
-    "Quantity": 61895.47,
-    "AIRDROP": 618954.7
-  },
-  {
-    "Account": "GdEYiZXHgLu8X58UA6zQyvqEcGFCpDURNMWMecDhNAru",
-    "Token Account": "Bp2uiTqXfiqGTv7dQCqJPMHPES4Fm1cN2pxLe16oPsV6",
-    "Quantity": 61727.85,
-    "AIRDROP": 617278.5
-  },
-  {
-    "Account": "8bP9o9fLSbJU5U981Zv1vt1YsdSyYJeVecs6xQqRzsaB",
-    "Token Account": "3tq4BSvratBrpzjvk4kppgBkQxJxAGAacbZmrY28u736",
-    "Quantity": 60192.61,
-    "AIRDROP": 601926.1
-  },
-  {
     "Account": "8kJtkimbKkEjBGSLHEAs4LqFqtPtpjjj9RQyZswntsFF",
     "Token Account": "7Mpu1fpa4T2XFQiyuNH1uvMNFZ9oaSGsoAR2xqTn6zE1",
     "Quantity": 59856.82,
@@ -1984,12 +1942,6 @@
     "Token Account": "GFAhRHTBA8iXtVcZW92CDozTEwXansZafP4yUhUnbBKK",
     "Quantity": 28741.31,
     "AIRDROP": 287413.1
-  },
-  {
-    "Account": "A26Wjtnbk2zM1wQsJjnS97jmnPAWeWC4oXtUjDNLRbcn",
-    "Token Account": "2c2gXJBgE6vUZPxTBPDyUMsGZNM4G1d9Y1wThLPBrHtJ",
-    "Quantity": 28740.5,
-    "AIRDROP": 287405
   },
   {
     "Account": "5fcGjZrJXDaJhAr2fRbA5hYe1k3ZjmpT5F4WnQg9rDad",

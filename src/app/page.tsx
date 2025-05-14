@@ -31,6 +31,7 @@ const WalletMultiButtonDynamic = dynamic(
 const HomeIcon = () => <span>🏠</span>;
 const ChartIcon = () => <span>📊</span>;
 const LeaderboardIcon = () => <span>🏆</span>;
+const ProposalsIcon = () => <span>🗳️</span>;
 const XIcon = () => <span>✖️</span>; // Using a different X icon for clarity
 const TelegramIcon = () => <span>✈️</span>;
 const ShareIcon = () => <span>🔗</span>; // For Share on X specific button
@@ -812,6 +813,9 @@ export default function HomePage() {
                 </Link>
                 <Link href="/leaderboard" passHref className="flex-shrink-0">
                   <button className="w-full sm:w-auto text-white font-bold py-3 px-6 rounded-full transition-all duration-150 ease-in-out hover:scale-105 hover:shadow-lg hover:shadow-blue-500/50 whitespace-nowrap" style={{ backgroundColor: '#2563EB' }}><LeaderboardIcon /> Leaderboard</button>
+                </Link>
+                <Link href="/proposals" passHref className="flex-shrink-0">
+                  <button className="w-full sm:w-auto text-white font-bold py-3 px-6 rounded-full transition-all duration-150 ease-in-out hover:scale-105 hover:shadow-lg hover:shadow-blue-500/50 whitespace-nowrap" style={{ backgroundColor: '#2563EB' }}><ProposalsIcon /> Proposals</button>
                 </Link>
                 {/* Ensure button is shown only if rewards are active and there's something to share */}
                 {isRewardsActive && currentTotalAirdropForSharing > 0 && (

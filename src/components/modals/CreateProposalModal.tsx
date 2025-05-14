@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input"; // Assuming you have an Input component
 // import { Textarea } from "@/components/ui/textarea"; // Textarea component not found
 import { toast } from 'sonner';
+import Link from 'next/link';
 
 interface CreateProposalModalProps {
   isOpen: boolean;
@@ -44,7 +45,20 @@ const CreateProposalModal: React.FC<CreateProposalModalProps> = ({ isOpen, onClo
         throw new Error(result.error || 'Failed to create proposal.');
       }
 
-      toast.success('Proposal created successfully!');
+      // Assuming the proposal object returned has an _id field
+      const proposalId = result.proposal?._id;
+      if (proposalId) {
+        toast.success(
+          <div className="flex flex-col">
+            <span>Proposal created successfully!</span>
+            <Link href={`/proposals/${proposalId}`} className="text-blue-500 hover:text-blue-600 underline mt-1">
+              View Proposal
+            </Link>
+          </div>
+        );
+      } else {
+        toast.success('Proposal created successfully! (ID not found for link)');
+      }
       onProposalCreated(); // Trigger callback (e.g., to refresh data or navigate)
       onClose(); // Close the modal
       // Reset form fields

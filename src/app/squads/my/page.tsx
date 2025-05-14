@@ -67,6 +67,14 @@ export default function MySquadPage() {
   }, [isLoadingPoints]);
 
   const fetchMySquadData = useCallback(async (userWalletAddress: string) => {
+    if (authStatus !== "authenticated" || !session?.user?.xId) {
+      setError("User not authenticated. Cannot fetch squad data.");
+      setIsFetchingSquad(false);
+      setHasLoadedData(true);
+      setUserCheckedNoSquad(true);
+      return;
+    }
+
     if (!userWalletAddress || isFetchingSquad || (userCheckedNoSquad && !isCreateProposalModalOpen) || (mySquadData && hasLoadedData && isCreateProposalModalOpen && !isFetchingSquad)) {
       // Skip if already fetching or determined no squad
       return;
@@ -112,7 +120,7 @@ export default function MySquadPage() {
     }
     
     setIsFetchingSquad(false);
-  }, [isFetchingSquad, userCheckedNoSquad, fetchUserPoints, mySquadData, hasLoadedData, isCreateProposalModalOpen, authStatus, session]);
+  }, [isFetchingSquad, userCheckedNoSquad, fetchUserPoints, mySquadData, hasLoadedData, isCreateProposalModalOpen, authStatus, session?.user?.xId]);
 
   useEffect(() => {
     let isActive = true;
@@ -134,9 +142,8 @@ export default function MySquadPage() {
       setMySquadData(null);
       setUserCheckedNoSquad(true); // Assume no squad if not properly authenticated
       setHasLoadedData(true);
-      setError("User not authenticated. Please log in.");
     }
-  }, [authStatus, session, connected, publicKey, fetchMySquadData, userCheckedNoSquad, hasLoadedData]);
+  }, [authStatus, session?.user?.xId, connected, publicKey, fetchMySquadData, userCheckedNoSquad, hasLoadedData]);
 
   useEffect(() => {
     const currentAddress = publicKey ? publicKey.toBase58() : null;

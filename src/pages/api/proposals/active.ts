@@ -1,5 +1,5 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { connectToDatabase } from '@/lib/mongodb';
+import { ensureMongooseConnected } from '@/lib/mongooseConnect';
 import { Proposal, IProposal } from '@/models/Proposal';
 import { Vote, IVote } from '@/models/Vote'; 
 import { Types } from 'mongoose';
@@ -54,7 +54,7 @@ interface LeanVote {
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method === 'GET') {
     try {
-      await connectToDatabase(); 
+      await ensureMongooseConnected();
 
       const PROPOSALS_PER_PAGE = parseInt(process.env.NEXT_PUBLIC_PROPOSALS_PER_PAGE || "10", 10);
       const page = parseInt(req.query.page as string) || 1;

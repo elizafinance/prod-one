@@ -3,14 +3,6 @@ import { MongoClient, Db } from 'mongodb';
 const MONGODB_URI = process.env.MONGODB_URI;
 const MONGODB_DB_NAME = process.env.MONGODB_DB_NAME;
 
-if (!MONGODB_URI) {
-  throw new Error('Please define the MONGODB_URI environment variable inside .env.local');
-}
-
-if (!MONGODB_DB_NAME) {
-  throw new Error('Please define the MONGODB_DB_NAME environment variable inside .env.local');
-}
-
 /**
  * Global is used here to maintain a cached connection across hot reloads
  * in development. This prevents connections growing exponentially
@@ -38,7 +30,11 @@ export async function connectToDatabase(): Promise<{ client: MongoClient; db: Db
   }
 
   if (!MONGODB_URI) {
-    throw new Error('MONGODB_URI is not defined');
+    throw new Error('MONGODB_URI environment variable is not defined');
+  }
+
+  if (!MONGODB_DB_NAME) {
+    throw new Error('MONGODB_DB_NAME environment variable is not defined');
   }
 
   const client = new MongoClient(MONGODB_URI);

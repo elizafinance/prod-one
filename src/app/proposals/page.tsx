@@ -81,46 +81,48 @@ export default function ProposalsPage() {
   // Fetch current user's points when session is available
   useEffect(() => {
     if (sessionStatus === 'authenticated' && session?.user?.walletAddress) {
-      // Attempt to get from localStorage first, as main page might have stored it
+      let pointsFound = false;
       const storedUserData = localStorage.getItem('defaiUserData');
       if (storedUserData) {
         try {
           const parsed = JSON.parse(storedUserData);
           if (typeof parsed.points === 'number') {
             setCurrentUserPoints(parsed.points);
-            return; // Exit if found in localStorage
+            pointsFound = true;
           }
         } catch (e) {
           console.warn("Could not parse user data from LS for points on proposals page", e);
         }
       }
 
-      // Fallback: Fetch from API if not in localStorage or if explicitly needed
-      // This assumes an endpoint like /api/users/points?address=WALLET_ADDRESS exists
-      // console.log(`[ProposalsPage] Fetching points for ${session.user.walletAddress}`)
-      // fetch(`/api/users/points?address=${session.user.walletAddress}`)
-      //   .then(res => res.json())
-      //   .then(data => {
-      //     if (typeof data.points === 'number') {
-      //       setCurrentUserPoints(data.points);
-      //     } else {
-      //       setCurrentUserPoints(null); // Explicitly set to null if not found or error
-      //       console.warn("[ProposalsPage] Could not fetch user points from API or points not found.")
-      //     }
-      //   })
-      //   .catch(err => {
-      //     console.error("[ProposalsPage] Error fetching user points:", err);
-      //     setCurrentUserPoints(null); // Set to null on error
-      //   });
-      // For now, if not in LS, we'll leave it null and VoteModal will show its message.
-      // A more robust solution would be a dedicated user context or API call here.
-       if (!storedUserData) {
-          setCurrentUserPoints(null); // If nothing in LS, set to null
-       }
+      if (!pointsFound) {
+        // Fallback: Fetch from API if not in localStorage or if parsing failed
+        console.log(`[ProposalsPage] Fetching points via API for ${session.user.walletAddress}`);
+        fetch(`/api/users/points?address=${session.user.walletAddress}`)
+          .then(res => {
+            if (!res.ok) {
+              // Handle non-OK responses (e.g., 404, 500) by throwing an error to be caught below
+              throw new Error(`API responded with status ${res.status}`);
+            }
+            return res.json();
+          })
+          .then(data => {
+            if (typeof data.points === 'number') {
+              setCurrentUserPoints(data.points);
+            } else {
+              setCurrentUserPoints(null); // Explicitly set to null if points not found in API response
+              console.warn("[ProposalsPage] Could not fetch user points from API or points field missing/invalid.");
+            }
+          })
+          .catch(err => {
+            console.error("[ProposalsPage] Error fetching user points from API:", err);
+            setCurrentUserPoints(null); // Set to null on API error
+          });
+      }
     } else if (sessionStatus === 'unauthenticated') {
         setCurrentUserPoints(null); // Clear points if user logs out
     }
-  }, [sessionStatus, session]);
+  }, [sessionStatus, session?.user?.walletAddress]); // Ensure dependency on walletAddress too
 
   const handleOpenVoteModal = (proposalId: string) => {
     const proposalToVote = apiResponse?.proposals.find(p => p._id === proposalId);

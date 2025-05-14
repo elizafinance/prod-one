@@ -1,17 +1,26 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
-import { connectToDatabase, UserDocument } from '@/lib/mongodb';
+import { UserDocument } from '@/lib/mongodb';
+import { ensureMongooseConnected } from '@/lib/mongooseConnect';
 import { Proposal, IProposal } from '@/models/Proposal';
 import { Vote, IVote } from '@/models/Vote';
 import { Squad, ISquad } from '@/models/Squad';
 import { Notification } from '@/models/Notification';
 import { Types } from 'mongoose';
+import mongoose from 'mongoose';
 
 const MIN_POINTS_TO_VOTE = parseInt(process.env.NEXT_PUBLIC_MIN_POINTS_TO_VOTE || "500", 10);
 const BROADCAST_THRESHOLD = parseInt(process.env.NEXT_PUBLIC_PROPOSAL_BROADCAST_THRESHOLD || "1000", 10);
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  try {
+    await ensureMongooseConnected();
+  } catch (err) {
+    console.error('Failed to establish Mongoose connection in vote API route:', err);
+    return res.status(500).json({ error: 'Database connection error.' });
+  }
+
   const session = await getServerSession(req, res, authOptions);
   if (!session || !session.user || typeof session.user.walletAddress !== 'string' || !session.user.dbId) {
     return res.status(401).json({ error: 'User not authenticated, wallet, or user ID missing from session' });
@@ -32,10 +41,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     try {
-      const { db } = await connectToDatabase();
-      const usersCollection = db.collection<UserDocument>('users');
+      const Users = mongoose.model<UserDocument>('User');
       
-      const voter = await usersCollection.findOne({ _id: voterUserId });
+      const voter = await Users.findById(voterUserId).lean();
       if (!voter) {
         return res.status(404).json({ error: 'Voter not found.' });
       }
@@ -106,8 +114,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         await proposal.save();
         // Create platform-wide notifications so all users are aware of broadcasted proposal
         try {
-          const usersCollection = db.collection<UserDocument>('users');
-          const allUsers = await usersCollection.find({}, { projection: { walletAddress: 1 } }).toArray();
+          const allUsers = await Users.find({}, 'walletAddress').lean();
 
           const broadcastNotifications = allUsers
             .filter(u => u.walletAddress)

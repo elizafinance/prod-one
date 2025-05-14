@@ -212,7 +212,7 @@ export default function HomePage() {
       return;
     }
 
-    const defaiMintAddress = process.env.NEXT_PUBLIC_DEFAI_CONTRACT_ADDRESS;
+    const defaiMintAddress = process.env.NEXT_PUBLIC_DEFAI_TOKEN_MINT_ADDRESS;
     if (!defaiMintAddress) {
       console.error("DeFAI mint address environment variable not set.");
       toast.error("Configuration error: Cannot verify DeFAI balance.");

@@ -58,12 +58,13 @@ const AirdropInfoDisplay: React.FC<AirdropInfoDisplayProps> = ({ onNotConnected,
           return 0;
         })(),
         (async () => {
-          const pointsResponse = await fetch(`/api/users/points?walletAddress=${publicKey.toBase58()}`);
+          const pointsResponse = await fetch(`/api/users/points?address=${publicKey.toBase58()}`);
           if (pointsResponse.ok) {
             const pointsData = await pointsResponse.json();
+            console.log('[AirdropInfoDisplay] User points data from API:', pointsData);
             return pointsData.points || 0;
           }
-          console.warn("Failed to fetch user points, status:", pointsResponse.status);
+          console.warn("[AirdropInfoDisplay] Failed to fetch user points, status:", pointsResponse.status);
           return 0;
         })(),
         (async () => {

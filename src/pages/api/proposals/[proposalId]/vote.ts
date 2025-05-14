@@ -9,6 +9,9 @@ import { Squad, ISquad } from '@/models/Squad';
 import { Notification } from '@/models/Notification';
 import { Types } from 'mongoose';
 import mongoose from 'mongoose';
+import bs58 from 'bs58';
+import nacl from 'tweetnacl';
+import { PublicKey } from '@solana/web3.js';
 
 const MIN_POINTS_TO_VOTE = parseInt(process.env.NEXT_PUBLIC_MIN_POINTS_TO_VOTE || "500", 10);
 const BROADCAST_THRESHOLD = parseInt(process.env.NEXT_PUBLIC_PROPOSAL_BROADCAST_THRESHOLD || "1000", 10);
@@ -38,6 +41,38 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const { choice } = req.body;
     if (!choice || !['up', 'down', 'abstain'].includes(choice)) {
       return res.status(400).json({ error: 'Invalid vote choice. Must be one of: up, down, abstain.' });
+    }
+
+    // --- Wallet signature verification ---
+    const sigB58 = req.headers['x-wallet-sig'] as string | undefined;
+    const msg = req.headers['x-wallet-msg'] as string | undefined;
+
+    if (!sigB58 || !msg) {
+      return res.status(400).json({ error: 'Missing wallet signature.' });
+    }
+
+    try {
+      const sig = bs58.decode(sigB58);
+      const pubkey = new PublicKey(voterWalletAddress);
+      const verified = nacl.sign.detached.verify(Buffer.from(msg, 'utf8'), sig, pubkey.toBytes());
+      if (!verified) {
+        return res.status(401).json({ error: 'Invalid wallet signature.' });
+      }
+
+      // Ensure message content matches expected format and data
+      const parts = msg.split('|'); // defai-vote|<proposalId>|<choice>|<timestamp>
+      if (parts.length !== 4 || parts[0] !== 'defai-vote' || parts[1] !== proposalId || parts[2] !== choice) {
+        return res.status(400).json({ error: 'Signed message content mismatch.' });
+      }
+
+      const msgTimestamp = parseInt(parts[3], 10);
+      const nowTs = Date.now();
+      if (isNaN(msgTimestamp) || Math.abs(nowTs - msgTimestamp) > 5 * 60 * 1000) { // 5-minute window
+        return res.status(400).json({ error: 'Signed message expired. Please sign again.' });
+      }
+    } catch (sigErr) {
+      console.error('[VoteAPI] Signature verification error:', sigErr);
+      return res.status(400).json({ error: 'Signature verification failed.' });
     }
 
     try {
@@ -103,9 +138,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           return res.status(409).json({ error: 'You have already voted on this proposal.' });
         }
 
-        // Send back the specific message in non-production to help surface issues; otherwise generic
-        const isProd = process.env.NODE_ENV === 'production';
-        return res.status(500).json({ error: isProd ? 'Failed to cast vote. Please try again later.' : (error.message || 'Failed to cast vote.') });
+        const safeMessage = (error && error.message) ? error.message : 'Failed to cast vote.';
+        return res.status(500).json({ error: safeMessage });
       }
 
       // Recalculate proposal total weighted votes and check for broadcast
@@ -161,8 +195,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       if (error?.code === 11000) {
         return res.status(409).json({ error: 'You have already voted on this proposal.' });
       }
-      const isProd = process.env.NODE_ENV === 'production';
-      return res.status(500).json({ error: isProd ? 'Failed to cast vote. Please try again later.' : (error.message || 'Failed to cast vote.') });
+      const safeMessage = (error && error.message) ? error.message : 'Failed to cast vote.';
+      return res.status(500).json({ error: safeMessage });
     }
   } else {
     res.setHeader('Allow', ['POST']);

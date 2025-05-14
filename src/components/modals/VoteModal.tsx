@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { toast } from 'sonner';
 import { ProposalCardData } from '@/components/proposals/ProposalCard'; // For type consistency
 import { useSession } from 'next-auth/react'; // To check user points for voting eligibility message
+import { useWallet } from '@solana/wallet-adapter-react';
+import bs58 from 'bs58';
 
 interface VoteModalProps {
   isOpen: boolean;
@@ -24,6 +26,7 @@ interface UserVoteData {
 
 const VoteModal: React.FC<VoteModalProps> = ({ isOpen, onClose, proposal, onVoteSuccess, currentUserPoints }) => {
   const { data: session, status: sessionStatus } = useSession();
+  const wallet = useWallet();
   const [isSubmittingVote, setIsSubmittingVote] = useState(false);
   const [currentUserVote, setCurrentUserVote] = useState<UserVoteData | null>(null);
   const [isFetchingUserVote, setIsFetchingUserVote] = useState(false);
@@ -71,10 +74,44 @@ const VoteModal: React.FC<VoteModalProps> = ({ isOpen, onClose, proposal, onVote
     }
     if (!proposal) return;
     setIsSubmittingVote(true);
+    if (!wallet.connected || !wallet.publicKey) {
+      toast.error('Please connect your wallet before voting.');
+      setIsSubmittingVote(false);
+      console.timeEnd('[VoteModal] vote');
+      return;
+    }
+
+    if (!wallet.signMessage) {
+      toast.error('Your wallet does not support message signing.');
+      setIsSubmittingVote(false);
+      console.timeEnd('[VoteModal] vote');
+      return;
+    }
+
+    // Compose the message to be signed (domain-separated)
+    const message = `defai-vote|${proposal._id}|${choice}|${Date.now()}`;
+
+    let signatureB58 = '';
+    try {
+      const encodedMsg = new TextEncoder().encode(message);
+      const signature = await wallet.signMessage(encodedMsg);
+      signatureB58 = bs58.encode(signature);
+    } catch (signErr: any) {
+      console.error('[VoteModal] User aborted message signing', signErr);
+      toast.error('Message signing was cancelled.');
+      setIsSubmittingVote(false);
+      console.timeEnd('[VoteModal] vote');
+      return;
+    }
+
     try {
       const response = await fetch(`/api/proposals/${proposal._id}/vote`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-wallet-sig': signatureB58,
+          'x-wallet-msg': message,
+        },
         body: JSON.stringify({ choice }),
       });
       const result = await response.json();

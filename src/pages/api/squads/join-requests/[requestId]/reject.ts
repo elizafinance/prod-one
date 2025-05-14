@@ -1,18 +1,26 @@
-import { NextResponse } from 'next/server';
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/lib/auth";
-import { connectToDatabase, ISquadJoinRequest, SquadDocument } from '@/lib/mongodb'; // Assuming ISquadJoinRequest is exported from mongodb.ts
+import type { NextApiRequest, NextApiResponse } from 'next';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '@/lib/auth';
+import { connectToDatabase, ISquadJoinRequest, SquadDocument } from '@/lib/mongodb';
 import { createNotification } from '@/lib/notificationUtils';
 
-export async function POST(request: Request, { params }: { params: { requestId: string } }) {
-  const session = await getServerSession(authOptions);
-  if (!session || !session.user || !session.user.walletAddress) {
-    return NextResponse.json({ error: 'User not authenticated' }, { status: 401 });
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse
+) {
+  if (req.method !== 'POST') {
+    res.setHeader('Allow', ['POST']);
+    return res.status(405).end(`Method ${req.method} Not Allowed`);
   }
 
-  const { requestId } = params;
-  if (!requestId) {
-    return NextResponse.json({ error: 'Request ID is required' }, { status: 400 });
+  const session = await getServerSession(req, res, authOptions);
+  if (!session || !session.user || !session.user.walletAddress) {
+    return res.status(401).json({ error: 'User not authenticated' });
+  }
+
+  const { requestId } = req.query;
+  if (!requestId || typeof requestId !== 'string') {
+    return res.status(400).json({ error: 'Request ID is required' });
   }
 
   const leaderWalletAddress = session.user.walletAddress;
@@ -25,20 +33,20 @@ export async function POST(request: Request, { params }: { params: { requestId: 
     // 1. Find the join request
     const joinRequest = await squadJoinRequestsCollection.findOne({ requestId: requestId });
     if (!joinRequest) {
-      return NextResponse.json({ error: 'Join request not found' }, { status: 404 });
+      return res.status(404).json({ error: 'Join request not found' });
     }
     if (joinRequest.status !== 'pending') {
-      return NextResponse.json({ error: 'This request has already been processed.' }, { status: 400 });
+      return res.status(400).json({ error: 'This request has already been processed.' });
     }
 
     // 2. Verify the current user is the leader of the squad associated with the request
     const squad = await squadsCollection.findOne({ squadId: joinRequest.squadId });
     if (!squad) {
       // This case should be rare if request integrity is maintained
-      return NextResponse.json({ error: 'Squad not found for this request. Cannot verify leader.' }, { status: 404 });
+      return res.status(404).json({ error: 'Squad not found for this request. Cannot verify leader.' });
     }
     if (squad.leaderWalletAddress !== leaderWalletAddress) {
-      return NextResponse.json({ error: 'Only the squad leader can reject requests.' }, { status: 403 });
+      return res.status(403).json({ error: 'Only the squad leader can reject requests.' });
     }
 
     // 3. Update Request: mark as rejected
@@ -49,7 +57,7 @@ export async function POST(request: Request, { params }: { params: { requestId: 
 
     if (updateResult.modifiedCount === 0) {
         // Should not happen if status was pending and requestId is correct
-        return NextResponse.json({ error: 'Failed to update request status. It might have been processed by another action.' }, { status: 500 });
+        return res.status(500).json({ error: 'Failed to update request status. It might have been processed by another action.' });
     }
 
     // 4. Send notification to requester
@@ -64,10 +72,10 @@ export async function POST(request: Request, { params }: { params: { requestId: 
       session.user.xUsername || undefined
     );
 
-    return NextResponse.json({ message: 'Join request rejected successfully' }, { status: 200 });
+    return res.status(200).json({ message: 'Join request rejected successfully' });
 
   } catch (error) {
     console.error("Error rejecting squad join request:", error);
-    return NextResponse.json({ error: 'Failed to reject squad join request' }, { status: 500 });
+    return res.status(500).json({ error: 'Failed to reject squad join request' });
   }
 } 

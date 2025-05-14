@@ -1,22 +1,29 @@
-import { NextResponse } from 'next/server';
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/lib/auth";
+import type { NextApiRequest, NextApiResponse } from 'next';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '@/lib/auth';
 import { connectToDatabase, UserDocument, SquadDocument, ISquadJoinRequest } from '@/lib/mongodb';
-import { SquadJoinRequest } from '@/models/SquadJoinRequest';
 import { createNotification } from '@/lib/notificationUtils';
 
 // Constant for max members, could be from env or config
 const MAX_SQUAD_MEMBERS = parseInt(process.env.NEXT_PUBLIC_MAX_SQUAD_MEMBERS || '50', 10);
 
-export async function POST(request: Request, { params }: { params: { requestId: string } }) {
-  const session = await getServerSession(authOptions);
-  if (!session || !session.user || !session.user.walletAddress) {
-    return NextResponse.json({ error: 'User not authenticated' }, { status: 401 });
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse
+) {
+  if (req.method !== 'POST') {
+    res.setHeader('Allow', ['POST']);
+    return res.status(405).end(`Method ${req.method} Not Allowed`);
   }
 
-  const { requestId } = params;
-  if (!requestId) {
-    return NextResponse.json({ error: 'Request ID is required' }, { status: 400 });
+  const session = await getServerSession(req, res, authOptions);
+  if (!session || !session.user || !session.user.walletAddress) {
+    return res.status(401).json({ error: 'User not authenticated' });
+  }
+
+  const { requestId } = req.query;
+  if (!requestId || typeof requestId !== 'string') {
+    return res.status(400).json({ error: 'Request ID is required' });
   }
 
   const leaderWalletAddress = session.user.walletAddress;
@@ -30,19 +37,19 @@ export async function POST(request: Request, { params }: { params: { requestId: 
     // 1. Find the join request
     const joinRequest = await squadJoinRequestsCollection.findOne({ requestId: requestId });
     if (!joinRequest) {
-      return NextResponse.json({ error: 'Join request not found' }, { status: 404 });
+      return res.status(404).json({ error: 'Join request not found' });
     }
     if (joinRequest.status !== 'pending') {
-      return NextResponse.json({ error: 'This request has already been processed.' }, { status: 400 });
+      return res.status(400).json({ error: 'This request has already been processed.' });
     }
 
     // 2. Verify the current user is the leader of the squad associated with the request
     const squad = await squadsCollection.findOne({ squadId: joinRequest.squadId });
     if (!squad) {
-      return NextResponse.json({ error: 'Squad not found for this request' }, { status: 404 });
+      return res.status(404).json({ error: 'Squad not found for this request' });
     }
     if (squad.leaderWalletAddress !== leaderWalletAddress) {
-      return NextResponse.json({ error: 'Only the squad leader can approve requests.' }, { status: 403 });
+      return res.status(403).json({ error: 'Only the squad leader can approve requests.' });
     }
 
     // 3. Check if squad is full
@@ -53,7 +60,7 @@ export async function POST(request: Request, { params }: { params: { requestId: 
         { requestId: requestId }, 
         { $set: { status: 'rejected', updatedAt: new Date() } }
       );
-      return NextResponse.json({ error: 'Squad is full. Request automatically rejected.' }, { status: 409 }); // 409 Conflict
+      return res.status(409).json({ error: 'Squad is full. Request automatically rejected.' });
     }
     
     // 4. Check if the requesting user is already in another squad (e.g., joined one while this request was pending)
@@ -64,14 +71,14 @@ export async function POST(request: Request, { params }: { params: { requestId: 
             { requestId: requestId }, 
             { $set: { status: 'rejected', updatedAt: new Date() } }
         );
-        return NextResponse.json({ error: 'Requesting user profile not found. Request rejected.' }, { status: 404 });
+        return res.status(404).json({ error: 'Requesting user profile not found. Request rejected.' });
     }
     if (requestingUser.squadId) {
         await squadJoinRequestsCollection.updateOne(
             { requestId: requestId }, 
             { $set: { status: 'rejected', updatedAt: new Date() } }
         );
-        return NextResponse.json({ error: 'User has joined another squad. Request automatically rejected.' }, { status: 409 });
+        return res.status(409).json({ error: 'User has joined another squad. Request automatically rejected.' });
     }
 
     // Use a transaction if available/necessary for atomicity, though separate updates are often fine.
@@ -137,10 +144,10 @@ export async function POST(request: Request, { params }: { params: { requestId: 
       }
     }
 
-    return NextResponse.json({ message: 'Join request approved successfully!' }, { status: 200 });
+    return res.status(200).json({ message: 'Join request approved successfully!' });
 
   } catch (error) {
     console.error("Error approving squad join request:", error);
-    return NextResponse.json({ error: 'Failed to approve squad join request' }, { status: 500 });
+    return res.status(500).json({ error: 'Failed to approve squad join request' });
   }
 } 

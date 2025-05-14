@@ -2,7 +2,7 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { connectToDatabase, UserDocument, SquadDocument, ISquadJoinRequest } from '@/lib/mongodb';
-import { SquadJoinRequest } from '@/models/SquadJoinRequest';
+import { v4 as uuidv4 } from 'uuid';
 // import { Squad } from '@/models/Squad'; // Not strictly needed if using db.collection for reads
 // import { User } from '@/models/User'; // Not strictly needed if using db.collection for reads
 import { createNotification } from '@/lib/notificationUtils'; // Notify leader when request created
@@ -64,7 +64,10 @@ export default async function handler(
       return res.status(400).json({ error: 'You already have a pending request to join this squad.' });
     }
 
-    const newJoinRequest = new SquadJoinRequest({
+    const requestId = uuidv4();
+
+    const newJoinRequest: ISquadJoinRequest = {
+      requestId,
       squadId: targetSquad.squadId,
       squadName: targetSquad.name,
       requestingUserWalletAddress: userWalletAddress,
@@ -72,9 +75,11 @@ export default async function handler(
       requestingUserXProfileImageUrl: session.user.xProfileImageUrl,
       status: 'pending',
       message: message,
-    });
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    } as ISquadJoinRequest;
 
-    await newJoinRequest.save();
+    await squadJoinRequestsCollection.insertOne(newJoinRequest);
 
     await createNotification(
       db,
@@ -85,10 +90,10 @@ export default async function handler(
       targetSquad.name,
       userWalletAddress,
       session.user.xUsername || undefined,
-      newJoinRequest.requestId
+      requestId
     );
 
-    return res.status(201).json({ message: 'Request to join squad sent successfully!', requestId: newJoinRequest.requestId });
+    return res.status(201).json({ message: 'Request to join squad sent successfully!', requestId });
 
   } catch (error) {
     console.error("Error requesting to join squad:", error);

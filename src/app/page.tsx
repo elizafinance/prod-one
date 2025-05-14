@@ -124,6 +124,9 @@ export default function HomePage() {
   // Track whether an activation attempt has already been made for the currently connected wallet
   const [activationAttempted, setActivationAttempted] = useState(false);
 
+  // Track previous wallet address to detect actual wallet changes (avoid resetting on object identity changes)
+  const [prevWalletAddress, setPrevWalletAddress] = useState<string | null>(null);
+
   // Check required environment variables on component mount
   useEffect(() => {
     checkRequiredEnvVars();
@@ -380,18 +383,24 @@ export default function HomePage() {
       activationAttempted
     ]);
   
-  // Reset the userCheckedNoSquad flag when wallet changes
+  // Track previous wallet address to detect actual wallet changes (avoid resetting on object identity changes)
   useEffect(() => {
-    if (wallet.publicKey) {
-      setUserCheckedNoSquad(false);
-      // New wallet detected – allow a fresh activation attempt
-      setActivationAttempted(false);
-    }
-    // If wallet disconnected entirely, also reset
+    const currentAddress = wallet.publicKey ? wallet.publicKey.toBase58() : null;
+
+    // If the wallet disconnected fully
     if (!wallet.connected) {
+      setPrevWalletAddress(null);
+      setActivationAttempted(false);
+      return;
+    }
+
+    // When the address truly changes (or first connects), reset flags
+    if (currentAddress && currentAddress !== prevWalletAddress) {
+      setPrevWalletAddress(currentAddress);
+      setUserCheckedNoSquad(false);
       setActivationAttempted(false);
     }
-  }, [wallet.publicKey, wallet.connected]);
+  }, [wallet.connected, wallet.publicKey, prevWalletAddress]);
 
   const handleInitialAirdropCheck = async () => {
     const addressToCheck = typedAddress.trim();

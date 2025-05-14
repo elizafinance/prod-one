@@ -92,7 +92,7 @@ export async function GET(request: Request) {
 
     // 6. Transform generic notifications into the UnifiedNotification structure
     const unifiedGenericNotifications: UnifiedNotification[] = genericNotifications.map(notif => ({
-      _id: (notif._id as ObjectId).toHexString(), // Use MongoDB ObjectId as _id, converted to string
+      _id: notif.notificationId, // Use the custom notificationId field
       type: 'generic_notification',
       message: notif.message,
       isRead: notif.isRead,

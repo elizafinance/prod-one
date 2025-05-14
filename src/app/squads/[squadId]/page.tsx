@@ -5,8 +5,9 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { toast } from 'sonner';
-import { SquadDocument, SquadInvitationDocument } from '@/lib/mongodb'; // Added SquadInvitationDocument
+import { SquadDocument, SquadInvitationDocument, ISquadJoinRequest } from '@/lib/mongodb'; // Added ISquadJoinRequest
 import UserAvatar from "@/components/UserAvatar";
+import RequestToJoinModal from '@/components/modals/RequestToJoinModal';
 
 // Updated interface to match the enriched data from the new API
 interface EnrichedSquadMember {
@@ -23,7 +24,8 @@ interface SquadDetailsData extends SquadDocument {
 export default function SquadDetailsPage() {
   const params = useParams();
   const router = useRouter();
-  const squadId = params.squadId as string;
+  // Ensure squadId is a string, handle cases where it might not be.
+  const squadId = typeof params?.squadId === 'string' ? params.squadId : null;
   const { publicKey, connected } = useWallet();
   const currentUserWalletAddress = publicKey?.toBase58();
 
@@ -51,8 +53,29 @@ export default function SquadDetailsPage() {
   const [isFetchingSentInvites, setIsFetchingSentInvites] = useState(false);
   const [isRevokingInvite, setIsRevokingInvite] = useState<string | null>(null); // invitationId being revoked
 
+  // State for managing join requests (for leader)
+  const [joinRequests, setJoinRequests] = useState<ISquadJoinRequest[]>([]);
+  const [isFetchingJoinRequests, setIsFetchingJoinRequests] = useState(false);
+  const [isProcessingJoinRequest, setIsProcessingJoinRequest] = useState<string | null>(null); // requestId being processed
+
+  // State for requesting to join (viewer who is not a member)
+  const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
+  const [isSubmittingJoinRequest, setIsSubmittingJoinRequest] = useState(false);
+  const [hasPendingRequestForThisSquad, setHasPendingRequestForThisSquad] = useState(false);
+
+  // Determine membership & leadership status
+  const isUserMember = squadDetails?.memberWalletAddresses.includes(currentUserWalletAddress || '');
+  const isUserLeader = squadDetails?.leaderWalletAddress === currentUserWalletAddress;
+
+  useEffect(() => {
+    if (squadId === null) {
+      toast.error("Invalid Squad ID.");
+      router.push("/squads/browse");
+    }
+  }, [squadId, router]);
+
   const fetchSquadDetails = useCallback(async () => {
-    if (!squadId || !connected) return;
+    if (!squadId || !connected) return; // squadId will be null if invalid from above check, stopping fetch
     
     setIsLoading(true);
     setError(null);
@@ -69,9 +92,10 @@ export default function SquadDetailsPage() {
         setEditableDescription(data.squad.description || '');
         setHasLoadedInitialData(true);
         
-        // If current user is leader of this squad, fetch its pending sent invites
+        // If current user is leader of this squad, fetch its pending sent invites and join requests
         if (data.squad.leaderWalletAddress === currentUserWalletAddress) {
           fetchSentPendingInvitesForSquad(data.squad.squadId);
+          fetchJoinRequestsForSquad(data.squad.squadId);
         }
       } else {
         throw new Error(data.error || 'Failed to fetch squad details. Squad may not exist or an error occurred.');
@@ -106,6 +130,26 @@ export default function SquadDetailsPage() {
     setIsFetchingSentInvites(false);
   }, [connected]);
 
+  const fetchJoinRequestsForSquad = useCallback(async (currentSquadId: string) => {
+    if (!currentSquadId || !connected) return;
+    setIsFetchingJoinRequests(true);
+    try {
+      const response = await fetch(`/api/squads/${currentSquadId}/join-requests`);
+      if (response.ok) {
+        const data = await response.json();
+        setJoinRequests(data.requests || []);
+      } else {
+        toast.error("Failed to fetch join requests for your squad.");
+        setJoinRequests([]);
+      }
+    } catch (err) {
+      toast.error("Error fetching join requests.");
+      console.error("Fetch join requests error:", err);
+      setJoinRequests([]);
+    }
+    setIsFetchingJoinRequests(false);
+  }, [connected]);
+
   useEffect(() => {
     // Only fetch once when page loads or squadId/connection changes
     if (!hasLoadedInitialData) {
@@ -117,6 +161,33 @@ export default function SquadDetailsPage() {
   useEffect(() => {
     setHasLoadedInitialData(false);
   }, [squadId, publicKey]);
+
+  // Fetch current user's pending join requests to check for this squad
+  useEffect(() => {
+    const fetchMyPendingRequests = async () => {
+      if (!connected || !publicKey || !squadId || isUserMember) {
+        setHasPendingRequestForThisSquad(false);
+        return;
+      }
+
+      try {
+        const response = await fetch('/api/squads/join-requests/my-pending');
+        if (response.ok) {
+          const data = await response.json();
+          const hasPending = (data.requests || []).some((req: ISquadJoinRequest) => req.squadId === squadId && req.status === 'pending');
+          setHasPendingRequestForThisSquad(hasPending);
+        } else {
+          console.error('Failed to fetch pending join requests for user');
+          setHasPendingRequestForThisSquad(false);
+        }
+      } catch (err) {
+        console.error('Error fetching my pending join requests:', err);
+        setHasPendingRequestForThisSquad(false);
+      }
+    };
+
+    fetchMyPendingRequests();
+  }, [connected, publicKey, squadId, isUserMember]);
 
   const handleLeaveSquad = async () => {
     if (!connected || !squadDetails) {
@@ -143,9 +214,6 @@ export default function SquadDetailsPage() {
     setIsLeaving(false);
   };
   
-  const isUserMember = squadDetails?.memberWalletAddresses.includes(currentUserWalletAddress || '');
-  const isUserLeader = squadDetails?.leaderWalletAddress === currentUserWalletAddress;
-
   const handleEditSquadSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!squadDetails) return;
@@ -328,6 +396,8 @@ export default function SquadDetailsPage() {
         setInviteeWalletAddress('');
         setInviteeTwitterHandle('');
         setFoundTwitterUser(null);
+        // Refresh sent invites for leader
+        if (isUserLeader) fetchSentPendingInvitesForSquad(squadDetails.squadId);
       } else {
         toast.error(data.error || "Failed to send invitation.");
       }
@@ -367,6 +437,61 @@ export default function SquadDetailsPage() {
     }).catch(err => {
       toast.error("Failed to copy link.");
     });
+  };
+
+  const handleProcessJoinRequest = async (requestId: string, action: 'approve' | 'reject') => {
+    setIsProcessingJoinRequest(requestId);
+    try {
+      const response = await fetch(`/api/squads/join-requests/${requestId}/${action}`, {
+        method: 'POST',
+      });
+      const data = await response.json();
+      if (response.ok) {
+        toast.success(data.message || `Request ${action}d successfully!`);
+        setJoinRequests(prev => prev.filter(req => req.requestId !== requestId));
+        if (action === 'approve') {
+          fetchSquadDetails(); // Re-fetch squad details to update member list
+        }
+      } else {
+        toast.error(data.error || `Failed to ${action} request.`);
+      }
+    } catch (err) {
+      toast.error(`An error occurred while ${action}ing request.`);
+      console.error(`Error ${action}ing request:`, err);
+    }
+    setIsProcessingJoinRequest(null);
+  };
+
+  // Handler to open request modal
+  const handleOpenRequestModal = () => {
+    if (!connected || !publicKey) {
+      toast.error('Connect your wallet to send a join request.');
+      return;
+    }
+    setIsRequestModalOpen(true);
+  };
+
+  const handleSubmitJoinRequest = async (targetSquadId: string, message?: string) => {
+    setIsSubmittingJoinRequest(true);
+    try {
+      const response = await fetch(`/api/squads/${targetSquadId}/request-join`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message }),
+      });
+      const data = await response.json();
+      if (response.ok) {
+        toast.success(data.message || 'Join request sent!');
+        setHasPendingRequestForThisSquad(true);
+        setIsRequestModalOpen(false);
+      } else {
+        toast.error(data.error || 'Failed to send join request.');
+      }
+    } catch (err) {
+      toast.error('An unexpected error occurred while sending request.');
+      console.error('Submit join request error:', err);
+    }
+    setIsSubmittingJoinRequest(false);
   };
 
   if (isLoading) return <main className="flex items-center justify-center min-h-screen bg-white text-gray-700"><div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-600"></div><p className='ml-3 text-lg'>Loading Squad Details...</p></main>;
@@ -514,6 +639,51 @@ export default function SquadDetailsPage() {
             <div>
               <h3 className="text-xl font-bold text-yellow-600 mb-4 text-center">Leader Tools</h3>
               
+              {/* Join Requests Management - NEW SECTION */}
+              <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg mb-6">
+                <h4 className="text-md font-semibold text-yellow-800 mb-3">Pending Join Requests ({joinRequests.length})</h4>
+                {isFetchingJoinRequests && <p className="text-sm text-yellow-700">Loading join requests...</p>}
+                {!isFetchingJoinRequests && joinRequests.length === 0 && <p className="text-sm text-yellow-700">No pending join requests.</p>}
+                {!isFetchingJoinRequests && joinRequests.length > 0 && (
+                  <ul className="space-y-3 max-h-72 overflow-y-auto">
+                    {joinRequests.map(req => (
+                      <li key={req.requestId} className="p-3 bg-white border border-gray-200 rounded-md shadow-sm">
+                        <div className="flex items-start gap-3">
+                          <UserAvatar 
+                            profileImageUrl={req.requestingUserXProfileImageUrl}
+                            username={req.requestingUserXUsername}
+                            size="sm"
+                          />
+                          <div className="flex-grow">
+                            <p className="text-sm font-semibold text-gray-800">
+                              {req.requestingUserXUsername ? `@${req.requestingUserXUsername}` : `${req.requestingUserWalletAddress.substring(0,6)}...`}
+                            </p>
+                            <p className="text-xs text-gray-500 font-mono" title={req.requestingUserWalletAddress}>{req.requestingUserWalletAddress}</p>
+                            {req.message && <p className="text-xs text-gray-600 mt-1 italic bg-gray-100 p-1.5 rounded">{req.message}</p>}
+                          </div>
+                        </div>
+                        <div className="mt-3 flex space-x-2 justify-end">
+                          <button 
+                            onClick={() => handleProcessJoinRequest(req.requestId, 'reject')}
+                            disabled={isProcessingJoinRequest === req.requestId}
+                            className="px-3 py-1 text-xs bg-red-500 hover:bg-red-600 text-white rounded-md disabled:opacity-60"
+                          >
+                            {isProcessingJoinRequest === req.requestId ? 'Rejecting...' : 'Reject'}
+                          </button>
+                          <button 
+                            onClick={() => handleProcessJoinRequest(req.requestId, 'approve')}
+                            disabled={isProcessingJoinRequest === req.requestId}
+                            className="px-3 py-1 text-xs bg-green-500 hover:bg-green-600 text-white rounded-md disabled:opacity-60"
+                          >
+                            {isProcessingJoinRequest === req.requestId ? 'Approving...' : 'Approve'}
+                          </button>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
               <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg mb-6">
                 <h4 className="text-md font-semibold text-gray-800 mb-2">Invite New Member:</h4>
                 <div className="flex mb-4 bg-gray-200 rounded-lg p-1 w-fit">
@@ -678,7 +848,40 @@ export default function SquadDetailsPage() {
             </div>
           )}
         </div>
+
+        {/* 'Request to Join' button for non-members */}
+        {connected && !isUserMember && squadDetails && (
+          <div className="mt-8 border-t border-gray-300 pt-6 text-center">
+            {hasPendingRequestForThisSquad ? (
+              <button 
+                disabled
+                className="py-2.5 px-6 bg-yellow-200 text-yellow-700 font-semibold rounded-lg cursor-not-allowed"
+              >
+                Request Pending
+              </button>
+            ) : (
+              <button 
+                onClick={handleOpenRequestModal}
+                className="py-2.5 px-6 bg-sky-500 hover:bg-sky-600 text-white font-semibold rounded-lg shadow-md hover:shadow-lg transition-all duration-150 ease-in-out"
+              >
+                Request to Join Squad
+              </button>
+            )}
+          </div>
+        )}
       </div>
+
+      {/* Request To Join Modal */}
+      {squadDetails && (
+        <RequestToJoinModal
+          isOpen={isRequestModalOpen}
+          onClose={() => setIsRequestModalOpen(false)}
+          squadName={squadDetails.name}
+          squadId={squadDetails.squadId}
+          onSubmit={handleSubmitJoinRequest}
+          isSubmitting={isSubmittingJoinRequest}
+        />
+      )}
     </main>
   );
 } 

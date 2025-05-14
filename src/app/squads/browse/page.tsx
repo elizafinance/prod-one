@@ -5,7 +5,8 @@ import Link from 'next/link';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
-import { SquadDocument } from '@/lib/mongodb'; // Re-using SquadDocument for the entries
+import { SquadDocument, ISquadJoinRequest } from '@/lib/mongodb'; // Added ISquadJoinRequest
+import RequestToJoinModal from '@/components/modals/RequestToJoinModal'; // Import the new modal
 
 interface SquadBrowseEntry extends SquadDocument {
   memberCount: number; // Added from leaderboard API projection
@@ -15,36 +16,63 @@ interface MySquadInfo {
   squadId?: string | null;
 }
 
+// Define a simple structure for the request object we might fetch
+interface UserJoinRequestSummary {
+  squadId: string;
+  status: 'pending' | 'approved' | 'rejected';
+}
+
 export default function BrowseSquadsPage() {
   const [squads, setSquads] = useState<SquadBrowseEntry[]>([]);
   const [mySquadInfo, setMySquadInfo] = useState<MySquadInfo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isJoining, setIsJoining] = useState<string | null>(null); // To track which squad is being joined
+  // const [isJoining, setIsJoining] = useState<string | null>(null); // Old state for direct join
   const [error, setError] = useState<string | null>(null);
   const { publicKey, connected } = useWallet();
   const router = useRouter();
 
-  const fetchSquadsAndUserSquad = useCallback(async () => {
+  // New state for request to join modal
+  const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
+  const [selectedSquadForRequest, setSelectedSquadForRequest] = useState<SquadBrowseEntry | null>(null);
+  const [isSubmittingRequest, setIsSubmittingRequest] = useState(false);
+
+  // New state for user's pending join requests
+  const [currentUserPendingRequests, setCurrentUserPendingRequests] = useState<UserJoinRequestSummary[]>([]);
+
+  const fetchSquadsAndUserData = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
-      // Fetch list of squads (using leaderboard endpoint for now)
-      const leaderboardResponse = await fetch('/api/squads/leaderboard'); // Or a dedicated /api/squads/list
+      const leaderboardResponse = await fetch('/api/squads/leaderboard');
       if (!leaderboardResponse.ok) {
         throw new Error('Failed to fetch squads list');
       }
       const leaderboardData = await leaderboardResponse.json();
       setSquads(leaderboardData as SquadBrowseEntry[]);
 
-      // Fetch current user's squad status if wallet is connected
       if (connected && publicKey) {
-        const mySquadResponse = await fetch(`/api/squads/my-squad?userWalletAddress=${encodeURIComponent(publicKey.toBase58())}`);
+        const userWalletAddress = publicKey.toBase58();
+        // Fetch current user's squad status
+        const mySquadResponse = await fetch(`/api/squads/my-squad?userWalletAddress=${encodeURIComponent(userWalletAddress)}`);
         if (mySquadResponse.ok) {
           const mySquadData = await mySquadResponse.json();
           setMySquadInfo({ squadId: mySquadData.squad?.squadId });
         } else {
-          setMySquadInfo(null); // Not in a squad or error
+          setMySquadInfo(null);
         }
+
+        // Fetch user's pending join requests
+        const pendingRequestsResponse = await fetch('/api/squads/join-requests/my-pending');
+        if (pendingRequestsResponse.ok) {
+          const pendingData = await pendingRequestsResponse.json();
+          setCurrentUserPendingRequests(pendingData.requests || []);
+        } else {
+          console.error("Failed to fetch user's pending requests:", await pendingRequestsResponse.text());
+          setCurrentUserPendingRequests([]);
+        }
+      } else {
+        setMySquadInfo(null);
+        setCurrentUserPendingRequests([]);
       }
     } catch (err) {
       setError((err as Error).message || 'Could not load squads data.');
@@ -54,41 +82,46 @@ export default function BrowseSquadsPage() {
   }, [connected, publicKey]);
 
   useEffect(() => {
-    fetchSquadsAndUserSquad();
-  }, [fetchSquadsAndUserSquad]);
+    fetchSquadsAndUserData();
+  }, [fetchSquadsAndUserData]);
 
-  const handleJoinSquad = async (squadIdToJoin: string) => {
+  const handleOpenRequestModal = (squad: SquadBrowseEntry) => {
     if (!connected || !publicKey) {
-      toast.error("Please connect your wallet to join a squad.");
+      toast.error("Please connect your wallet to request to join a squad.");
       return;
     }
     if (mySquadInfo?.squadId) {
-      toast.info("You are already in a squad. Leave your current squad to join another.");
+      toast.info("You are already in a squad. Leave your current squad to request to join another.");
       return;
     }
-    setIsJoining(squadIdToJoin);
+    setSelectedSquadForRequest(squad);
+    setIsRequestModalOpen(true);
+  };
+
+  const handleSubmitJoinRequest = async (squadIdToRequest: string, message?: string) => {
+    if (!publicKey) return;
+    setIsSubmittingRequest(true);
     try {
-      const response = await fetch('/api/squads/join', {
+      const response = await fetch(`/api/squads/${squadIdToRequest}/request-join`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        // Backend /api/squads/join now gets userWalletAddress from session
-        body: JSON.stringify({ squadIdToJoin }), 
+        body: JSON.stringify({ message }),
       });
       const data = await response.json();
       if (response.ok) {
-        toast.success(data.message || `Successfully joined squad!`);
-        // Refresh squad list and user's squad status
-        fetchSquadsAndUserSquad(); 
-        // Optionally redirect to user dashboard or the new squad's page
-        router.push('/'); // Go to dashboard, it should reflect the new squad
+        toast.success(data.message || "Request sent successfully!");
+        setIsRequestModalOpen(false);
+        // Add to local pending requests state (optimistic or refetch)
+        setCurrentUserPendingRequests(prev => [...prev, { squadId: squadIdToRequest, status: 'pending' }]);
+        // fetchSquadsAndUserData(); // Or just refetch user specific data
       } else {
-        toast.error(data.error || "Failed to join squad.");
+        toast.error(data.error || "Failed to send request.");
       }
     } catch (err) {
-      toast.error("An unexpected error occurred while joining squad.");
-      console.error("Join squad error:", err);
+      toast.error("An unexpected error occurred while sending request.");
+      console.error("Request join error:", err);
     }
-    setIsJoining(null);
+    setIsSubmittingRequest(false);
   };
 
   return (
@@ -125,50 +158,71 @@ export default function BrowseSquadsPage() {
 
         {!isLoading && !error && squads.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {squads.map((squad) => (
-              <div key={squad.squadId} className="bg-white border border-gray-200 shadow-lg rounded-lg p-6 flex flex-col justify-between min-h-[280px]">
-                <div>
-                  <h2 className="text-2xl font-bold text-sky-700 mb-2">{squad.name}</h2>
-                  {squad.description && <p className="text-sm text-gray-600 mb-3 line-clamp-3">{squad.description}</p>}
-                  <p className="text-sm text-gray-500">Leader: <span className="font-mono text-xs">{squad.leaderWalletAddress.substring(0,6)}...</span></p>
-                  <p className="text-sm text-gray-500">Members: {squad.memberCount} / {process.env.NEXT_PUBLIC_MAX_SQUAD_MEMBERS || 10}</p>
-                  <p className="text-lg font-semibold text-transparent bg-clip-text bg-gradient-to-r from-green-500 to-teal-500 mt-1">Points: {squad.totalSquadPoints.toLocaleString()}</p>
+            {squads.map((squad) => {
+              const hasPendingRequestForThisSquad = currentUserPendingRequests.some(req => req.squadId === squad.squadId && req.status === 'pending');
+              const isSquadFull = squad.memberCount >= (parseInt(process.env.NEXT_PUBLIC_MAX_SQUAD_MEMBERS || '50')); // Default to 50 if env not set
+
+              return (
+                <div key={squad.squadId} className="bg-white border border-gray-200 shadow-lg rounded-lg p-6 flex flex-col justify-between min-h-[280px]">
+                  <div>
+                    <h2 className="text-2xl font-bold text-sky-700 mb-2">{squad.name}</h2>
+                    {squad.description && <p className="text-sm text-gray-600 mb-3 line-clamp-3">{squad.description}</p>}
+                    <p className="text-sm text-gray-500">Leader: <span className="font-mono text-xs">{squad.leaderWalletAddress.substring(0,6)}...</span></p>
+                    <p className="text-sm text-gray-500">Members: {squad.memberCount} / {process.env.NEXT_PUBLIC_MAX_SQUAD_MEMBERS || 50}</p>
+                    <p className="text-lg font-semibold text-transparent bg-clip-text bg-gradient-to-r from-green-500 to-teal-500 mt-1">Points: {squad.totalSquadPoints.toLocaleString()}</p>
+                  </div>
+                  <div className="mt-4 space-y-2">
+                    {(!connected || !publicKey) ? (
+                      <p className="text-xs text-center text-orange-600 py-2">Connect wallet to interact</p>
+                    ) : mySquadInfo?.squadId ? (
+                      <button 
+                        disabled 
+                        className="w-full py-2 px-4 bg-gray-300 text-gray-600 font-semibold rounded-lg cursor-not-allowed">
+                        Already in a Squad
+                      </button>
+                    ) : isSquadFull ? (
+                       <button 
+                        disabled 
+                        className="w-full py-2 px-4 bg-red-200 text-red-600 font-semibold rounded-lg cursor-not-allowed">
+                        Squad Full
+                      </button>
+                    ) : hasPendingRequestForThisSquad ? (
+                      <button 
+                        disabled 
+                        className="w-full py-2 px-4 bg-yellow-200 text-yellow-700 font-semibold rounded-lg cursor-not-allowed">
+                        Request Pending
+                      </button>
+                    ) : (
+                      <button 
+                        onClick={() => handleOpenRequestModal(squad)}
+                        className="w-full py-2 px-4 bg-sky-500 hover:bg-sky-600 text-white font-semibold rounded-lg shadow hover:shadow-md transition-colors"
+                      >
+                        Request to Join
+                      </button>
+                    )}
+                    <Link href={`/squads/${squad.squadId}`} passHref>
+                       <button className="w-full py-2 px-4 border border-sky-500 text-sky-600 hover:bg-sky-100 text-sm font-semibold rounded-lg transition-colors">
+                          View Details
+                      </button>
+                    </Link>
+                  </div>
                 </div>
-                <div className="mt-4 space-y-2">
-                  {(!connected || !publicKey) ? (
-                    <p className="text-xs text-center text-orange-600">Connect wallet to join</p>
-                  ) : mySquadInfo?.squadId ? (
-                    <button 
-                      disabled 
-                      className="w-full py-2 px-4 bg-gray-400 text-gray-700 font-semibold rounded-lg cursor-not-allowed">
-                      Already in a Squad
-                    </button>
-                  ) : squad.memberCount >= (parseInt(process.env.NEXT_PUBLIC_MAX_SQUAD_MEMBERS || '10')) ? (
-                     <button 
-                      disabled 
-                      className="w-full py-2 px-4 bg-red-200 text-red-700 font-semibold rounded-lg cursor-not-allowed">
-                      Squad Full
-                    </button>
-                  ) : (
-                    <button 
-                      onClick={() => handleJoinSquad(squad.squadId)}
-                      disabled={isJoining === squad.squadId}
-                      className="w-full py-2 px-4 bg-blue-500 hover:bg-blue-600 text-white font-semibold rounded-lg shadow hover:shadow-md transition-colors disabled:opacity-70"
-                    >
-                      {isJoining === squad.squadId ? 'Joining...' : 'Join Squad'}
-                    </button>
-                  )}
-                  <Link href={`/squads/${squad.squadId}`} passHref>
-                     <button className="w-full py-2 px-4 border border-sky-500 text-sky-600 hover:bg-sky-100 text-sm font-semibold rounded-lg transition-colors">
-                        View Details
-                    </button>
-                  </Link>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
+      
+      {selectedSquadForRequest && (
+        <RequestToJoinModal
+          isOpen={isRequestModalOpen}
+          onClose={() => setIsRequestModalOpen(false)}
+          squadName={selectedSquadForRequest.name}
+          squadId={selectedSquadForRequest.squadId}
+          onSubmit={handleSubmitJoinRequest}
+          isSubmitting={isSubmittingRequest}
+        />
+      )}
     </main>
   );
 } 

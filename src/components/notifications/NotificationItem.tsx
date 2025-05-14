@@ -8,16 +8,17 @@ import { toast } from 'sonner';
 
 // Define UnifiedNotification structure (consistent with NotificationsPanel)
 interface UnifiedNotification {
-  _id: string; 
-  type: 'squad_invite' | 'generic_notification'; 
+  _id: string;
+  type: 'squad_invite' | 'generic_notification';
   message: string;
-  squadId?: string; 
+  squadId?: string;
   squadName?: string;
-  inviterWalletAddress?: string; 
-  isRead: boolean; 
+  inviterWalletAddress?: string;
+  isRead: boolean;
   createdAt: Date;
-  ctaLink?: string; 
-  ctaText?: string; 
+  ctaLink?: string;
+  ctaText?: string;
+  notificationType?: string; // original backend type (for generic_notification)
 }
 
 interface NotificationItemProps {
@@ -27,7 +28,7 @@ interface NotificationItemProps {
 
 // Basic icons (replace with actual icon components if you have them)
 const SquadIcon = () => <div className="w-6 h-6 rounded-full bg-indigo-500 flex items-center justify-center text-white">S</div>;
-const UserIcon = () => <span className="mr-2">👤</span>;
+const RequestIcon = () => <div className="w-6 h-6 rounded-full bg-yellow-500 flex items-center justify-center text-white">JR</div>;
 const InfoIcon = () => <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-white">i</div>;
 
 export default function NotificationItem({ notification, onMarkAsRead }: NotificationItemProps) {
@@ -36,7 +37,12 @@ export default function NotificationItem({ notification, onMarkAsRead }: Notific
   
   const getIcon = () => {
     if (notification.type === 'squad_invite') return <SquadIcon />;
-    // Add more icon logic based on notification.type for 'generic_notification'
+
+    // For generic notifications, inspect the underlying notificationType if available
+    if (notification.notificationType?.startsWith('squad_join_request')) {
+      return <RequestIcon />;
+    }
+
     return <InfoIcon />;
   };
 

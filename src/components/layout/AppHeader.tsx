@@ -9,6 +9,7 @@ import dynamic from 'next/dynamic';
 import { BellIcon } from '@heroicons/react/24/outline'; // Ensure this is installed
 import useUiStateStore from '@/store/useUiStateStore'; // Import the new UI state store
 import NotificationsPanel from '@/components/notifications/NotificationsPanel'; // Adjust path
+import { toast } from 'sonner'; // Correct import for toast
 
 // Dynamically import WalletMultiButton (if used in header)
 const WalletMultiButtonDynamic = dynamic(
@@ -58,6 +59,7 @@ export default function AppHeader() {
     if (!connected || authStatus !== "authenticated") {
       // Show a prompt via console (you can expand this to a UI prompt) 
       console.warn('[AppHeader] Cannot open notifications - user not authenticated or wallet not connected');
+      toast.info("Please log in with X and connect your wallet to view notifications."); // User-facing toast
       return;
     }
     toggleNotificationsPanel();
@@ -65,6 +67,15 @@ export default function AppHeader() {
 
   return (
     <header className="w-full bg-white backdrop-blur-md shadow-sm sticky top-0 z-30">
+      {/* DEBUG INFO - REMOVE IN PRODUCTION */}
+      <div style={{ position: 'fixed', top: '64px', left: '10px', backgroundColor: 'rgba(0,0,0,0.7)', color: 'white', padding: '5px', fontSize: '10px', zIndex: 9999 }}>
+        <p>Auth: {authStatus}</p>
+        <p>Session User: {session?.user?.xId || session?.user?.name || 'No session user'}</p>
+        <p>Wallet Connected: {connected ? 'Yes' : 'No'}</p>
+        <p>Wallet PK: {publicKey?.toBase58() || 'N/A'}</p>
+        <p>Unread Count: {unreadNotificationCount}</p>
+      </div>
+      {/* END DEBUG INFO */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           {/* Logo */}

@@ -125,8 +125,11 @@ export type NotificationType =
   | 'squad_member_left'      // When someone (not self) leaves your squad
   | 'squad_kicked'           // When you are kicked from a squad
   | 'squad_leader_changed'   // When your squad's leader changes
-  | 'squad_disbanded';       // When your squad is disbanded
-  // Add more types as needed, e.g., for Community Quests, Power-ups earned, etc.
+  | 'squad_disbanded'        // When your squad is disbanded
+  | 'squad_join_request_received' // Leader receives a join request
+  | 'squad_join_request_approved' // Requester notified that their request was approved
+  | 'squad_join_request_rejected' // Requester notified that their request was rejected
+  ;       // Add more types as needed, e.g., for Community Quests, Power-ups earned, etc.
 
 export interface NotificationDocument {
   _id?: any;
@@ -141,4 +144,7 @@ export interface NotificationDocument {
   relatedInvitationId?: string; // For squad invitations to store the invitation ID
   isRead: boolean;
   createdAt?: Date;
-} 
+}
+
+// Add the export for ISquadJoinRequest here
+export type { ISquadJoinRequest } from '@/models/SquadJoinRequest'; // Assuming the path to the new model file 

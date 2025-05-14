@@ -28,6 +28,8 @@ const VoteModal: React.FC<VoteModalProps> = ({ isOpen, onClose, proposal, onVote
   const [currentUserVote, setCurrentUserVote] = useState<UserVoteData | null>(null);
   const [isFetchingUserVote, setIsFetchingUserVote] = useState(false);
 
+  const isProposalActive = proposal?.status === 'active';
+
   // Fetch user points - This is for display/UX only, actual check is on backend
   useEffect(() => {
     if (session?.user?.walletAddress) {
@@ -79,6 +81,10 @@ const VoteModal: React.FC<VoteModalProps> = ({ isOpen, onClose, proposal, onVote
   }, [isOpen, proposal, sessionStatus, proposal?._id]);
 
   const handleVoteSubmit = async (choice: 'up' | 'down' | 'abstain') => {
+    if (!isProposalActive) {
+      toast.error('Voting period has ended for this proposal.');
+      return;
+    }
     if (!proposal) return;
     setIsSubmittingVote(true);
     try {
@@ -153,9 +159,15 @@ const VoteModal: React.FC<VoteModalProps> = ({ isOpen, onClose, proposal, onVote
             </div>
         )}
 
+        {!isLoading && !isProposalActive && (
+            <div className="my-3 p-3 bg-gray-100 border border-gray-200 rounded-md text-gray-700 text-sm text-center">
+                Voting has ended for this proposal.
+            </div>
+        )}
+
         <DialogFooter className="mt-4 sm:justify-between gap-2 flex-col sm:flex-row">
           <Button variant="outline" onClick={onClose} className="w-full sm:w-auto">{hasVoted ? 'Close' : 'Cancel'}</Button>
-          {!hasVoted && !isLoading && (
+          {isProposalActive && !hasVoted && !isLoading && (
             <div className="flex gap-2 w-full sm:w-auto">
                 <Button 
                     onClick={() => handleVoteSubmit('up')} 

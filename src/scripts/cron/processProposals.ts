@@ -180,6 +180,36 @@ async function processEndedProposals() {
           upVotesWeight >= BROADCAST_THRESHOLD_POINTS && !proposal.broadcasted) {
           proposal.broadcasted = true;
           await proposal.save(); // Save the broadcast status
+
+          // Platform-wide broadcast notifications
+          try {
+            const { db } = await connectToDatabase();
+            const usersCollection = db.collection('users');
+            const users = await usersCollection.find({}, { projection: { walletAddress: 1 } }).toArray();
+
+            const broadcastNotifs = users
+              .filter(u => u.walletAddress)
+              .map(u => ({
+                recipientWalletAddress: u.walletAddress as string,
+                type: 'proposal_broadcasted' as const,
+                title: `Proposal '${proposal.tokenName}' Broadcasted!`,
+                message: `A proposal from squad ${proposal.squadName} has reached the broadcast threshold. Join the discussion!`,
+                data: {
+                  proposalId: (proposal._id as mongoose.Types.ObjectId).toString(),
+                  proposalName: proposal.tokenName,
+                  squadId: proposal.squadId.toString(),
+                  squadName: proposal.squadName,
+                },
+              }));
+
+            if (broadcastNotifs.length) {
+              await Notification.insertMany(broadcastNotifs);
+              console.log(`Created ${broadcastNotifs.length} platform-wide broadcast notifications.`);
+            }
+          } catch (err) {
+            console.error('Error creating broadcast notifications:', err);
+          }
+
           console.log(`Proposal ${(proposal._id as mongoose.Types.ObjectId).toString()} also met broadcast threshold and marked as broadcasted.`);
       }
     }
@@ -235,6 +265,8 @@ async function main() {
   await processEndedProposals();
   await archiveOldClosedProposals(); 
 }
+
+export { main }; 
 
 if (require.main === module) {
   main()

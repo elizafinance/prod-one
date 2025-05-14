@@ -5,6 +5,7 @@ import { connectToDatabase, UserDocument } from '@/lib/mongodb';
 import { Proposal, IProposal } from '@/models/Proposal';
 import { Vote, IVote } from '@/models/Vote';
 import { Squad, ISquad } from '@/models/Squad';
+import { Notification } from '@/models/Notification';
 import { Types } from 'mongoose';
 
 const MIN_POINTS_TO_VOTE = parseInt(process.env.NEXT_PUBLIC_MIN_POINTS_TO_VOTE || "500", 10);
@@ -103,7 +104,34 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       if (totalWeightedScore >= BROADCAST_THRESHOLD && !proposal.broadcasted) {
         proposal.broadcasted = true;
         await proposal.save();
-        // TODO: Enqueue platform-wide notification job (Step A.4 / A.3)
+        // Create platform-wide notifications so all users are aware of broadcasted proposal
+        try {
+          const usersCollection = db.collection<UserDocument>('users');
+          const allUsers = await usersCollection.find({}, { projection: { walletAddress: 1 } }).toArray();
+
+          const broadcastNotifications = allUsers
+            .filter(u => u.walletAddress)
+            .map(u => ({
+              recipientWalletAddress: u.walletAddress as string,
+              type: 'proposal_broadcasted' as const,
+              title: `Proposal '${proposal.tokenName}' Broadcasted!`,
+              message: `A proposal from squad ${proposal.squadName} has reached the broadcast threshold. Check it out and join the discussion!`,
+              data: {
+                proposalId: proposal._id.toString(),
+                proposalName: proposal.tokenName,
+                squadId: squad.squadId.toString(),
+                squadName: squad.name,
+              },
+            }));
+
+          if (broadcastNotifications.length > 0) {
+            await Notification.insertMany(broadcastNotifications);
+            console.log(`Broadcasted proposal notifications sent to ${broadcastNotifications.length} users.`);
+          }
+        } catch (notifError) {
+          console.error('Error sending broadcast notifications:', notifError);
+        }
+
         console.log(`Proposal ${proposalId} reached broadcast threshold and has been marked for broadcast.`);
       }
 

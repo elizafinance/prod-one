@@ -3,7 +3,7 @@ import mongoose, { Document, Schema, Types } from 'mongoose';
 interface INotification extends Document {
   recipientUserId: Types.ObjectId; // Or recipientWalletAddress if users might not be registered
   recipientWalletAddress: string; 
-  type: 'proposal_created' | 'proposal_passed' | 'proposal_failed' | 'proposal_executed' | 'squad_invite' | 'general';
+  type: 'proposal_created' | 'proposal_passed' | 'proposal_failed' | 'proposal_executed' | 'proposal_broadcasted' | 'squad_invite' | 'general';
   title: string;
   message: string;
   data?: Record<string, any>; // For things like proposalId, squadId, etc.
@@ -16,7 +16,7 @@ const NotificationSchema = new Schema<INotification>({
   recipientWalletAddress: { type: String, required: true, index: true },
   type: {
     type: String,
-    enum: ['proposal_created', 'proposal_passed', 'proposal_failed', 'proposal_executed', 'squad_invite', 'general'],
+    enum: ['proposal_created', 'proposal_passed', 'proposal_failed', 'proposal_executed', 'proposal_broadcasted', 'squad_invite', 'general'],
     required: true,
   },
   title: { type: String, required: true, maxlength: 100 },

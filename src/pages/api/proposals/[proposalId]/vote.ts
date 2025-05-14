@@ -1,14 +1,13 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
-import { UserDocument } from '@/lib/mongodb';
+import { User, IUser } from '@/models/User';
 import { ensureMongooseConnected } from '@/lib/mongooseConnect';
 import { Proposal, IProposal } from '@/models/Proposal';
 import { Vote, IVote } from '@/models/Vote';
 import { Squad, ISquad } from '@/models/Squad';
 import { Notification } from '@/models/Notification';
 import { Types } from 'mongoose';
-import mongoose from 'mongoose';
 import bs58 from 'bs58';
 import nacl from 'tweetnacl';
 import { PublicKey } from '@solana/web3.js';
@@ -76,9 +75,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     try {
-      const Users = mongoose.model<UserDocument>('User');
-      
-      const voter = await Users.findById(voterUserId).lean();
+      const voter = await User.findById(voterUserId).lean<IUser>();
       if (!voter) {
         return res.status(404).json({ error: 'Voter not found.' });
       }
@@ -157,7 +154,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         await proposal.save();
         // Create platform-wide notifications so all users are aware of broadcasted proposal
         try {
-          const allUsers = await Users.find({}, 'walletAddress').lean();
+          const allUsers = await User.find({}, 'walletAddress').lean();
 
           const broadcastNotifications = allUsers
             .filter(u => u.walletAddress)

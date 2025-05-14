@@ -99,15 +99,32 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         voter = await User.findOne({ walletAddress: voterWalletAddress }).lean<IUser>();
       }
       
-      // If we still can't find the user, return a clearer error
+      // If we can't find the user, create a minimal record for them
       if (!voter) {
-        console.error('[VoteAPI] Voter not found by ID or wallet address:', {
+        console.warn('[VoteAPI] Voter not found, creating minimal profile:', {
           voterUserId: voterUserId?.toString() || 'none',
           voterWalletAddress,
         });
-        return res.status(404).json({ 
-          error: 'Voter not found in database. Please ensure your profile is registered.' 
-        });
+        
+        try {
+          // Create minimal user record
+          const newUser = new User({
+            walletAddress: voterWalletAddress,
+            xUserId: session.user.xId || `x-${Date.now()}`, // Fallback if no xId
+            xUsername: session.user.name,
+            points: 500, // Default starting points
+          });
+          
+          await newUser.save();
+          console.log('[VoteAPI] Created new user profile for:', voterWalletAddress);
+          
+          voter = newUser.toObject();
+        } catch (createErr) {
+          console.error('[VoteAPI] Failed to create user profile:', createErr);
+          return res.status(500).json({ 
+            error: 'Could not create user profile. Please try again later.'
+          });
+        }
       }
 
       if ((voter.points || 0) < MIN_POINTS_TO_VOTE) {

@@ -38,6 +38,9 @@ export default function MySquadPage() {
 
   const [isCreateProposalModalOpen, setIsCreateProposalModalOpen] = useState(false);
 
+  // Stable fetch indicator to prevent blinking loops
+  const [fetchAttempted, setFetchAttempted] = useState(false);
+
   const fetchUserPoints = useCallback(async (walletAddress: string) => {
     if (!walletAddress || isLoadingPoints) return;
     setIsLoadingPoints(true);
@@ -124,26 +127,71 @@ export default function MySquadPage() {
 
   useEffect(() => {
     let isActive = true;
+    let timer: NodeJS.Timeout;
     
-    // Fetch only if authenticated, wallet connected, and data isn't loaded/stale
-    if (authStatus === "authenticated" && session?.user?.xId && connected && publicKey && (!userCheckedNoSquad || !hasLoadedData)) {
-      const timer = setTimeout(() => {
+    // Very clear guard condition set
+    const shouldFetch = 
+      // Authentication requirements
+      authStatus === "authenticated" && 
+      session?.user?.xId && 
+      // Wallet requirements
+      connected && 
+      publicKey && 
+      // State requirements - only fetch if we haven't loaded or checked
+      (!hasLoadedData || !userCheckedNoSquad) &&
+      // Only fetch once per render cycle
+      !fetchAttempted &&
+      // Not currently fetching
+      !isFetchingSquad;
+    
+    if (shouldFetch) {
+      // Mark that we've attempted a fetch for this cycle
+      setFetchAttempted(true);
+      
+      // Add a debounce timer
+      timer = setTimeout(() => {
         if (isActive) {
+          console.log("[MySquadPage] Fetching squad data for:", publicKey.toBase58());
           fetchMySquadData(publicKey.toBase58());
         }
-      }, 500); // Keep a small debounce
-      
-      return () => {
-        isActive = false;
-        clearTimeout(timer);
-      };
-    } else if (authStatus === "unauthenticated" || (authStatus === "authenticated" && !session?.user?.xId)){
-      // If unauthenticated or session is missing xId, clear squad data and mark as loaded to stop loops
+      }, 500);
+    } 
+    // Clear case - set definitive state to prevent further attempts
+    else if (authStatus === "unauthenticated" || (authStatus === "authenticated" && !session?.user?.xId)) {
+      console.log("[MySquadPage] Not authenticated properly, clearing squad data");
       setMySquadData(null);
-      setUserCheckedNoSquad(true); // Assume no squad if not properly authenticated
+      setUserCheckedNoSquad(true);
       setHasLoadedData(true);
+      setFetchAttempted(true);
     }
-  }, [authStatus, session?.user?.xId, connected, publicKey, fetchMySquadData, userCheckedNoSquad, hasLoadedData]);
+    
+    return () => {
+      isActive = false;
+      if (timer) clearTimeout(timer);
+    };
+  }, [
+    authStatus, 
+    session?.user?.xId, 
+    connected, 
+    publicKey, 
+    fetchMySquadData,
+    userCheckedNoSquad,
+    hasLoadedData,
+    fetchAttempted,
+    isFetchingSquad
+  ]);
+  
+  // Reset fetch attempted when relevant dependencies change
+  useEffect(() => {
+    if (
+      publicKey || // New wallet connected
+      authStatus === "authenticated" || // New authentication
+      !hasLoadedData || // Data needs to be loaded
+      !userCheckedNoSquad // Status needs to be checked
+    ) {
+      setFetchAttempted(false);
+    }
+  }, [publicKey, authStatus, hasLoadedData, userCheckedNoSquad]);
 
   useEffect(() => {
     const currentAddress = publicKey ? publicKey.toBase58() : null;

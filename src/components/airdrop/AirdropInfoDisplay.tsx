@@ -6,11 +6,11 @@ import { useWallet, useConnection } from '@solana/wallet-adapter-react';
 import { PublicKey } from '@solana/web3.js';
 import { getAssociatedTokenAddress, getAccount } from '@solana/spl-token';
 import { toast } from 'sonner';
-import { SparklesIcon, CurrencyDollarIcon, GiftIcon, CalendarDaysIcon } from '@heroicons/react/24/outline';
+import { SparklesIcon, CurrencyDollarIcon, GiftIcon, CalendarDaysIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 import { useSession } from 'next-auth/react';
 
 interface AirdropInfoDisplayProps {
-  onNotConnected?: () => React.ReactNode; // Optional: Render prop/component when not connected
+  onNotConnected?: () => React.ReactNode;
   showTitle?: boolean;
 }
 
@@ -33,11 +33,8 @@ const AirdropInfoDisplay: React.FC<AirdropInfoDisplayProps> = ({ onNotConnected,
 
   const fetchAirdropData = useCallback(async () => {
     if (!connected || !publicKey || !session?.user?.walletAddress) {
-      // Don't set error, just clear data if user disconnects
       setDefaiBalance(null);
       setUserPoints(null);
-      // totalCommunityPoints can remain fetched if we want to show general pool info
-      // but for user-specific calculation, it's better to clear or handle it appropriately.
       return;
     }
     
@@ -47,66 +44,77 @@ const AirdropInfoDisplay: React.FC<AirdropInfoDisplayProps> = ({ onNotConnected,
     let fetchedBalance: number | null = null;
     let fetchedUserPoints: number | null = null;
     let fetchedTotalCommunityPoints: number | null = null;
+    let fetchError: string | null = null;
 
     try {
-      // 1. Fetch DeFAI Balance
-      if (tokenMintAddress) {
-        try {
-          const mint = new PublicKey(tokenMintAddress);
-          const ata = await getAssociatedTokenAddress(mint, publicKey);
-          const accountInfo = await getAccount(connection, ata, 'confirmed');
-          fetchedBalance = Number(accountInfo.amount) / (10 ** tokenDecimals);
-        } catch (e) {
-          console.warn("Failed to fetch DeFAI token balance:", e);
-          fetchedBalance = 0; // Assume 0 if account not found or other error
-        }
+      const [balanceResult, pointsResult, totalPointsResult] = await Promise.allSettled([
+        (async () => {
+          if (tokenMintAddress) {
+            const mint = new PublicKey(tokenMintAddress);
+            const ata = await getAssociatedTokenAddress(mint, publicKey);
+            const accountInfo = await getAccount(connection, ata, 'confirmed');
+            return Number(accountInfo.amount) / (10 ** tokenDecimals);
+          }
+          return 0;
+        })(),
+        (async () => {
+          const pointsResponse = await fetch(`/api/users/points?walletAddress=${publicKey.toBase58()}`);
+          if (pointsResponse.ok) {
+            const pointsData = await pointsResponse.json();
+            return pointsData.points || 0;
+          }
+          console.warn("Failed to fetch user points, status:", pointsResponse.status);
+          return 0;
+        })(),
+        (async () => {
+          const totalPointsResponse = await fetch('/api/stats/total-points');
+          if (totalPointsResponse.ok) {
+            const totalPointsData = await totalPointsResponse.json();
+            return totalPointsData.totalCommunityPoints > 0 ? totalPointsData.totalCommunityPoints : null;
+          }
+          console.warn("Failed to fetch total community points, status:", totalPointsResponse.status);
+          return null;
+        })()
+      ]);
+
+      if (balanceResult.status === 'fulfilled') {
+        fetchedBalance = balanceResult.value;
+      } else {
+        console.warn("Failed to fetch DeFAI token balance:", balanceResult.reason);
+        fetchedBalance = 0;
       }
 
-      // 2. Fetch User Points
-      try {
-        const pointsResponse = await fetch(`/api/users/points?walletAddress=${publicKey.toBase58()}`);
-        if (pointsResponse.ok) {
-          const pointsData = await pointsResponse.json();
-          fetchedUserPoints = pointsData.points || 0;
-        } else {
-          console.warn("Failed to fetch user points");
-          fetchedUserPoints = 0;
-        }
-      } catch (e) {
-        console.warn("Error fetching user points:", e);
+      if (pointsResult.status === 'fulfilled') {
+        fetchedUserPoints = pointsResult.value;
+      } else {
+        console.warn("Error fetching user points:", pointsResult.reason);
         fetchedUserPoints = 0;
       }
 
-      // 3. Fetch Total Community Points
-      try {
-        const totalPointsResponse = await fetch('/api/stats/total-points');
-        if (totalPointsResponse.ok) {
-          const totalPointsData = await totalPointsResponse.json();
-          fetchedTotalCommunityPoints = totalPointsData.totalCommunityPoints > 0 ? totalPointsData.totalCommunityPoints : null;
-        } else {
-          console.warn("Failed to fetch total community points");
-        }
-      } catch (e) {
-        console.warn("Error fetching total community points:", e);
+      if (totalPointsResult.status === 'fulfilled') {
+        fetchedTotalCommunityPoints = totalPointsResult.value;
+      } else {
+        console.warn("Error fetching total community points:", totalPointsResult.reason);
       }
-      
-      setDefaiBalance(fetchedBalance);
-      setUserPoints(fetchedUserPoints);
-      setTotalCommunityPoints(fetchedTotalCommunityPoints);
 
     } catch (err: any) {
-      console.error("Error fetching airdrop data:", err);
-      setError("Could not load airdrop information.");
-      toast.error("Failed to load airdrop details.");
-    } finally {
-      setIsLoading(false);
+      console.error("General error in fetchAirdropData:", err);
+      fetchError = "Could not load airdrop information.";
     }
+
+    setDefaiBalance(fetchedBalance);
+    setUserPoints(fetchedUserPoints);
+    setTotalCommunityPoints(fetchedTotalCommunityPoints);
+    if (fetchError) setError(fetchError);
+
+    setIsLoading(false);
+
   }, [connected, publicKey, session, connection, tokenMintAddress, tokenDecimals]);
 
   useEffect(() => {
     if (connected && publicKey && session?.user?.walletAddress && authStatus === 'authenticated') {
       if (!tokenMintAddress) {
-        setError("DeFAI token mint address is not configured.");
+        setError("DeFAI token mint address is not configured. Check NEXT_PUBLIC_DEFAI_TOKEN_MINT_ADDRESS.");
         toast.error("Airdrop configuration error.");
         return;
       }
@@ -120,84 +128,95 @@ const AirdropInfoDisplay: React.FC<AirdropInfoDisplayProps> = ({ onNotConnected,
 
   if (isLoading) {
     return (
-      <div className="w-full max-w-md p-6 my-6 bg-gradient-to-br from-slate-800 to-gray-900 border border-slate-700 rounded-xl shadow-2xl text-center">
-        <SparklesIcon className="w-12 h-12 mx-auto text-yellow-400 animate-pulse mb-3" />
-        <p className="text-slate-300">Loading your Airdrop Info...</p>
+      <div className="w-full max-w-lg p-6 my-8 mx-auto bg-white border border-gray-200 rounded-xl shadow-lg text-center">
+        <SparklesIcon className="w-12 h-12 mx-auto text-blue-500 animate-pulse mb-3" />
+        <p className="text-gray-700">Loading your Airdrop Info...</p>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="w-full max-w-md p-6 my-6 bg-red-800 border border-red-700 rounded-xl shadow-lg text-center">
-        <p className="text-red-200">Error: {error}</p>
+      <div className="w-full max-w-lg p-6 my-8 mx-auto bg-red-50 border border-red-200 rounded-xl shadow-lg text-center flex flex-col items-center">
+        <ExclamationTriangleIcon className="w-12 h-12 mx-auto text-red-500 mb-3" />
+        <p className="text-red-700 font-semibold">Airdrop Info Error</p>
+        <p className="text-red-600 text-sm mt-1">{error}</p>
       </div>
     );
   }
 
   const pointsShare = 
-    userPoints !== null && totalCommunityPoints !== null && totalCommunityPoints > 0 
+    userPoints !== null && userPoints > 0 && totalCommunityPoints !== null && totalCommunityPoints > 0 
     ? (userPoints / totalCommunityPoints) * airdropPoolSize 
     : 0;
   
-  const totalEstimatedAirdrop = (defaiBalance || 0) + pointsShare;
+  const totalEstimatedAirdrop = (defaiBalance !== null ? defaiBalance : 0) + pointsShare;
+
+  // Brand colors
+  const headlineColor = "text-[#2A97F1]";
+  const textColor = "text-black";
+  const backgroundColor = "bg-white";
+  const borderColor = "border-gray-200";
+  const itemBackgroundColor = "bg-gray-50";
+  const itemBorderColor = "border-gray-300";
+  const accentTextColor = "text-[#2A97F1]"; // For shiny numbers, use the headline color or a specific shiny one
 
   return (
-    <div className="w-full max-w-lg p-6 md:p-8 my-8 bg-gradient-to-tr from-blue-900 via-indigo-900 to-purple-900 border border-indigo-700 rounded-2xl shadow-2xl text-white font-sans">
+    <div className={`w-full max-w-lg p-6 md:p-8 my-8 mx-auto ${backgroundColor} ${borderColor} rounded-2xl shadow-xl font-sans`}>
       {showTitle && (
         <div className="flex items-center justify-center mb-6">
-          <GiftIcon className="w-10 h-10 mr-3 text-yellow-400" />
-          <h2 className="text-3xl font-bold font-orbitron text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 via-amber-400 to-orange-500">
+          <GiftIcon className={`w-10 h-10 mr-3 ${accentTextColor}`} />
+          <h2 className={`text-3xl font-bold font-orbitron ${headlineColor}`}>
             Your {airdropTokenSymbol} Airdrop Snapshot
           </h2>
         </div>
       )}
       
       <div className="space-y-5">
-        <div className="p-4 bg-black/30 rounded-lg border border-indigo-600/50 flex items-center justify-between">
+        <div className={`p-4 ${itemBackgroundColor} rounded-lg ${itemBorderColor} border flex items-center justify-between shadow-sm`}>
           <div className="flex items-center">
-            <CurrencyDollarIcon className="w-7 h-7 mr-3 text-green-400" />
-            <span className="text-slate-300 text-lg">Your DeFAI Balance:</span>
+            <CurrencyDollarIcon className={`w-7 h-7 mr-3 ${accentTextColor}`} />
+            <span className={`${textColor} text-lg`}>Your DeFAI Balance:</span>
           </div>
-          <span className="text-xl font-semibold text-green-300">
+          <span className={`text-xl font-semibold ${accentTextColor} text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-sky-400 to-cyan-400`}>
             {defaiBalance !== null ? defaiBalance.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2}) : 'N/A'} DeFAI
           </span>
         </div>
 
-        <div className="p-4 bg-black/30 rounded-lg border border-indigo-600/50 flex items-center justify-between">
+        <div className={`p-4 ${itemBackgroundColor} rounded-lg ${itemBorderColor} border flex items-center justify-between shadow-sm`}>
           <div className="flex items-center">
-            <SparklesIcon className="w-7 h-7 mr-3 text-pink-400" />
-            <span className="text-slate-300 text-lg">Your Current Points:</span>
+            <SparklesIcon className={`w-7 h-7 mr-3 ${accentTextColor}`} />
+            <span className={`${textColor} text-lg`}>Your Current Points:</span>
           </div>
-          <span className="text-xl font-semibold text-pink-300">
+          <span className={`text-xl font-semibold ${accentTextColor} text-transparent bg-clip-text bg-gradient-to-r from-purple-400 via-pink-400 to-red-400`}>
             {userPoints !== null ? userPoints.toLocaleString() : 'N/A'}
           </span>
         </div>
 
-        <div className="text-center p-4 bg-black/20 rounded-lg border border-purple-700/50">
-          <div className="flex items-center justify-center text-slate-400 mb-2">
+        <div className={`text-center p-4 ${itemBackgroundColor} rounded-lg ${itemBorderColor} border shadow-sm`}>
+          <div className={`flex items-center justify-center ${textColor} mb-2`}>
             <CalendarDaysIcon className="w-6 h-6 mr-2" />
-            <span>Snapshot on: <strong className="text-purple-300">{snapshotDateString}</strong></span>
+            <span>Snapshot on: <strong className={`${accentTextColor}`}>{snapshotDateString}</strong></span>
           </div>
-          <p className="text-slate-300 text-sm leading-relaxed">
-            If you hold DeFAI during the snapshot, you will receive <strong className="text-green-400">{defaiBalance !== null ? defaiBalance.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2}) : 'your current'} {airdropTokenSymbol}</strong> tokens (1:1 with your DeFAI balance) <strong className="text-yellow-300">PLUS</strong> a share of the <strong className="text-yellow-400">{(airdropPoolSize || 0).toLocaleString()} {airdropTokenSymbol}</strong> community pool based on your points!
+          <p className={`${textColor} text-sm leading-relaxed`}>
+            If you hold DeFAI during the snapshot, you will receive <strong className={`${accentTextColor} text-transparent bg-clip-text bg-gradient-to-r from-green-400 via-teal-400 to-emerald-400`}>{defaiBalance !== null ? defaiBalance.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2}) : 'your current'} {airdropTokenSymbol}</strong> tokens (1:1 with your DeFAI balance) <strong className={`${accentTextColor}`}>PLUS</strong> a share of the <strong className={`${accentTextColor} text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 via-amber-400 to-orange-400`}>{(airdropPoolSize || 0).toLocaleString()} {airdropTokenSymbol}</strong> community pool based on your points!
           </p>
         </div>
 
-        <div className="p-5 bg-gradient-to-r from-purple-800 via-fuchsia-800 to-pink-800 rounded-lg border border-fuchsia-600/70 shadow-lg">
-          <h3 className="text-lg font-semibold text-center text-yellow-200 mb-2">Estimated Points-Based Airdrop:</h3>
-          <p className="text-3xl font-bold text-center text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 via-amber-400 to-orange-500 mb-1">
+        <div className={`p-5 ${backgroundColor} rounded-lg ${borderColor} border shadow-md`}>
+          <h3 className={`text-lg font-semibold text-center ${headlineColor} mb-2`}>Estimated Points-Based Airdrop:</h3>
+          <p className={`text-3xl font-bold text-center ${accentTextColor} text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 via-amber-400 to-orange-500 mb-1`}>
             {pointsShare.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})} {airdropTokenSymbol}
           </p>
-          {totalCommunityPoints === null && userPoints !== null && (
-            <p className="text-xs text-center text-purple-300">(Waiting for total community points data to finalize estimate)</p>
+          {totalCommunityPoints === null && userPoints !== null && userPoints > 0 && (
+            <p className={`text-xs text-center ${textColor} opacity-75`}>(Finalizing estimate based on total community points...)</p>
           )}
-          {userPoints === 0 && (<p className="text-xs text-center text-purple-300">(Earn more points to increase this share!)</p>)}
+          {userPoints === 0 && (<p className={`text-xs text-center ${textColor} opacity-75`}>(Earn more points to increase this share!)</p>)}
         </div>
 
         <div className="pt-3 text-center">
-          <p className="text-slate-400 text-lg mb-1">Total Estimated <span className="font-bold text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-teal-400">{airdropTokenSymbol}</span> Airdrop:</p>
-          <p className="text-5xl font-extrabold font-orbitron text-transparent bg-clip-text bg-gradient-to-tr from-sky-300 via-cyan-300 to-emerald-400 animate-pulse">
+          <p className={`${textColor} text-lg mb-1`}>Total Estimated <span className={`font-bold ${accentTextColor} text-transparent bg-clip-text bg-gradient-to-r from-sky-400 via-cyan-400 to-blue-400`}>{airdropTokenSymbol}</span> Airdrop:</p>
+          <p className={`text-5xl font-extrabold font-orbitron ${accentTextColor} text-transparent bg-clip-text bg-gradient-to-tr from-blue-400 via-sky-300 to-cyan-400 animate-pulse`}>
             {totalEstimatedAirdrop.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})}
           </p>
         </div>

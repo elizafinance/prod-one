@@ -12,6 +12,7 @@ interface VoteModalProps {
   onClose: () => void;
   proposal: ProposalCardData | null; // Pass the full proposal data to the modal
   onVoteSuccess: () => void; // Simplified: just trigger a refresh/refetch on parent
+  currentUserPoints: number | null;
 }
 
 const MIN_POINTS_TO_VOTE = parseInt(process.env.NEXT_PUBLIC_MIN_POINTS_TO_VOTE || "500", 10);
@@ -21,31 +22,13 @@ interface UserVoteData {
   createdAt: string;
 }
 
-const VoteModal: React.FC<VoteModalProps> = ({ isOpen, onClose, proposal, onVoteSuccess }) => {
+const VoteModal: React.FC<VoteModalProps> = ({ isOpen, onClose, proposal, onVoteSuccess, currentUserPoints }) => {
   const { data: session, status: sessionStatus } = useSession();
   const [isSubmittingVote, setIsSubmittingVote] = useState(false);
-  const [userPoints, setUserPoints] = useState<number | null>(null);
   const [currentUserVote, setCurrentUserVote] = useState<UserVoteData | null>(null);
   const [isFetchingUserVote, setIsFetchingUserVote] = useState(false);
 
   const isProposalActive = proposal?.status === 'active';
-
-  // Fetch user points - This is for display/UX only, actual check is on backend
-  useEffect(() => {
-    if (session?.user?.walletAddress) {
-      // In a real app, you might fetch this from an API or have it in session/context
-      // For now, let's try to get it from where the main page might have stored it
-      const storedUserData = localStorage.getItem('defaiUserData'); 
-      if (storedUserData) {
-        try {
-            const parsed = JSON.parse(storedUserData);
-            if (typeof parsed.points === 'number') {
-                setUserPoints(parsed.points);
-            }
-        } catch (e) { console.error("Error parsing user data from LS for points check", e); }
-      }
-    }
-  }, [session]);
 
   // Fetch user's current vote for this proposal when modal opens or proposal changes
   useEffect(() => {
@@ -109,7 +92,7 @@ const VoteModal: React.FC<VoteModalProps> = ({ isOpen, onClose, proposal, onVote
 
   if (!proposal) return null;
 
-  const canUserVoteCheck = userPoints !== null && userPoints >= MIN_POINTS_TO_VOTE;
+  const canUserVoteCheck = currentUserPoints !== null && currentUserPoints >= MIN_POINTS_TO_VOTE;
   const hasVoted = !!currentUserVote;
   const isLoading = isFetchingUserVote || sessionStatus === 'loading';
 
@@ -147,13 +130,13 @@ const VoteModal: React.FC<VoteModalProps> = ({ isOpen, onClose, proposal, onVote
             </div>
         )}
 
-        {!isLoading && !hasVoted && !canUserVoteCheck && userPoints !== null && (
+        {!isLoading && !hasVoted && !canUserVoteCheck && currentUserPoints !== null && (
             <div className="my-3 p-3 bg-yellow-50 border border-yellow-200 rounded-md text-yellow-700 text-sm">
-                You need at least {MIN_POINTS_TO_VOTE.toLocaleString()} DeFAI points to vote. Your current points: {userPoints.toLocaleString()}.
+                You need at least {MIN_POINTS_TO_VOTE.toLocaleString()} DeFAI points to vote. Your current points: {currentUserPoints.toLocaleString()}.
             </div>
         )}
         {/* Show if not loading, user hasn't voted, and points couldn't be determined */}
-        {!isLoading && !hasVoted && userPoints === null && (
+        {!isLoading && !hasVoted && currentUserPoints === null && (
              <div className="my-3 p-3 bg-gray-100 border border-gray-200 rounded-md text-gray-600 text-sm">
                 Could not verify your points balance for voting. Please ensure your profile is up to date.
             </div>

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { toast } from 'sonner';
 import ProposalCard, { ProposalCardData } from '@/components/proposals/ProposalCard'; // Import the real ProposalCard
 import VoteModal from '@/components/modals/VoteModal'; // Import VoteModal
+import { useSession } from 'next-auth/react'; // Added to get user session
 
 // Define interfaces based on the API response from /api/proposals/active
 // These interfaces are now largely defined within ProposalCardData, but ApiResponse is still useful
@@ -24,6 +25,10 @@ export default function ProposalsPage() {
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const proposalsPerPage = parseInt(process.env.NEXT_PUBLIC_PROPOSALS_PER_PAGE || "10", 10);
+
+  // State for current user's points
+  const [currentUserPoints, setCurrentUserPoints] = useState<number | null>(null);
+  const { data: session, status: sessionStatus } = useSession(); // Get session
 
   const [selectedProposalForModal, setSelectedProposalForModal] = useState<ProposalCardData | null>(null);
   const [isVoteModalOpen, setIsVoteModalOpen] = useState(false);
@@ -72,6 +77,50 @@ export default function ProposalsPage() {
       return () => clearInterval(intervalId);
     }
   }, [fetchProposals, currentPage]); // Rerun if fetchProposals or currentPage changes
+
+  // Fetch current user's points when session is available
+  useEffect(() => {
+    if (sessionStatus === 'authenticated' && session?.user?.walletAddress) {
+      // Attempt to get from localStorage first, as main page might have stored it
+      const storedUserData = localStorage.getItem('defaiUserData');
+      if (storedUserData) {
+        try {
+          const parsed = JSON.parse(storedUserData);
+          if (typeof parsed.points === 'number') {
+            setCurrentUserPoints(parsed.points);
+            return; // Exit if found in localStorage
+          }
+        } catch (e) {
+          console.warn("Could not parse user data from LS for points on proposals page", e);
+        }
+      }
+
+      // Fallback: Fetch from API if not in localStorage or if explicitly needed
+      // This assumes an endpoint like /api/users/points?address=WALLET_ADDRESS exists
+      // console.log(`[ProposalsPage] Fetching points for ${session.user.walletAddress}`)
+      // fetch(`/api/users/points?address=${session.user.walletAddress}`)
+      //   .then(res => res.json())
+      //   .then(data => {
+      //     if (typeof data.points === 'number') {
+      //       setCurrentUserPoints(data.points);
+      //     } else {
+      //       setCurrentUserPoints(null); // Explicitly set to null if not found or error
+      //       console.warn("[ProposalsPage] Could not fetch user points from API or points not found.")
+      //     }
+      //   })
+      //   .catch(err => {
+      //     console.error("[ProposalsPage] Error fetching user points:", err);
+      //     setCurrentUserPoints(null); // Set to null on error
+      //   });
+      // For now, if not in LS, we'll leave it null and VoteModal will show its message.
+      // A more robust solution would be a dedicated user context or API call here.
+       if (!storedUserData) {
+          setCurrentUserPoints(null); // If nothing in LS, set to null
+       }
+    } else if (sessionStatus === 'unauthenticated') {
+        setCurrentUserPoints(null); // Clear points if user logs out
+    }
+  }, [sessionStatus, session]);
 
   const handleOpenVoteModal = (proposalId: string) => {
     const proposalToVote = apiResponse?.proposals.find(p => p._id === proposalId);
@@ -180,6 +229,7 @@ export default function ProposalsPage() {
             onClose={handleCloseVoteModal} 
             proposal={selectedProposalForModal} 
             onVoteSuccess={handleVoteSuccess} 
+            currentUserPoints={currentUserPoints} // Pass points to modal
           />
         )}
       </div>

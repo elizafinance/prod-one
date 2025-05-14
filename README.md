@@ -133,3 +133,72 @@ If your platform includes token escrow functionalities, you may be able to manag
 
 ### Image Replacement
 The template might use placeholder images for collection art or token icons. These can typically be found and replaced in the `src/assets/images/` directory (e.g., `collectionImage.jpg`, `token.jpg`).
+
+## Governance and Proposal System
+
+This project includes a squad-based governance system allowing leaders to create token reward proposals, and for squad members to vote on them.
+
+### Key Features
+
+*   **Proposal Creation:** Squad leaders with sufficient points can create proposals.
+*   **Voting:** Squad members can vote (up, down, abstain) with their points acting as vote weight.
+*   **Proposal Lifecycle:** Proposals are active, then processed to be `closed_passed`, `closed_failed`, or `closed_executed`, and eventually `archived`.
+*   **Notifications:** Users receive notifications for new proposals and proposal results.
+*   **Progress Display:** Proposal cards show progress towards quorum and approval.
+
+### Environment Variables (Proposal System)
+
+In addition to the core environment variables, the following are used for the proposal and voting system. Ensure they are set in your `.env.local` file and deployment environment:
+
+#### Frontend (NEXT_PUBLIC_)
+*   `NEXT_PUBLIC_SQUAD_POINTS_TO_CREATE_PROPOSAL=10000` - Minimum squad points for a leader to create a proposal.
+*   `NEXT_PUBLIC_MIN_POINTS_TO_VOTE=500` - Minimum DeFAI points a user needs to vote.
+*   `NEXT_PUBLIC_PROPOSAL_BROADCAST_THRESHOLD=1000` - Points threshold (sum of upvote weights) for a proposal to be marked "broadcasted".
+*   `NEXT_PUBLIC_PROPOSALS_PER_PAGE=10` - Number of proposals to show per page on the proposals list.
+*   `NEXT_PUBLIC_PROPOSALS_REFRESH_INTERVAL=30000` - Interval in milliseconds for polling active proposals (e.g., 30000 for 30s).
+*   `NEXT_PUBLIC_PROPOSAL_QUORUM_VOTERS_TARGET=10` - UI target for number of voters for quorum progress bar.
+*   `NEXT_PUBLIC_PROPOSAL_QUORUM_WEIGHT_TARGET=5000` - UI target for total engaged weight for quorum progress bar.
+*   `NEXT_PUBLIC_PROPOSAL_PASS_NET_WEIGHT_TARGET=1000` - UI target for net positive vote weight for "approval strength" progress bar.
+
+#### Backend / Cron (Server-side only)
+*   `CRON_PROPOSAL_PASS_THRESHOLD=0` - Net vote weight (upWeight - downWeight) above which a proposal is considered passed by the cron job.
+*   `CRON_PROPOSAL_ARCHIVE_DELAY_DAYS=7` - Number of days after a proposal is closed before it's archived by the cron job.
+
+### Cron Jobs (Proposal System)
+
+A cron job is used to process and archive proposals.
+*   **Script Path:** `src/scripts/cron/processProposals.ts`
+*   **Functionality:**
+    *   Processes active proposals whose voting period (`epochEnd`) has passed.
+    *   Calculates final vote tallies and determines pass/fail status.
+    *   Updates proposal status (e.g., to `closed_passed`, `closed_failed`).
+    *   Triggers notifications to squad members about proposal outcomes.
+    *   (Placeholder for token distribution on passed proposals).
+    *   Archives proposals that have been closed for `CRON_PROPOSAL_ARCHIVE_DELAY_DAYS`.
+
+**Running Cron Locally:**
+
+To run this cron job locally (e.g., for testing), ensure `ts-node` is installed (`npm install -g ts-node` or add to devDependencies) and then execute:
+
+```bash
+node -r ts-node/register src/scripts/cron/processProposals.ts
+```
+Alternatively, if your `tsconfig.json` allows, you might compile it first and then run the JS file.
+
+**Production Cron Setup:**
+
+For production, set this script up with a cron scheduler. If using Vercel, you can define a cron job in `vercel.json` that calls an API route wrapper for this script:
+
+```json
+// In vercel.json
+{
+  "crons": [
+    {
+      "path": "/api/cron/process-proposals", // Create this API route to execute the script
+      "schedule": "0 0 * * *" // Example: Every day at midnight UTC
+    }
+  ]
+}
+```
+Create an API route (e.g., `src/pages/api/cron/process-proposals.ts`) that imports and calls the main function from `src/scripts/cron/processProposals.ts`.
+Ensure any necessary environment variables are available to this API route.

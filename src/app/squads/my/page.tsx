@@ -6,8 +6,12 @@ import { useSession } from 'next-auth/react';
 import Link from 'next/link';
 import { SquadDocument } from '@/lib/mongodb';
 import { toast } from 'sonner';
+import CreateProposalModal from '@/components/modals/CreateProposalModal';
+import { Button } from "@/components/ui/button";
 
 interface MySquadData extends SquadDocument {}
+
+const PROPOSAL_CREATION_MIN_SQUAD_POINTS = parseInt(process.env.NEXT_PUBLIC_SQUAD_POINTS_TO_CREATE_PROPOSAL || "10000", 10);
 
 export default function MySquadPage() {
   const { publicKey, connected } = useWallet();
@@ -28,6 +32,8 @@ export default function MySquadPage() {
     minRequiredPoints: number 
   } | null>(null);
   const [isFetchingTiers, setIsFetchingTiers] = useState(true);
+
+  const [isCreateProposalModalOpen, setIsCreateProposalModalOpen] = useState(false);
 
   const fetchUserPoints = useCallback(async (walletAddress: string) => {
     if (!walletAddress || isLoadingPoints) return;
@@ -58,23 +64,23 @@ export default function MySquadPage() {
   }, [isLoadingPoints]);
 
   const fetchMySquadData = useCallback(async (userWalletAddress: string) => {
-    // Skip fetch if already fetching, already determined user has no squad, or already loaded squad data
-    if (!userWalletAddress || isFetchingSquad || userCheckedNoSquad || (mySquadData && hasLoadedData)) return;
+    if (!userWalletAddress || isFetchingSquad || (userCheckedNoSquad && !isCreateProposalModalOpen) || (mySquadData && hasLoadedData && isCreateProposalModalOpen && !isFetchingSquad)) {
+      // Skip if already fetching or determined no squad
+      return;
+    }
     
     setIsFetchingSquad(true);
     setError(null);
-    console.log("[MySquadPage] Fetching squad data for:", userWalletAddress);
+    
     try {
       const response = await fetch(`/api/squads/my-squad?userWalletAddress=${encodeURIComponent(userWalletAddress)}`);
       const data = await response.json();
       if (response.ok) {
         if (data.squad) {
-          console.log("[MySquadPage] Squad data received:", data.squad);
           setMySquadData(data.squad as MySquadData);
           setHasLoadedData(true);
           setUserCheckedNoSquad(false);
         } else {
-          console.log("[MySquadPage] User not in a squad or no squad data.");
           setMySquadData(null);
           setHasLoadedData(true);
           setUserCheckedNoSquad(true);
@@ -85,7 +91,6 @@ export default function MySquadPage() {
           }
         }
       } else {
-        console.error("[MySquadPage] Failed to fetch squad data:", data.error || response.statusText);
         setError(data.error || response.statusText);
         setMySquadData(null);
         if (response.status === 404) {
@@ -98,13 +103,13 @@ export default function MySquadPage() {
         }
       }
     } catch (error) {
-      console.error("[MySquadPage] Error fetching squad data:", error);
       setError((error as Error).message);
       setMySquadData(null);
       setHasLoadedData(true);
     }
+    
     setIsFetchingSquad(false);
-  }, [isFetchingSquad, userCheckedNoSquad, fetchUserPoints, mySquadData, hasLoadedData]);
+  }, [isFetchingSquad, userCheckedNoSquad, fetchUserPoints, mySquadData, hasLoadedData, isCreateProposalModalOpen]);
 
   useEffect(() => {
     let isActive = true;
@@ -112,7 +117,7 @@ export default function MySquadPage() {
     // Only fetch if connected with wallet and either:
     // 1. We haven't determined if user has no squad OR
     // 2. We haven't loaded any data yet
-    if (connected && publicKey && (!userCheckedNoSquad && !hasLoadedData)) {
+    if (connected && publicKey && (!userCheckedNoSquad || !hasLoadedData)) {
       const timer = setTimeout(() => {
         if (isActive) {
           fetchMySquadData(publicKey.toBase58());
@@ -165,6 +170,17 @@ export default function MySquadPage() {
   const minRequiredPoints = tierRequirements?.minRequiredPoints || 1000;
   const canCreateSquad = userPoints !== null && userPoints >= minRequiredPoints;
   const isUserLeader = mySquadData?.leaderWalletAddress === publicKey?.toBase58();
+  const canCreateProposal = isUserLeader && mySquadData && mySquadData.totalSquadPoints >= PROPOSAL_CREATION_MIN_SQUAD_POINTS;
+
+  const handleProposalCreated = () => {
+    toast.info('Refreshing squad data after proposal creation...');
+    if (publicKey) {
+      // Ensure data is marked as not loaded to trigger fetch
+      setHasLoadedData(false);
+      setUserCheckedNoSquad(false);
+      fetchMySquadData(publicKey.toBase58());
+    }
+  };
 
   // Function to determine max members based on points
   const getMaxMembersForPoints = (points: number | null) => {
@@ -226,7 +242,7 @@ export default function MySquadPage() {
                 <p className="text-lg font-semibold text-gray-800">Name: <span className="text-indigo-600 font-bold">{mySquadData.name}</span></p>
                 {mySquadData.description && <p className="text-sm text-gray-600 mt-1 italic">&quot;{mySquadData.description}&quot;</p>}
                 <p className="text-sm text-gray-600 mt-2">Points: <span className="font-bold text-green-600">{mySquadData.totalSquadPoints.toLocaleString()}</span></p>
-                <p className="text-sm text-gray-600">Members: <span className="font-semibold">{mySquadData.memberWalletAddresses.length} / {process.env.NEXT_PUBLIC_MAX_SQUAD_MEMBERS || 10}</span></p>
+                <p className="text-sm text-gray-600">Members: <span className="font-semibold">{mySquadData.memberWalletAddresses.length} / {mySquadData.maxMembers || process.env.NEXT_PUBLIC_MAX_SQUAD_MEMBERS || 10}</span></p>
                 
                 <div className="mt-3 text-xs bg-indigo-100 p-2 rounded border border-indigo-200">
                   {isUserLeader ? (
@@ -237,22 +253,36 @@ export default function MySquadPage() {
                 </div>
               </div>
               
-              <div className="space-y-2">
+              {/* Proposal Creation Button */} 
+              {canCreateProposal && (
+                <div className="mt-4 pt-4 border-t border-gray-200">
+                  <h4 className="text-md font-semibold text-blue-600 mb-2">Squad Governance</h4>
+                  <p className="text-xs text-gray-500 mb-3">As squad leader with {mySquadData.totalSquadPoints.toLocaleString()} squad points, you can create a token proposal for the AI Reward.</p>
+                  <Button 
+                    onClick={() => setIsCreateProposalModalOpen(true)} 
+                    className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg shadow-md hover:shadow-lg transition-all"
+                  >
+                    Create Token Proposal
+                  </Button>
+                </div>
+              )}
+
+              <div className="space-y-2 pt-4">
                 <Link href={`/squads/${mySquadData.squadId}`} passHref>
-                  <button className="py-2 px-4 bg-indigo-500 hover:bg-indigo-600 text-white text-sm font-semibold rounded-lg transition-colors w-full shadow hover:shadow-md">
-                    Manage Squad
-                  </button>
+                  <Button variant="outline" className="w-full border-indigo-500 text-indigo-600 hover:bg-indigo-100">
+                    Manage Squad Details
+                  </Button>
                 </Link>
                 
                 {!isUserLeader && (
-                  <button className="py-2 px-4 bg-red-500 hover:bg-red-600 text-white text-xs font-semibold rounded-lg transition-colors w-full shadow hover:shadow-md">
-                    Leave Squad
-                  </button>
+                  <Button variant="destructive" className="w-full">
+                    Leave Squad (TODO: Implement)
+                  </Button>
                 )}
               </div>
             </div>
           )}
-          
+
           {!isFetchingSquad && !mySquadData && !error && (
             <div className="text-center">
               <div className="p-4 bg-white/80 rounded-lg border border-gray-200 mb-4">
@@ -331,12 +361,21 @@ export default function MySquadPage() {
         
         <div className="mt-6 text-center">
           <Link href="/">
-            <button className="py-2 px-4 bg-gray-500 hover:bg-gray-600 text-white text-sm font-semibold rounded-lg transition-colors shadow hover:shadow-md">
+            <Button variant="secondary">
               Back to Dashboard
-            </button>
+            </Button>
           </Link>
         </div>
       </div>
+
+      {mySquadData && (
+        <CreateProposalModal 
+            isOpen={isCreateProposalModalOpen} 
+            onClose={() => setIsCreateProposalModalOpen(false)} 
+            squadId={mySquadData.squadId} 
+            onProposalCreated={handleProposalCreated} 
+        />
+      )}
     </main>
   );
 } 

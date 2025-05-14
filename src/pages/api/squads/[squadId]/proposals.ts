@@ -5,6 +5,7 @@ import { connectToDatabase, SquadDocument, UserDocument } from '@/lib/mongodb'; 
 import { Proposal, IProposal } from '@/models/Proposal'; // Adjust path
 import { Notification } from '@/models/Notification'; // Added
 import { Types } from 'mongoose';
+import { ensureMongooseConnected } from '@/lib/mongooseConnect';
 
 // Helper function to determine current epoch (Friday to Friday UTC)
 function getCurrentEpoch() {
@@ -27,6 +28,12 @@ function getCurrentEpoch() {
 
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  try {
+    await ensureMongooseConnected();
+  } catch (err) {
+    console.error('Failed to establish Mongoose connection in proposals API route:', err);
+    return res.status(500).json({ error: 'Database connection error.' });
+  }
   const session = await getServerSession(req, res, authOptions);
   if (!session || !session.user || typeof session.user.walletAddress !== 'string') {
     return res.status(401).json({ error: 'User not authenticated or wallet not available in session' });

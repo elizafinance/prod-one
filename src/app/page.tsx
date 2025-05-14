@@ -121,6 +121,8 @@ export default function HomePage() {
 
   // State for processing squad invite link (allows invite creation before wallet connect)
   const [isProcessingLinkInvite, setIsProcessingLinkInvite] = useState(false);
+  // Track whether an activation attempt has already been made for the currently connected wallet
+  const [activationAttempted, setActivationAttempted] = useState(false);
 
   // Check required environment variables on component mount
   useEffect(() => {
@@ -258,6 +260,8 @@ export default function HomePage() {
   }, [wallet.connected]);
 
   const activateRewardsAndFetchData = useCallback(async (connectedWalletAddress: string, xUserId: string, userDbId: string | undefined) => {
+    // Mark that we have attempted activation for this wallet/account combination
+    setActivationAttempted(true);
     setIsActivatingRewards(true);
     toast.info("Activating your DeFAI Rewards account...");
     try {
@@ -336,7 +340,7 @@ export default function HomePage() {
   }, [initialReferrer, squadInviteIdFromUrl, fetchMySquadData, fetchPendingInvites, connection, wallet.publicKey, checkDefaiBalance]);
 
   useEffect(() => {
-    if (authStatus === "authenticated" && session?.user?.xId && session?.user?.dbId && wallet.connected && wallet.publicKey && !isRewardsActive && !isActivatingRewards) {
+    if (authStatus === "authenticated" && session?.user?.xId && session?.user?.dbId && wallet.connected && wallet.publicKey && !isRewardsActive && !isActivatingRewards && !activationAttempted) {
       // Ensure dbId is also present, indicating our signIn callback likely completed its DB ops for this user
       const dbIdForApi = session.user.dbId; // No need to check for null if it's in the condition
       activateRewardsAndFetchData(wallet.publicKey.toBase58(), session.user.xId, dbIdForApi);
@@ -372,15 +376,22 @@ export default function HomePage() {
       isCheckingDefaiBalance, // Added balance check state
       connection, // Added connection
       checkDefaiBalance, // Added check function
-      isFetchingInvites // Added missing dependency
+      isFetchingInvites, // Added missing dependency
+      activationAttempted
     ]);
   
   // Reset the userCheckedNoSquad flag when wallet changes
   useEffect(() => {
     if (wallet.publicKey) {
       setUserCheckedNoSquad(false);
+      // New wallet detected – allow a fresh activation attempt
+      setActivationAttempted(false);
     }
-  }, [wallet.publicKey]);
+    // If wallet disconnected entirely, also reset
+    if (!wallet.connected) {
+      setActivationAttempted(false);
+    }
+  }, [wallet.publicKey, wallet.connected]);
 
   const handleInitialAirdropCheck = async () => {
     const addressToCheck = typedAddress.trim();

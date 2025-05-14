@@ -15,9 +15,12 @@ interface ApiResponse {
   totalProposals: number;
 }
 
+const PROPOSALS_REFRESH_INTERVAL = parseInt(process.env.NEXT_PUBLIC_PROPOSALS_REFRESH_INTERVAL || "30000", 10); // Default 30 seconds
+
 export default function ProposalsPage() {
   const [apiResponse, setApiResponse] = useState<ApiResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isPolling, setIsPolling] = useState(false); // To indicate background refresh
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const proposalsPerPage = parseInt(process.env.NEXT_PUBLIC_PROPOSALS_PER_PAGE || "10", 10);
@@ -25,8 +28,12 @@ export default function ProposalsPage() {
   const [selectedProposalForModal, setSelectedProposalForModal] = useState<ProposalCardData | null>(null);
   const [isVoteModalOpen, setIsVoteModalOpen] = useState(false);
 
-  const fetchProposals = useCallback(async (page: number) => {
-    setIsLoading(true);
+  const fetchProposals = useCallback(async (page: number, isBackgroundRefresh = false) => {
+    if (!isBackgroundRefresh) {
+      setIsLoading(true);
+    } else {
+      setIsPolling(true);
+    }
     setError(null);
     try {
       const response = await fetch(`/api/proposals/active?page=${page}&limit=${proposalsPerPage}`);
@@ -38,15 +45,33 @@ export default function ProposalsPage() {
       setApiResponse(data);
     } catch (err: any) {
       setError(err.message);
-      toast.error(err.message || 'Could not load proposals.');
-      setApiResponse(null); 
+      if (!isBackgroundRefresh) { // Only toast error for initial load or explicit retry
+        toast.error(err.message || 'Could not load proposals.');
+        setApiResponse(null); 
+      } else {
+        console.warn("Background proposal refresh failed:", err.message);
+      }
     }
-    setIsLoading(false);
+    if (!isBackgroundRefresh) {
+      setIsLoading(false);
+    }
+    setIsPolling(false);
   }, [proposalsPerPage]);
 
   useEffect(() => {
     fetchProposals(currentPage);
   }, [fetchProposals, currentPage]);
+
+  // Polling mechanism
+  useEffect(() => {
+    if (PROPOSALS_REFRESH_INTERVAL > 0) {
+      const intervalId = setInterval(() => {
+        console.log('Polling for proposal updates...');
+        fetchProposals(currentPage, true); // true for background refresh
+      }, PROPOSALS_REFRESH_INTERVAL);
+      return () => clearInterval(intervalId);
+    }
+  }, [fetchProposals, currentPage]); // Rerun if fetchProposals or currentPage changes
 
   const handleOpenVoteModal = (proposalId: string) => {
     const proposalToVote = apiResponse?.proposals.find(p => p._id === proposalId);
@@ -63,19 +88,8 @@ export default function ProposalsPage() {
     setSelectedProposalForModal(null);
   };
 
-  const handleVoteSuccess = (updatedProposalData: ProposalCardData) => {
-    // Option 1: Simple refresh of current page data
-    fetchProposals(currentPage);
-    // Option 2: More granular update (if API returned full updated proposal)
-    // setApiResponse(prev => {
-    //   if (!prev) return null;
-    //   return {
-    //     ...prev,
-    //     proposals: prev.proposals.map(p => 
-    //       p._id === updatedProposalData._id ? updatedProposalData : p
-    //     ),
-    //   };
-    // });
+  const handleVoteSuccess = () => {
+    fetchProposals(currentPage, true); // true for background refresh to avoid full loading spinner
   };
 
   const handleNextPage = () => {
@@ -100,6 +114,7 @@ export default function ProposalsPage() {
           <p className="text-gray-600 mt-3 text-lg max-w-2xl mx-auto">
             Review proposals submitted by eligible squads. Cast your vote to help decide the future!
           </p>
+          {isPolling && <p className='text-xs text-gray-500 mt-2 animate-pulse'>Checking for updates...</p>}
         </div>
 
         {isLoading && (
@@ -141,7 +156,7 @@ export default function ProposalsPage() {
             <div className="mt-12 flex justify-center items-center space-x-4">
                 <button 
                     onClick={handlePreviousPage} 
-                    disabled={currentPage === 1 || isLoading}
+                    disabled={currentPage === 1 || isLoading || isPolling}
                     className="py-2 px-5 bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium rounded-lg disabled:opacity-50 transition-colors"
                 >
                     Previous
@@ -151,7 +166,7 @@ export default function ProposalsPage() {
                 </span>
                 <button 
                     onClick={handleNextPage} 
-                    disabled={currentPage === apiResponse.totalPages || isLoading}
+                    disabled={currentPage === apiResponse.totalPages || isLoading || isPolling}
                     className="py-2 px-5 bg-blue-500 hover:bg-blue-600 text-white font-medium rounded-lg disabled:opacity-50 transition-colors"
                 >
                     Next

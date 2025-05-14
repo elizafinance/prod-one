@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth';
 import { connectToDatabase, UserDocument } from '@/lib/mongodb';
 import { Proposal, IProposal } from '@/models/Proposal';
 import { Vote, IVote } from '@/models/Vote';
+import { Squad, ISquad } from '@/models/Squad';
 import { Types } from 'mongoose';
 
 const MIN_POINTS_TO_VOTE = parseInt(process.env.NEXT_PUBLIC_MIN_POINTS_TO_VOTE || "500", 10);
@@ -58,6 +59,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(403).json({ error: 'The voting period for this proposal has ended.' });
       }
 
+      // Check if voter is a member of the squad that created the proposal
+      const squad = await Squad.findById(proposal.squadId);
+      if (!squad) {
+        console.error(`Consistency error: Squad with ID ${proposal.squadId} not found for proposal ${proposal._id}`);
+        return res.status(500).json({ error: 'Internal server error: Squad data missing.' });
+      }
+      if (!squad.memberWalletAddresses.includes(voterWalletAddress)) {
+        return res.status(403).json({ error: 'You must be a member of the squad to vote on this proposal.' });
+      }
+
       const voterPointsAtCast = voter.points || 0;
 
       const newVote = new Vote({
@@ -75,6 +86,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         if (saveError.code === 11000) { // Duplicate key error (user already voted)
           return res.status(409).json({ error: 'You have already voted on this proposal.' });
         }
+        console.error('Error saving vote:', saveError); // Log other save errors
         throw saveError; // Re-throw other save errors
       }
 
@@ -102,7 +114,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       if (error instanceof Error && error.name === 'ValidationError') {
         return res.status(400).json({ error: error.message });
       }
-      return res.status(500).json({ error: 'Failed to cast vote.' });
+      // Avoid sending generic Mongoose or DB errors to client if not a validation error or already handled duplicate
+      if ((error as any).code === 11000) { // Should be caught above, but as a safeguard
+         return res.status(409).json({ error: 'You have already voted on this proposal.' });
+      }
+      return res.status(500).json({ error: 'Failed to cast vote. An unexpected error occurred.' });
     }
   } else {
     res.setHeader('Allow', ['POST']);

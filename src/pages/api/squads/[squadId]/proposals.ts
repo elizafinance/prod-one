@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth'; // Corrected path
 import { connectToDatabase, SquadDocument, UserDocument } from '@/lib/mongodb'; // Adjust path
 import { Proposal, IProposal } from '@/models/Proposal'; // Adjust path
+import { Notification } from '@/models/Notification'; // Added
 import { Types } from 'mongoose';
 
 // Helper function to determine current epoch (Friday to Friday UTC)
@@ -78,8 +79,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       // Check if a proposal already exists for this squad in the current epoch
       const { epochStart, epochEnd } = getCurrentEpoch();
+      const squadObjectId = squad._id ? new Types.ObjectId(squad._id) : undefined;
+      if (!squadObjectId) {
+        console.error('Squad document from native driver is missing _id.');
+        return res.status(500).json({ error: 'Internal server error: Squad ID missing.'});
+      }
+
       const existingProposalThisEpoch = await Proposal.findOne({
-        squadId: squad._id, // Assuming squad._id is the ObjectId reference
+        squadId: squadObjectId, 
         epochStart: { $gte: epochStart, $lt: epochEnd }
       });
 
@@ -88,21 +95,37 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       const newProposal = new Proposal({
-        squadId: squad._id, // Use squad's ObjectId for ref
+        squadId: squadObjectId,
         squadName: squad.name,
-        createdByUserId: leaderUser._id, // Use leader's ObjectId for ref
+        createdByUserId: new Types.ObjectId(leaderUser._id), 
         tokenContractAddress,
         tokenName,
         reason,
         epochStart,
         epochEnd,
         status: 'active',
-        broadcasted: false, // Default
+        broadcasted: false,
       });
 
       await newProposal.save();
 
-      // TODO: Enqueue notification job for squad members (Step A.4)
+      // Create notifications for squad members
+      if (squad.memberWalletAddresses && squad.memberWalletAddresses.length > 0) {
+        const notificationsToCreate = squad.memberWalletAddresses.map(walletAddress => ({
+          recipientWalletAddress: walletAddress,
+          type: 'proposal_created' as const,
+          title: `New Proposal in ${squad.name}! `,
+          message: `A new token reward proposal '${newProposal.tokenName}' has been created for your squad ${squad.name}. Voting is open! `,
+          data: {
+            proposalId: newProposal._id.toString(),
+            proposalName: newProposal.tokenName,
+            squadId: squad.squadId,
+            squadName: squad.name,
+          },
+        }));
+        await Notification.insertMany(notificationsToCreate);
+        console.log(`Created ${notificationsToCreate.length} notifications for new proposal ${newProposal._id} in squad ${squad.name}.`);
+      }
 
       return res.status(201).json({ message: 'Proposal created successfully!', proposal: newProposal });
 

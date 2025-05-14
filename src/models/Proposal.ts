@@ -11,7 +11,14 @@ interface IProposal extends Document {
   epochStart: Date;
   epochEnd: Date;
   broadcasted: boolean;
-  status: 'active' | 'archived';
+  status: 'active' | 'closed_passed' | 'closed_failed' | 'closed_executed' | 'archived';
+  // Fields for vote results - to be populated by the cron job
+  finalUpVotesWeight?: number;
+  finalDownVotesWeight?: number;
+  finalAbstainVotesCount?: number;
+  totalFinalVoters?: number;
+  finalUpVotesCount?: number;
+  finalDownVotesCount?: number;
 }
 
 const ProposalSchema = new Schema<IProposal>({
@@ -25,7 +32,19 @@ const ProposalSchema = new Schema<IProposal>({
   epochStart: { type: Date, required: true, index: true },
   epochEnd: { type: Date, required: true, index: true },
   broadcasted: { type: Boolean, default: false },
-  status: { type: String, enum: ['active', 'archived'], default: 'active', index: true },
+  status: { 
+    type: String, 
+    enum: ['active', 'closed_passed', 'closed_failed', 'closed_executed', 'archived'], 
+    default: 'active', 
+    index: true 
+  },
+  // Fields for vote results
+  finalUpVotesWeight: { type: Number, default: 0 },
+  finalDownVotesWeight: { type: Number, default: 0 },
+  finalAbstainVotesCount: { type: Number, default: 0 },
+  totalFinalVoters: { type: Number, default: 0 },
+  finalUpVotesCount: { type: Number, default: 0 },
+  finalDownVotesCount: { type: Number, default: 0 },
 });
 
 export const Proposal = mongoose.models.Proposal || mongoose.model<IProposal>('Proposal', ProposalSchema);

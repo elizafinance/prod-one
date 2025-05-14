@@ -11,15 +11,22 @@ interface VoteModalProps {
   isOpen: boolean;
   onClose: () => void;
   proposal: ProposalCardData | null; // Pass the full proposal data to the modal
-  onVoteSuccess: (updatedProposal: ProposalCardData) => void; // Callback to update UI after vote
+  onVoteSuccess: () => void; // Simplified: just trigger a refresh/refetch on parent
 }
 
 const MIN_POINTS_TO_VOTE = parseInt(process.env.NEXT_PUBLIC_MIN_POINTS_TO_VOTE || "500", 10);
 
+interface UserVoteData {
+  choice: 'up' | 'down' | 'abstain';
+  createdAt: string;
+}
+
 const VoteModal: React.FC<VoteModalProps> = ({ isOpen, onClose, proposal, onVoteSuccess }) => {
-  const { data: session } = useSession();
-  const [isVoting, setIsVoting] = useState(false);
+  const { data: session, status: sessionStatus } = useSession();
+  const [isSubmittingVote, setIsSubmittingVote] = useState(false);
   const [userPoints, setUserPoints] = useState<number | null>(null);
+  const [currentUserVote, setCurrentUserVote] = useState<UserVoteData | null>(null);
+  const [isFetchingUserVote, setIsFetchingUserVote] = useState(false);
 
   // Fetch user points - This is for display/UX only, actual check is on backend
   useEffect(() => {
@@ -38,9 +45,42 @@ const VoteModal: React.FC<VoteModalProps> = ({ isOpen, onClose, proposal, onVote
     }
   }, [session]);
 
-  const handleVote = async (choice: 'up' | 'down' | 'abstain') => {
+  // Fetch user's current vote for this proposal when modal opens or proposal changes
+  useEffect(() => {
+    if (isOpen && proposal && sessionStatus === 'authenticated') {
+      setIsFetchingUserVote(true);
+      setCurrentUserVote(null); // Reset previous vote state
+      fetch(`/api/proposals/${proposal._id}/my-vote`)
+        .then(res => {
+          if (!res.ok) {
+            // If 404 or similar, it might just mean no vote, not necessarily an error to show user
+            if (res.status === 404) return { vote: null }; 
+            throw new Error('Failed to fetch your vote status');
+          }
+          return res.json();
+        })
+        .then(data => {
+          if (data.vote) {
+            setCurrentUserVote(data.vote as UserVoteData);
+          }
+        })
+        .catch(err => {
+          console.error("Error fetching user's vote:", err);
+          // Don't toast an error here usually, as it might just be no vote found
+        })
+        .finally(() => {
+          setIsFetchingUserVote(false);
+        });
+    } else if (!isOpen) {
+      // Reset when modal closes
+      setCurrentUserVote(null);
+      setIsFetchingUserVote(false);
+    }
+  }, [isOpen, proposal, sessionStatus, proposal?._id]);
+
+  const handleVoteSubmit = async (choice: 'up' | 'down' | 'abstain') => {
     if (!proposal) return;
-    setIsVoting(true);
+    setIsSubmittingVote(true);
     try {
       const response = await fetch(`/api/proposals/${proposal._id}/vote`, {
         method: 'POST',
@@ -52,35 +92,23 @@ const VoteModal: React.FC<VoteModalProps> = ({ isOpen, onClose, proposal, onVote
         throw new Error(result.error || 'Failed to cast vote.');
       }
       toast.success(`Vote (${choice}) cast successfully!`);
-      
-      // Optimistically update proposal tally or re-fetch data
-      // For now, just update based on the vote choice and assume backend calculated points correctly.
-      // A more robust solution would be for the API to return the updated proposal/tally.
-      const updatedTally = { ...proposal.tally };
-      if (choice === 'up') updatedTally.up += 1;
-      else if (choice === 'down') updatedTally.down += 1;
-      else if (choice === 'abstain') updatedTally.abstain += 1;
-      // Note: totalWeight update is complex without knowing voter's points here.
-      // The onVoteSuccess callback should trigger a re-fetch or use API-returned data.
-
-      onVoteSuccess({ 
-          ...proposal, 
-          tally: updatedTally, 
-          totalVoters: proposal.totalVoters + 1 
-      }); 
-      onClose();
+      setCurrentUserVote({ choice, createdAt: new Date().toISOString() }); // Optimistically update UI
+      onVoteSuccess(); // Trigger parent to refetch proposal data or list
+      // Keep modal open to show their vote, or onClose(); based on desired UX
     } catch (err: any) {
       toast.error(err.message || 'An error occurred while voting.');
     }
-    setIsVoting(false);
+    setIsSubmittingVote(false);
   };
 
   if (!proposal) return null;
 
-  const canUserVote = userPoints !== null && userPoints >= MIN_POINTS_TO_VOTE;
+  const canUserVoteCheck = userPoints !== null && userPoints >= MIN_POINTS_TO_VOTE;
+  const hasVoted = !!currentUserVote;
+  const isLoading = isFetchingUserVote || sessionStatus === 'loading';
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
       <DialogContent className="sm:max-w-[525px] bg-white border-gray-300 shadow-xl">
         <DialogHeader>
           <DialogTitle className="text-2xl font-bold font-spacegrotesk text-blue-700">
@@ -95,47 +123,63 @@ const VoteModal: React.FC<VoteModalProps> = ({ isOpen, onClose, proposal, onVote
         
         <div className="py-4 space-y-3 text-sm text-gray-700">
           <p><strong>Contract:</strong> <code className="text-xs bg-gray-100 p-1 rounded">{proposal.tokenContractAddress}</code></p>
-          <p><strong>Current Weighted Score:</strong> {proposal.tally.totalWeight.toLocaleString()}</p>
-          <p><strong>Votes:</strong> Up: {proposal.tally.up}, Down: {proposal.tally.down}, Abstain: {proposal.tally.abstain} ({proposal.totalVoters} total)</p>
+          <p><strong>Current Weighted Score:</strong> {proposal.tally.totalEngagedWeight.toLocaleString()}</p>
+          <p><strong>Votes:</strong> Up: {proposal.tally.upVotesCount}, Down: {proposal.tally.downVotesCount}, Abstain: {proposal.tally.abstainVotesCount} ({proposal.totalVoters} total)</p>
           {proposal.broadcasted && <p className="font-semibold text-green-600">This proposal has been broadcasted!</p>}
         </div>
 
-        {!canUserVote && userPoints !== null && (
-            <div className="my-3 p-3 bg-yellow-50 border border-yellow-200 rounded-md text-yellow-700 text-sm">
-                You need at least {MIN_POINTS_TO_VOTE} DeFAI points to vote. Your current points: {userPoints.toLocaleString()}.
+        {isLoading && (
+            <div className="my-3 p-3 bg-gray-100 border border-gray-200 rounded-md text-gray-600 text-sm text-center">
+                Loading your voting status...
             </div>
         )}
-        {userPoints === null && (
+
+        {!isLoading && hasVoted && currentUserVote && (
+            <div className="my-3 p-4 bg-blue-50 border border-blue-200 rounded-lg text-blue-700 text-center">
+                <p className="font-semibold">You voted: <span className="uppercase">{currentUserVote.choice}</span></p>
+                <p className="text-xs mt-1">on {new Date(currentUserVote.createdAt).toLocaleDateString()}</p>
+            </div>
+        )}
+
+        {!isLoading && !hasVoted && !canUserVoteCheck && userPoints !== null && (
+            <div className="my-3 p-3 bg-yellow-50 border border-yellow-200 rounded-md text-yellow-700 text-sm">
+                You need at least {MIN_POINTS_TO_VOTE.toLocaleString()} DeFAI points to vote. Your current points: {userPoints.toLocaleString()}.
+            </div>
+        )}
+        {/* Show if not loading, user hasn't voted, and points couldn't be determined */}
+        {!isLoading && !hasVoted && userPoints === null && (
              <div className="my-3 p-3 bg-gray-100 border border-gray-200 rounded-md text-gray-600 text-sm">
-                Verifying your points balance for voting...
+                Could not verify your points balance for voting. Please ensure your profile is up to date.
             </div>
         )}
 
         <DialogFooter className="mt-4 sm:justify-between gap-2 flex-col sm:flex-row">
-          <Button variant="outline" onClick={onClose} className="w-full sm:w-auto">Cancel</Button>
-          <div className="flex gap-2 w-full sm:w-auto">
-            <Button 
-                onClick={() => handleVote('up')} 
-                disabled={isVoting || !canUserVote}
-                className="flex-1 bg-green-500 hover:bg-green-600 text-white disabled:opacity-70"
-            >
-                {isVoting ? 'Voting...' : '👍 Upvote'}
-            </Button>
-            <Button 
-                onClick={() => handleVote('down')} 
-                disabled={isVoting || !canUserVote}
-                className="flex-1 bg-red-500 hover:bg-red-600 text-white disabled:opacity-70"
-            >
-                {isVoting ? 'Voting...' : '👎 Downvote'}
-            </Button>
-            <Button 
-                onClick={() => handleVote('abstain')} 
-                disabled={isVoting || !canUserVote}
-                className="flex-1 bg-gray-500 hover:bg-gray-600 text-white disabled:opacity-70"
-            >
-                {isVoting ? 'Voting...' : '👐 Abstain'}
-            </Button>
-          </div>
+          <Button variant="outline" onClick={onClose} className="w-full sm:w-auto">{hasVoted ? 'Close' : 'Cancel'}</Button>
+          {!hasVoted && !isLoading && (
+            <div className="flex gap-2 w-full sm:w-auto">
+                <Button 
+                    onClick={() => handleVoteSubmit('up')} 
+                    disabled={isSubmittingVote || !canUserVoteCheck}
+                    className="flex-1 bg-green-500 hover:bg-green-600 text-white disabled:opacity-70"
+                >
+                    {isSubmittingVote ? 'Voting...' : '👍 Upvote'}
+                </Button>
+                <Button 
+                    onClick={() => handleVoteSubmit('down')} 
+                    disabled={isSubmittingVote || !canUserVoteCheck}
+                    className="flex-1 bg-red-500 hover:bg-red-600 text-white disabled:opacity-70"
+                >
+                    {isSubmittingVote ? 'Voting...' : '👎 Downvote'}
+                </Button>
+                <Button 
+                    onClick={() => handleVoteSubmit('abstain')} 
+                    disabled={isSubmittingVote || !canUserVoteCheck}
+                    className="flex-1 bg-gray-500 hover:bg-gray-600 text-white disabled:opacity-70"
+                >
+                    {isSubmittingVote ? 'Voting...' : '👐 Abstain'}
+                </Button>
+            </div>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

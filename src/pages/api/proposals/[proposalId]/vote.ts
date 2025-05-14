@@ -28,7 +28,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(401).json({ error: 'User not authenticated, wallet, or user ID missing from session' });
   }
   const voterWalletAddress = session.user.walletAddress;
-  const voterUserId = new Types.ObjectId(session.user.dbId);
+  let voterUserId: Types.ObjectId | null = null;
+  try {
+    // Try to convert the session dbId to an ObjectId if it exists
+    if (session.user.dbId && Types.ObjectId.isValid(session.user.dbId)) {
+      voterUserId = new Types.ObjectId(session.user.dbId);
+    }
+  } catch (err) {
+    console.warn('[VoteAPI] Invalid session.user.dbId:', session.user.dbId);
+    // Continue without valid ID - we'll try wallet lookup as fallback
+  }
 
   const { proposalId } = req.query;
 
@@ -75,9 +84,30 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     try {
-      const voter = await User.findById(voterUserId).lean<IUser>();
+      // Try to find voter by either ID or wallet address
+      let voter = null;
+      
+      // First attempt: lookup by ID if we have a valid one
+      if (voterUserId) {
+        console.log('[VoteAPI] Looking up voter by ID:', voterUserId.toString());
+        voter = await User.findById(voterUserId).lean<IUser>();
+      }
+      
+      // Second attempt: fallback to wallet address lookup
       if (!voter) {
-        return res.status(404).json({ error: 'Voter not found.' });
+        console.log('[VoteAPI] Looking up voter by wallet address:', voterWalletAddress);
+        voter = await User.findOne({ walletAddress: voterWalletAddress }).lean<IUser>();
+      }
+      
+      // If we still can't find the user, return a clearer error
+      if (!voter) {
+        console.error('[VoteAPI] Voter not found by ID or wallet address:', {
+          voterUserId: voterUserId?.toString() || 'none',
+          voterWalletAddress,
+        });
+        return res.status(404).json({ 
+          error: 'Voter not found in database. Please ensure your profile is registered.' 
+        });
       }
 
       if ((voter.points || 0) < MIN_POINTS_TO_VOTE) {

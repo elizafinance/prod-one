@@ -44,7 +44,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       status: 'pending'
     }).sort({ createdAt: -1 }).toArray();
 
-    return res.status(200).json({ requests: pendingRequests });
+    const enriched = pendingRequests.map(r => ({
+      ...r,
+      displayUsername: r.requestingUserXUsername || r.requestingUserWalletAddress.substring(0,6) + '...' + r.requestingUserWalletAddress.slice(-4)
+    }));
+
+    return res.status(200).json({ requests: enriched });
 
   } catch (error) {
     console.error('Error fetching squad join requests:', error);

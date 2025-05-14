@@ -42,7 +42,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // 2. Update status to cancelled
     await squadJoinRequestsCollection.updateOne(
       { requestId },
-      { $set: { status: 'cancelled' as any, updatedAt: new Date() } }
+      { $set: { status: 'cancelled', updatedAt: new Date() } }
     );
 
     // 3. Notify squad leader

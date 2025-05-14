@@ -8,7 +8,7 @@ export interface ISquadJoinRequest extends Document {
   requestingUserWalletAddress: string;
   requestingUserXUsername?: string; // Denormalized
   requestingUserXProfileImageUrl?: string; // Denormalized
-  status: 'pending' | 'approved' | 'rejected';
+  status: 'pending' | 'approved' | 'rejected' | 'cancelled';
   message?: string; // Optional message from the requester
   createdAt: Date;
   updatedAt: Date;
@@ -45,7 +45,7 @@ const SquadJoinRequestSchema: Schema<ISquadJoinRequest> = new Schema(
     },
     status: {
       type: String,
-      enum: ['pending', 'approved', 'rejected'],
+      enum: ['pending', 'approved', 'rejected', 'cancelled'],
       default: 'pending',
       required: true,
       index: true,

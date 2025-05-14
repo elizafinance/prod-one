@@ -119,6 +119,9 @@ export default function HomePage() {
   // State for Welcome Modal
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
 
+  // State for processing squad invite link (allows invite creation before wallet connect)
+  const [isProcessingLinkInvite, setIsProcessingLinkInvite] = useState(false);
+
   // Check required environment variables on component mount
   useEffect(() => {
     checkRequiredEnvVars();
@@ -145,6 +148,7 @@ export default function HomePage() {
 
   }, []);
 
+  // Fetch squad data for the user
   const fetchMySquadData = useCallback(async (userWalletAddress: string) => {
     if (!userWalletAddress || isFetchingSquad || userCheckedNoSquad) return;
     console.log("[HomePage] Fetching squad data for:", userWalletAddress);
@@ -520,6 +524,42 @@ export default function HomePage() {
     }
     setIsProcessingInvite(null);
   };
+
+  // ---> Process squad invite link for already-authenticated users (no wallet needed)
+  useEffect(() => {
+    const shouldProcessInvite =
+      authStatus === "authenticated" &&
+      !!squadInviteIdFromUrl &&
+      !wallet.connected && // activation flow handles wallet-connected case
+      !isProcessingLinkInvite;
+
+    if (!shouldProcessInvite) return;
+
+    const processInvite = async () => {
+      setIsProcessingLinkInvite(true);
+      try {
+        const res = await fetch("/api/squads/invitations/process-link", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ squadId: squadInviteIdFromUrl as string }),
+        });
+        const data = await res.json();
+        if (res.ok) {
+          toast.success(data.message || "Squad invitation received!");
+          // Refresh pending invites so notification count updates
+          fetchPendingInvites();
+          setSquadInviteIdFromUrl(null); // prevent duplicate processing
+        } else {
+          console.warn("[HomePage] Process invite link error:", data.error || res.statusText);
+        }
+      } catch (err) {
+        console.error("[HomePage] Failed to process squad invite link:", err);
+      }
+      setIsProcessingLinkInvite(false);
+    };
+
+    processInvite();
+  }, [authStatus, squadInviteIdFromUrl, wallet.connected, isProcessingLinkInvite, fetchPendingInvites]);
 
   if (authStatus === "loading") {
     return <main className="flex flex-col items-center justify-center min-h-screen p-8 bg-white text-gray-900"><p className="font-orbitron text-xl">Loading Session...</p></main>;

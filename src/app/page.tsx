@@ -630,23 +630,6 @@ export default function HomePage() {
               <AirdropInfoDisplay />
 
               <p className="text-center text-sm text-gray-600 mb-1">Wallet: <span className="font-mono">{wallet.publicKey!.toBase58().substring(0,6)}...{wallet.publicKey!.toBase58().substring(wallet.publicKey!.toBase58().length - 4)}</span></p>
-              {userData.points !== null && (
-                <div className="my-4 text-center"> {/* Wrapper for label and number */}
-                  <p className="text-lg text-gray-600 mb-1">DeFAI Points</p>
-                  <p className="text-5xl font-extrabold animate-pulse mb-2 font-spacegrotesk text-transparent bg-clip-text bg-gradient-to-r from-purple-500 via-pink-500 to-orange-500">
-                    {userData.points.toLocaleString()}
-                  </p>
-                </div>
-              )}
-              {typeof userData.airdropAmount === 'number' && (
-                 <div className="my-4 text-center"> {/* Wrapper for label and number */}
-                    <p className="text-lg text-gray-600 mb-1">$AIR Airdrop for this Wallet</p>
-                    <p className="text-4xl font-bold animate-pulse text-transparent bg-clip-text bg-gradient-to-r from-green-400 via-teal-500 to-cyan-500">
-                        {userData.airdropAmount.toLocaleString()} $AIR
-                    </p>
-                 </div>
-              )}
-              
               {userData.referralCode && (
                 <div className="my-4 p-4 bg-gray-100 rounded-lg text-center w-full">
                   <div className="flex justify-center items-center mb-2">

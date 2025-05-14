@@ -24,6 +24,7 @@ const AirdropInfoDisplay: React.FC<AirdropInfoDisplayProps> = ({ onNotConnected,
   const [totalCommunityPoints, setTotalCommunityPoints] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [initialAirdropAllocation, setInitialAirdropAllocation] = useState<number | null>(null);
 
   const tokenMintAddress = process.env.NEXT_PUBLIC_DEFAI_TOKEN_MINT_ADDRESS;
   const tokenDecimals = parseInt(process.env.NEXT_PUBLIC_DEFAI_TOKEN_DECIMALS || '9', 10);
@@ -47,7 +48,7 @@ const AirdropInfoDisplay: React.FC<AirdropInfoDisplayProps> = ({ onNotConnected,
     let fetchError: string | null = null;
 
     try {
-      const [balanceResult, pointsResult, totalPointsResult] = await Promise.allSettled([
+      const [balanceResult, pointsResult, totalPointsResult, initialAirdropResult] = await Promise.allSettled([
         (async () => {
           if (tokenMintAddress) {
             const mint = new PublicKey(tokenMintAddress);
@@ -75,6 +76,19 @@ const AirdropInfoDisplay: React.FC<AirdropInfoDisplayProps> = ({ onNotConnected,
           }
           console.warn("Failed to fetch total community points, status:", totalPointsResponse.status);
           return null;
+        })(),
+        (async () => {
+          const airdropCheckResponse = await fetch(`/api/check-airdrop?address=${publicKey.toBase58()}`);
+          if (airdropCheckResponse.ok) {
+            const airdropData = await airdropCheckResponse.json();
+            if (typeof airdropData.AIRDROP === 'number') {
+              return airdropData.AIRDROP;
+            }
+            console.warn("[AirdropInfoDisplay] Initial airdrop amount not a number:", airdropData.AIRDROP);
+            return 0;
+          }
+          console.warn("[AirdropInfoDisplay] Failed to fetch initial airdrop allocation, status:", airdropCheckResponse.status);
+          return 0;
         })()
       ]);
 
@@ -96,6 +110,13 @@ const AirdropInfoDisplay: React.FC<AirdropInfoDisplayProps> = ({ onNotConnected,
         fetchedTotalCommunityPoints = totalPointsResult.value;
       } else {
         console.warn("Error fetching total community points:", totalPointsResult.reason);
+      }
+
+      if (initialAirdropResult.status === 'fulfilled') {
+        setInitialAirdropAllocation(initialAirdropResult.value);
+      } else {
+        console.warn("[AirdropInfoDisplay] Error fetching initial airdrop allocation:", initialAirdropResult.reason);
+        setInitialAirdropAllocation(0); // Default to 0 or null if preferred
       }
 
     } catch (err: any) {
@@ -151,7 +172,7 @@ const AirdropInfoDisplay: React.FC<AirdropInfoDisplayProps> = ({ onNotConnected,
     ? (userPoints / totalCommunityPoints) * airdropPoolSize 
     : 0;
   
-  const totalEstimatedAirdrop = (defaiBalance !== null ? defaiBalance : 0) + pointsShare;
+  const totalEstimatedAirdrop = (initialAirdropAllocation || 0) + (defaiBalance !== null ? defaiBalance : 0) + pointsShare;
 
   // Brand colors
   const headlineColor = "text-[#2A97F1]";
@@ -174,6 +195,16 @@ const AirdropInfoDisplay: React.FC<AirdropInfoDisplayProps> = ({ onNotConnected,
       )}
       
       <div className="space-y-5">
+        <div className={`p-4 ${itemBackgroundColor} rounded-lg ${itemBorderColor} border flex items-center justify-between shadow-sm`}>
+          <div className="flex items-center">
+            <GiftIcon className={`w-7 h-7 mr-3 ${accentTextColor}`} />
+            <span className={`${textColor} text-lg`}>Initial $AIR Allocation:</span>
+          </div>
+          <span className={`text-xl font-semibold ${accentTextColor} text-transparent bg-clip-text bg-gradient-to-r from-teal-400 via-cyan-400 to-sky-400`}>
+            {initialAirdropAllocation !== null ? initialAirdropAllocation.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0}) : 'N/A'} {airdropTokenSymbol}
+          </span>
+        </div>
+
         <div className={`p-4 ${itemBackgroundColor} rounded-lg ${itemBorderColor} border flex items-center justify-between shadow-sm`}>
           <div className="flex items-center">
             <CurrencyDollarIcon className={`w-7 h-7 mr-3 ${accentTextColor}`} />

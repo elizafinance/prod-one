@@ -93,10 +93,10 @@ export default function MySquadPage() {
       } else {
         setError(data.error || response.statusText);
         setMySquadData(null);
-        if (response.status === 404) {
+        if (response.status === 404 || response.status === 403) {
           setUserCheckedNoSquad(true);
           setHasLoadedData(true);
-          // Also fetch points if we get a 404
+          // Also fetch points if we get a 404/403 indicating not in squad or mismatch
           if (userWalletAddress) {
             fetchUserPoints(userWalletAddress);
           }

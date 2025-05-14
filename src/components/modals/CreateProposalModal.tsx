@@ -80,7 +80,7 @@ const CreateProposalModal: React.FC<CreateProposalModalProps> = ({ isOpen, onClo
               onChange={(e) => setTokenContractAddress(e.target.value)} 
               placeholder="Enter Solana token mint address" 
               required 
-              className="w-full"
+              className="w-full text-gray-900"
             />
           </div>
           <div>
@@ -92,7 +92,7 @@ const CreateProposalModal: React.FC<CreateProposalModalProps> = ({ isOpen, onClo
               placeholder="e.g., MyToken (MYT)" 
               maxLength={50}
               required 
-              className="w-full"
+              className="w-full text-gray-900"
             />
           </div>
           <div>
@@ -105,7 +105,7 @@ const CreateProposalModal: React.FC<CreateProposalModalProps> = ({ isOpen, onClo
               maxLength={140}
               rows={3}
               required 
-              className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm text-gray-900 shadow-sm placeholder:text-gray-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
             />
             <p className="text-xs text-gray-500 mt-1 text-right">{reason.length}/140</p>
           </div>

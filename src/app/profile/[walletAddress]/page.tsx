@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import UserAvatar from '@/components/UserAvatar';
 import ShareProfileButton from '@/components/ShareProfileButton';
 import GlowingBadge from '@/components/GlowingBadge';
+import AirdropInfoDisplay from "@/components/airdrop/AirdropInfoDisplay";
 
 // INTERFACES AND CONSTANTS used by the Client Component
 interface PublicProfileSquadInfo {
@@ -96,6 +97,7 @@ export default function UserProfilePage() {
 
   const tierStyleKey = profileData.highestAirdropTierLabel ? profileData.highestAirdropTierLabel.toLowerCase() : 'default';
   const currentTierStyle = tierStyles[tierStyleKey] || tierStyles.default;
+  const isOwnProfile = loggedInUserWalletAddress === walletAddress;
   
   return (
     <main className="flex flex-col items-center min-h-screen p-4 sm:p-8 bg-white text-gray-900">
@@ -114,6 +116,13 @@ export default function UserProfilePage() {
           <p className="text-lg text-gray-700 font-mono break-all">{profileData.maskedWalletAddress}</p>
           {profileData.xUsername && <p className="text-md text-gray-500">@{profileData.xUsername}</p>}
         </div>
+
+        {/* Airdrop Info Display for Own Profile */}
+        {isOwnProfile && (
+          <div className="my-6">
+            <AirdropInfoDisplay showTitle={false} />
+          </div>
+        )}
 
         <div className="space-y-6">
           {/* Total Points */}

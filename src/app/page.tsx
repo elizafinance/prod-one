@@ -19,6 +19,7 @@ import { checkRequiredEnvVars } from '@/utils/checkEnv';
 import DeFAILogo from '@/components/DeFAILogo';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import AirdropInfoDisplay from "@/components/airdrop/AirdropInfoDisplay";
 
 // Dynamically import WalletMultiButton
 const WalletMultiButtonDynamic = dynamic(
@@ -626,6 +627,8 @@ export default function HomePage() {
           {/* Rewards Section - Renders ONLY if balance check passes */}
           {showPointsSection && userData && (
             <div className="w-full max-w-lg mt-2 flex flex-col items-center">
+              <AirdropInfoDisplay />
+
               <p className="text-center text-sm text-gray-600 mb-1">Wallet: <span className="font-mono">{wallet.publicKey!.toBase58().substring(0,6)}...{wallet.publicKey!.toBase58().substring(wallet.publicKey!.toBase58().length - 4)}</span></p>
               {userData.points !== null && (
                 <div className="my-4 text-center"> {/* Wrapper for label and number */}

@@ -33,6 +33,34 @@ export default function NotificationsPanel({ isOpen, onClose, onUpdateUnreadCoun
   const [error, setError] = useState<string | null>(null);
   const [showErrorDetails, setShowErrorDetails] = useState(false);
 
+  // Forward declare markNotificationsAsRead for fetchNotifications
+  const markNotificationsAsRead = useCallback(async (notificationIds: string[]) => {
+    try {
+      const response = await fetch('/api/notifications/mark-read', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notificationIds }),
+      });
+      if (response.ok) {
+        // Temporarily remove direct call to fetchNotifications to break potential cycle for linting,
+        // will be re-added if confirmed safe or handled by state update triggering useEffect.
+        // fetchNotifications(); 
+        // Instead, update state that might trigger a re-fetch if isOpen is true
+        setNotifications(prev => prev.map(n => notificationIds.includes(n._id) ? {...n, isRead: true} : n));
+        // Re-calculate unread count based on current notifications
+        const currentUnreadCount = notifications.filter(n => !n.isRead && !notificationIds.includes(n._id)).length;
+        onUpdateUnreadCount(currentUnreadCount);
+        toast.success("Notifications updated.")
+
+      } else {
+        toast.error("Failed to mark notifications as read.");
+      }
+    } catch (err) {
+      toast.error("Error marking notifications as read.");
+      console.error(err);
+    }
+  }, [notifications, onUpdateUnreadCount]); // Removed fetchNotifications from here
+
   const fetchNotifications = useCallback(async (markAsReadOnOpen = false) => {
     setIsLoading(true);
     setError(null);
@@ -60,11 +88,10 @@ export default function NotificationsPanel({ isOpen, onClose, onUpdateUnreadCoun
       onUpdateUnreadCount(data.unreadCount || 0);
 
       if (markAsReadOnOpen && data.notifications && data.notifications.length > 0) {
-        // Mark as read logic might need to change if we don't have a generic isRead for invites
-        // For now, this attempts to mark items that have an _id and an isRead property if API supported it
         const unreadIds = data.notifications.filter((n: UnifiedNotification) => !n.isRead).map((n: UnifiedNotification) => n._id);
         console.log("[Notifications] Unread IDs to mark as read on open:", unreadIds);
         if (unreadIds.length > 0) {
+          // Directly call the stable markNotificationsAsRead function
           markNotificationsAsRead(unreadIds);
         }
       }
@@ -74,32 +101,13 @@ export default function NotificationsPanel({ isOpen, onClose, onUpdateUnreadCoun
       onUpdateUnreadCount(0); // Reset unread count on error
     }
     setIsLoading(false);
-  }, [onUpdateUnreadCount]);
+  }, [onUpdateUnreadCount, markNotificationsAsRead]); // Removed isOpen
 
   useEffect(() => {
     if (isOpen) {
       fetchNotifications(true); // Fetch and mark as read when panel opens
     }
   }, [isOpen, fetchNotifications]);
-
-  const markNotificationsAsRead = async (notificationIds: string[]) => {
-    try {
-      const response = await fetch('/api/notifications/mark-read', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ notificationIds }),
-      });
-      if (response.ok) {
-        // Refresh notifications to show them as read and update unread count
-        fetchNotifications(); 
-      } else {
-        toast.error("Failed to mark notifications as read.");
-      }
-    } catch (err) {
-      toast.error("Error marking notifications as read.");
-      console.error(err);
-    }
-  };
 
   const handleMarkOneAsRead = (notificationId: string) => {
     markNotificationsAsRead([notificationId]);
@@ -118,7 +126,7 @@ export default function NotificationsPanel({ isOpen, onClose, onUpdateUnreadCoun
   };
 
   const handleRetry = () => {
-    fetchNotifications();
+    fetchNotifications(); // fetchNotifications will use the latest markNotificationsAsRead due to useCallback
   };
 
   if (!isOpen) return null;

@@ -67,47 +67,7 @@ export default function SquadDetailsPage() {
   const isUserMember = squadDetails?.memberWalletAddresses.includes(currentUserWalletAddress || '');
   const isUserLeader = squadDetails?.leaderWalletAddress === currentUserWalletAddress;
 
-  useEffect(() => {
-    if (squadId === null) {
-      toast.error("Invalid Squad ID.");
-      router.push("/squads/browse");
-    }
-  }, [squadId, router]);
-
-  const fetchSquadDetails = useCallback(async () => {
-    if (!squadId || !connected) return; // squadId will be null if invalid from above check, stopping fetch
-    
-    setIsLoading(true);
-    setError(null);
-    console.log(`[SquadDetailsPage] Fetching details for squadId: ${squadId}`);
-    try {
-      // Call the new dedicated API endpoint
-      const response = await fetch(`/api/squads/details/${squadId}`); 
-      const data = await response.json();
-
-      if (response.ok && data.squad) {
-        console.log("[SquadDetailsPage] Squad details received:", data.squad);
-        setSquadDetails(data.squad as SquadDetailsData);
-        setEditableSquadName(data.squad.name || ''); // Initialize edit form fields
-        setEditableDescription(data.squad.description || '');
-        setHasLoadedInitialData(true);
-        
-        // If current user is leader of this squad, fetch its pending sent invites and join requests
-        if (data.squad.leaderWalletAddress === currentUserWalletAddress) {
-          fetchSentPendingInvitesForSquad(data.squad.squadId);
-          fetchJoinRequestsForSquad(data.squad.squadId);
-        }
-      } else {
-        throw new Error(data.error || 'Failed to fetch squad details. Squad may not exist or an error occurred.');
-      }
-    } catch (err) {
-      console.error("[SquadDetailsPage] Error fetching squad details:", err);
-      setError((err as Error).message || 'Could not load squad details.');
-      setHasLoadedInitialData(true);
-    }
-    setIsLoading(false);
-  }, [squadId, connected, currentUserWalletAddress]);
-
+  // Forward declaration for fetchSentPendingInvitesForSquad
   const fetchSentPendingInvitesForSquad = useCallback(async (currentSquadId: string) => {
     if (!currentSquadId || !connected) return;
     
@@ -130,6 +90,7 @@ export default function SquadDetailsPage() {
     setIsFetchingSentInvites(false);
   }, [connected]);
 
+  // Forward declaration for fetchJoinRequestsForSquad
   const fetchJoinRequestsForSquad = useCallback(async (currentSquadId: string) => {
     if (!currentSquadId || !connected) return;
     setIsFetchingJoinRequests(true);
@@ -149,6 +110,45 @@ export default function SquadDetailsPage() {
     }
     setIsFetchingJoinRequests(false);
   }, [connected]);
+
+  useEffect(() => {
+    if (squadId === null) {
+      toast.error("Invalid Squad ID.");
+      router.push("/squads/browse");
+    }
+  }, [squadId, router]);
+
+  const fetchSquadDetails = useCallback(async () => {
+    if (!squadId || !connected) return;
+    
+    setIsLoading(true);
+    setError(null);
+    console.log(`[SquadDetailsPage] Fetching details for squadId: ${squadId}`);
+    try {
+      const response = await fetch(`/api/squads/details/${squadId}`); 
+      const data = await response.json();
+
+      if (response.ok && data.squad) {
+        console.log("[SquadDetailsPage] Squad details received:", data.squad);
+        setSquadDetails(data.squad as SquadDetailsData);
+        setEditableSquadName(data.squad.name || '');
+        setEditableDescription(data.squad.description || '');
+        setHasLoadedInitialData(true);
+        
+        if (data.squad.leaderWalletAddress === currentUserWalletAddress) {
+          fetchSentPendingInvitesForSquad(data.squad.squadId);
+          fetchJoinRequestsForSquad(data.squad.squadId);
+        }
+      } else {
+        throw new Error(data.error || 'Failed to fetch squad details. Squad may not exist or an error occurred.');
+      }
+    } catch (err) {
+      console.error("[SquadDetailsPage] Error fetching squad details:", err);
+      setError((err as Error).message || 'Could not load squad details.');
+      setHasLoadedInitialData(true);
+    }
+    setIsLoading(false);
+  }, [squadId, connected, currentUserWalletAddress, fetchSentPendingInvitesForSquad, fetchJoinRequestsForSquad]);
 
   useEffect(() => {
     // Only fetch once when page loads or squadId/connection changes

@@ -33,6 +33,21 @@ const AirdropInfoDisplay: React.FC<AirdropInfoDisplayProps> = ({ onNotConnected,
   const airdropPoolSize = parseInt(process.env.NEXT_PUBLIC_AIRDROP_POINTS_POOL_SIZE || '1000000000', 10);
   const airdropTokenSymbol = process.env.NEXT_PUBLIC_AIRDROP_TOKEN_SYMBOL || "AIR";
 
+  // useEffect for onTotalAirdropChange: Moved to top, depends on constituent states.
+  useEffect(() => {
+    if (onTotalAirdropChange) {
+      const currentPointsShare = 
+        userPoints !== null && userPoints > 0 && totalCommunityPoints !== null && totalCommunityPoints > 0 
+        ? (userPoints / totalCommunityPoints) * airdropPoolSize 
+        : 0;
+      const currentTotalEstimatedAirdrop = 
+        (initialAirdropAllocation || 0) + 
+        (defaiBalance !== null ? defaiBalance : 0) + 
+        currentPointsShare;
+      onTotalAirdropChange(currentTotalEstimatedAirdrop);
+    }
+  }, [initialAirdropAllocation, defaiBalance, userPoints, totalCommunityPoints, airdropPoolSize, onTotalAirdropChange]);
+
   const fetchAirdropData = useCallback(async () => {
     if (!connected || !publicKey || !session?.user?.walletAddress) {
       setDefaiBalance(null);
@@ -174,12 +189,6 @@ const AirdropInfoDisplay: React.FC<AirdropInfoDisplayProps> = ({ onNotConnected,
     : 0;
   
   const totalEstimatedAirdrop = (initialAirdropAllocation || 0) + (defaiBalance !== null ? defaiBalance : 0) + pointsShare;
-
-  useEffect(() => {
-    if (onTotalAirdropChange) {
-      onTotalAirdropChange(totalEstimatedAirdrop);
-    }
-  }, [totalEstimatedAirdrop, onTotalAirdropChange]);
 
   // Brand colors
   const headlineColor = "text-[#2A97F1]";

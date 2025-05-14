@@ -377,7 +377,8 @@ export default function HomePage() {
       isCheckingDefaiBalance, // Added balance check state
       connection, // Added connection
       checkDefaiBalance, // Added check function
-      updateSession // Added updateSession
+      updateSession, // Added updateSession
+      isFetchingInvites // Added missing dependency
     ]);
   
   // Reset the userCheckedNoSquad flag when wallet changes

@@ -108,11 +108,13 @@ export default function NotificationsPanel({ isOpen, onClose, onUpdateUnreadCoun
   
   const handleMarkAllAsRead = () => {
     // This also needs to be aware of the source of notifications if they are marked read differently
-    // const allUnreadIds = notifications.filter(n => !n.isRead).map(n => n._id);
-    // if(allUnreadIds.length > 0) {
-    //     markNotificationsAsRead(allUnreadIds);
-    // }
-    toast.info("Mark all as read feature needs review for unified notification types.");
+    const allUnreadIds = notifications.filter(n => !n.isRead).map(n => n._id);
+    if(allUnreadIds.length > 0) {
+        markNotificationsAsRead(allUnreadIds);
+    } else {
+        toast.info("No unread notifications to mark.");
+    }
+    // toast.info("Mark all as read feature needs review for unified notification types.");
   };
 
   const handleRetry = () => {

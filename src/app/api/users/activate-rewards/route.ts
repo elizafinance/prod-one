@@ -166,7 +166,7 @@ const baseHandler = withAuth(async (request: Request, session) => {
         
         const referrer = await usersCollection.findOne({ referralCode: referrerCodeFromQuery });
         if (referrer) {
-            console.log(`[Activate Rewards] Referrer found with code ${referrerCodeFromQuery}. Referrer wallet: ${referrer.walletAddress || 'none'}, referrer xUserId: ${referrer.xUserId || 'none'}`);
+            console.log(`[Activate Rewards] Referrer found with code ${referrerCodeFromQuery}. Referrer wallet: ${referrer.walletAddress || 'none'}, referrer xUserId: ${referrer.xUserId || referrer.walletAddress} (${referrerCodeFromQuery})`);
             
             if (referrer.walletAddress && referrer.walletAddress !== newSolanaWalletAddress) {
                 console.log(`[Activate Rewards] Processing referral for ${xUserId} by referrer ${referrer.xUserId || referrer.walletAddress} (code: ${referrerCodeFromQuery})`);
@@ -317,7 +317,7 @@ const baseHandler = withAuth(async (request: Request, session) => {
 
     // ---> START: Create squad invitation if conditions met
     let squadInviteCreated = false;
-    if (squadInviteIdFromUrl && isNewUserActivation) { // Only process if squad ID provided AND it's the first activation for this wallet link
+    if (squadInviteIdFromUrl && !userToUpdate.squadId) {
       console.log(`[Activate Rewards] Processing squad invite. Squad ID: ${squadInviteIdFromUrl}, User Wallet: ${newSolanaWalletAddress}`);
       
       // 1. Find the target squad

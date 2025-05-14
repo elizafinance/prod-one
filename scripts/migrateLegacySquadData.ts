@@ -1,5 +1,5 @@
 import 'dotenv/config'; // Load .env variables
-import { connectToDatabase } from '../src/lib/mongodb.js';
+import { connectToDatabase } from '../src/lib/mongodb.js'; // Keep .js for NodeNext script execution
 
 async function main() {
   const { db, client } = await connectToDatabase();

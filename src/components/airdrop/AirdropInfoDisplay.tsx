@@ -12,9 +12,10 @@ import { useSession } from 'next-auth/react';
 interface AirdropInfoDisplayProps {
   onNotConnected?: () => React.ReactNode;
   showTitle?: boolean;
+  onTotalAirdropChange?: (totalAirdrop: number) => void;
 }
 
-const AirdropInfoDisplay: React.FC<AirdropInfoDisplayProps> = ({ onNotConnected, showTitle = true }) => {
+const AirdropInfoDisplay: React.FC<AirdropInfoDisplayProps> = ({ onNotConnected, showTitle = true, onTotalAirdropChange }) => {
   const { publicKey, connected } = useWallet();
   const { connection } = useConnection();
   const { data: session, status: authStatus } = useSession();
@@ -173,6 +174,12 @@ const AirdropInfoDisplay: React.FC<AirdropInfoDisplayProps> = ({ onNotConnected,
     : 0;
   
   const totalEstimatedAirdrop = (initialAirdropAllocation || 0) + (defaiBalance !== null ? defaiBalance : 0) + pointsShare;
+
+  useEffect(() => {
+    if (onTotalAirdropChange) {
+      onTotalAirdropChange(totalEstimatedAirdrop);
+    }
+  }, [totalEstimatedAirdrop, onTotalAirdropChange]);
 
   // Brand colors
   const headlineColor = "text-[#2A97F1]";

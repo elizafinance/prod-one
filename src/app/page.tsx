@@ -110,6 +110,7 @@ export default function HomePage() {
 
   // ---> Add state for squad invite ID from URL
   const [squadInviteIdFromUrl, setSquadInviteIdFromUrl] = useState<string | null>(null);
+  const [currentTotalAirdropForSharing, setCurrentTotalAirdropForSharing] = useState<number>(0);
 
   // State for DeFAI balance check
   const [isCheckingDefaiBalance, setIsCheckingDefaiBalance] = useState(false);
@@ -402,11 +403,17 @@ export default function HomePage() {
         if (typeof data.AIRDROP === 'number') {
             toast.success(`This address qualifies for ${data.AIRDROP.toLocaleString()} $AIR.`);
         } else {
-            toast.info(data.error || "This address does not qualify for the airdrop.");
+            toast.info(data.error || "Airdrop status unknown.");
+            setAirdropCheckResult("Eligibility status unclear.");
         }
       } else {
-        setAirdropCheckResult(data.error || "Airdrop status unknown.");
-        toast.error(data.error || "Could not check airdrop status.");
+        if (data.error && data.error.toLowerCase().includes("don't qualify")) {
+          setAirdropCheckResult(0);
+          toast.info("This address isn't on the initial airdrop list.");
+        } else {
+          setAirdropCheckResult(data.error || "Airdrop status unknown.");
+          toast.error(data.error || "Could not check airdrop status.");
+        }
       }
     } catch (error) {
       toast.error("Failed to check airdrop status.");
@@ -457,11 +464,12 @@ export default function HomePage() {
         toast.info("Log in with X and activate rewards to share.");
         return;
     }
-    if (typeof airdropCheckResult !== 'number' || airdropCheckResult <= 0) {
-        toast.info("You need to qualify for the airdrop to use this share feature.");
+    // Use the new state variable for the total airdrop amount for sharing
+    if (currentTotalAirdropForSharing <= 0) {
+        toast.info("You need to have a calculated airdrop amount to share."); // Updated message
         return;
     }
-    const airdropAmountStr = airdropCheckResult.toLocaleString();
+    const airdropAmountStr = currentTotalAirdropForSharing.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0 });
     const siteBaseUrl = "https://squad.defairewards.net";
     const shareUrl = userData?.referralCode ? `${siteBaseUrl}/?ref=${userData.referralCode}` : siteBaseUrl;
     const twitterHandle = "DeFAIRewards";
@@ -627,7 +635,7 @@ export default function HomePage() {
           {/* Rewards Section - Renders ONLY if balance check passes */}
           {showPointsSection && userData && (
             <div className="w-full max-w-lg mt-2 flex flex-col items-center">
-              <AirdropInfoDisplay />
+              <AirdropInfoDisplay onTotalAirdropChange={setCurrentTotalAirdropForSharing} />
 
               <p className="text-center text-sm text-gray-600 mb-1">Wallet: <span className="font-mono">{wallet.publicKey!.toBase58().substring(0,6)}...{wallet.publicKey!.toBase58().substring(wallet.publicKey!.toBase58().length - 4)}</span></p>
               {userData.referralCode && (
@@ -751,7 +759,8 @@ export default function HomePage() {
                 <Link href="/leaderboard" passHref className="flex-shrink-0">
                   <button className="w-full sm:w-auto text-white font-bold py-3 px-6 rounded-full transition-all duration-150 ease-in-out hover:scale-105 hover:shadow-lg hover:shadow-blue-500/50 whitespace-nowrap" style={{ backgroundColor: '#2563EB' }}><LeaderboardIcon /> Leaderboard</button>
                 </Link>
-                {typeof userData.airdropAmount === 'number' && userData.airdropAmount > 0 && (
+                {/* Ensure button is shown only if rewards are active and there's something to share */}
+                {isRewardsActive && currentTotalAirdropForSharing > 0 && (
                   <button onClick={handleShareToX} className="w-full sm:w-auto text-white font-bold py-3 px-6 rounded-full transition-all duration-150 ease-in-out hover:scale-105 hover:shadow-lg hover:shadow-blue-500/50 whitespace-nowrap" style={{ backgroundColor: '#2563EB' }} ><ShareIcon /> Flex my $AIR on X</button>
                 )}
                 <button onClick={() => { window.open("https://x.com/defairewards", "_blank"); logSocialAction('followed_on_x');}} className="w-full sm:w-auto text-white font-bold py-3 px-6 rounded-full transition-all duration-150 ease-in-out hover:scale-105 hover:shadow-lg hover:shadow-blue-500/50 whitespace-nowrap" style={{ backgroundColor: '#2563EB' }}><XIcon /> Follow on X</button>

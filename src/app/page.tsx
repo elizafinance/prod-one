@@ -86,7 +86,7 @@ if (isNaN(REQUIRED_DEFAI_AMOUNT)) {
 }
 
 export default function HomePage() {
-  const { data: session, status: authStatus, update: updateSession } = useSession();
+  const { data: session, status: authStatus } = useSession();
   const wallet = useWallet();
   const { connection } = useConnection(); // Correct usage
   const router = useRouter();
@@ -279,15 +279,6 @@ export default function HomePage() {
         if (data.airdropAmount !== undefined) setAirdropCheckResult(data.airdropAmount);
         setIsRewardsActive(true);
 
-        // ---> Force session update to reflect new walletAddress if linked
-        console.log("[HomePage] Activation successful, attempting to update session.");
-        await updateSession(); 
-        console.log("[HomePage] Session update attempted.");
-
-        if (data.points > 0 || (data.points === 0 && data.message && data.message.includes("created"))) {
-            toast.info(`Your current points: ${data.points?.toLocaleString() || 0}`);
-        }
-
         // ---> Check if it's a first-time activation
         const isFirstTimeActivation = data.isNewUser || (data.message && data.message.toLowerCase().includes("created"));
         if (isFirstTimeActivation) {
@@ -342,7 +333,7 @@ export default function HomePage() {
       setPendingInvites([]);
     }
     setIsActivatingRewards(false);
-  }, [initialReferrer, squadInviteIdFromUrl, fetchMySquadData, fetchPendingInvites, connection, wallet.publicKey, checkDefaiBalance, updateSession]);
+  }, [initialReferrer, squadInviteIdFromUrl, fetchMySquadData, fetchPendingInvites, connection, wallet.publicKey, checkDefaiBalance]);
 
   useEffect(() => {
     if (authStatus === "authenticated" && session?.user?.xId && session?.user?.dbId && wallet.connected && wallet.publicKey && !isRewardsActive && !isActivatingRewards) {
@@ -381,7 +372,6 @@ export default function HomePage() {
       isCheckingDefaiBalance, // Added balance check state
       connection, // Added connection
       checkDefaiBalance, // Added check function
-      updateSession, // Added updateSession
       isFetchingInvites // Added missing dependency
     ]);
   

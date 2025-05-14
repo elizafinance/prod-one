@@ -46,11 +46,16 @@ export default function NotificationsPanel({ isOpen, onClose, onUpdateUnreadCoun
         // will be re-added if confirmed safe or handled by state update triggering useEffect.
         // fetchNotifications(); 
         // Instead, update state that might trigger a re-fetch if isOpen is true
-        setNotifications(prev => prev.map(n => notificationIds.includes(n._id) ? {...n, isRead: true} : n));
-        // Re-calculate unread count based on current notifications
-        const currentUnreadCount = notifications.filter(n => !n.isRead && !notificationIds.includes(n._id)).length;
-        onUpdateUnreadCount(currentUnreadCount);
-        toast.success("Notifications updated.")
+        setNotifications(prev => {
+          const updated = prev.map(n => notificationIds.includes(n._id) ? { ...n, isRead: true } : n);
+          const newUnreadCount = updated.filter(n => !n.isRead).length;
+          onUpdateUnreadCount(newUnreadCount);
+          return updated;
+        });
+        // Optionally show a toast only when marking a single notification
+        if (notificationIds.length === 1) {
+          toast.success("Notification marked as read.");
+        }
 
       } else {
         toast.error("Failed to mark notifications as read.");
@@ -59,7 +64,7 @@ export default function NotificationsPanel({ isOpen, onClose, onUpdateUnreadCoun
       toast.error("Error marking notifications as read.");
       console.error(err);
     }
-  }, [notifications, onUpdateUnreadCount]); // Removed fetchNotifications from here
+  }, [onUpdateUnreadCount]); // notifications removed to prevent stale closure
 
   const fetchNotifications = useCallback(async (markAsReadOnOpen = false) => {
     setIsLoading(true);

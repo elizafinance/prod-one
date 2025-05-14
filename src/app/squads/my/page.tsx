@@ -33,6 +33,9 @@ export default function MySquadPage() {
   } | null>(null);
   const [isFetchingTiers, setIsFetchingTiers] = useState(true);
 
+  // Track previous wallet address to detect actual wallet changes
+  const [prevWalletAddress, setPrevWalletAddress] = useState<string | null>(null);
+
   const [isCreateProposalModalOpen, setIsCreateProposalModalOpen] = useState(false);
 
   const fetchUserPoints = useCallback(async (walletAddress: string) => {
@@ -109,38 +112,61 @@ export default function MySquadPage() {
     }
     
     setIsFetchingSquad(false);
-  }, [isFetchingSquad, userCheckedNoSquad, fetchUserPoints, mySquadData, hasLoadedData, isCreateProposalModalOpen]);
+  }, [isFetchingSquad, userCheckedNoSquad, fetchUserPoints, mySquadData, hasLoadedData, isCreateProposalModalOpen, authStatus, session]);
 
   useEffect(() => {
     let isActive = true;
     
-    // Only fetch if connected with wallet and either:
-    // 1. We haven't determined if user has no squad OR
-    // 2. We haven't loaded any data yet
-    if (connected && publicKey && (!userCheckedNoSquad || !hasLoadedData)) {
+    // Fetch only if authenticated, wallet connected, and data isn't loaded/stale
+    if (authStatus === "authenticated" && session?.user?.xId && connected && publicKey && (!userCheckedNoSquad || !hasLoadedData)) {
       const timer = setTimeout(() => {
         if (isActive) {
           fetchMySquadData(publicKey.toBase58());
         }
-      }, 500);
+      }, 500); // Keep a small debounce
       
       return () => {
         isActive = false;
         clearTimeout(timer);
       };
+    } else if (authStatus === "unauthenticated" || (authStatus === "authenticated" && !session?.user?.xId)){
+      // If unauthenticated or session is missing xId, clear squad data and mark as loaded to stop loops
+      setMySquadData(null);
+      setUserCheckedNoSquad(true); // Assume no squad if not properly authenticated
+      setHasLoadedData(true);
+      setError("User not authenticated. Please log in.");
     }
-  }, [connected, publicKey, fetchMySquadData, userCheckedNoSquad, hasLoadedData]);
+  }, [authStatus, session, connected, publicKey, fetchMySquadData, userCheckedNoSquad, hasLoadedData]);
 
   useEffect(() => {
-    // Reset checks when wallet changes
-    if (publicKey) {
+    const currentAddress = publicKey ? publicKey.toBase58() : null;
+
+    if (!connected) {
+      setPrevWalletAddress(null);
+      // Optionally, reset other states like mySquadData, userCheckedNoSquad, hasLoadedData
+      // setMySquadData(null);
+      // setUserCheckedNoSquad(false); // Allow re-check on next connection
+      // setHasLoadedData(false);
+      return;
+    }
+
+    if (currentAddress && currentAddress !== prevWalletAddress) {
+      setPrevWalletAddress(currentAddress);
       setUserCheckedNoSquad(false);
       setHasLoadedData(false);
+      // Explicitly do not call fetchMySquadData here, let the main effect handle it based on auth status
+    } else if (!currentAddress && prevWalletAddress) {
+      // Wallet was disconnected (publicKey became null)
+      setPrevWalletAddress(null);
+      // Resetting flags so that on next connect, data can be fetched.
+      // setUserCheckedNoSquad(false);
+      // setHasLoadedData(false);
+      // setMySquadData(null); // Clear stale data
     }
-  }, [publicKey]);
+  }, [connected, publicKey, prevWalletAddress]);
 
   const handleForceRefresh = () => {
-    if (connected && publicKey) {
+    if (authStatus === "authenticated" && connected && publicKey) {
       setUserCheckedNoSquad(false);
       setHasLoadedData(false);
       fetchMySquadData(publicKey.toBase58());

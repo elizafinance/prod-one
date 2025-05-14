@@ -585,8 +585,11 @@ export default function HomePage() {
                         </p>
                       ) : (
                         <div>
-                          <p className="text-center text-lg text-gray-600 mb-4">
-                            You dont qualify because your $DEFAI balance is zero.
+                          <p className="text-center text-lg text-gray-600 mb-2">
+                            This address is not on the initial airdrop list.
+                          </p>
+                          <p className="text-center text-sm text-gray-500 mb-4">
+                            You can qualify for future rewards by earning points! <br /> Sign in with X and connect your wallet to get started.
                           </p>
                           <Link href="https://dexscreener.com/solana/3jiwexdwzxjva2yd8aherfsrn7a97qbwmdz8i4q6mh7y" target="_blank" rel="noopener noreferrer">
                             <button className="text-white font-semibold py-2 px-4 rounded-full transition-all duration-150 ease-in-out hover:scale-105 hover:shadow-lg hover:shadow-blue-500/50 whitespace-nowrap" style={{ backgroundColor: '#2563EB' }}>

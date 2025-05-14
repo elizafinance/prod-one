@@ -63,10 +63,9 @@ export default function NotificationsPanel({ isOpen, onClose, onUpdateUnreadCoun
         // Mark as read logic might need to change if we don't have a generic isRead for invites
         // For now, this attempts to mark items that have an _id and an isRead property if API supported it
         const unreadIds = data.notifications.filter((n: UnifiedNotification) => !n.isRead).map((n: UnifiedNotification) => n._id);
-        console.log("[Notifications] Unread IDs to mark as read:", unreadIds);
+        console.log("[Notifications] Unread IDs to mark as read on open:", unreadIds);
         if (unreadIds.length > 0) {
-          // markNotificationsAsRead(unreadIds); // This API might need adjustment for different notification types
-          console.log("[Notifications] Skipping markAsRead for now as it needs API adjustment for UnifiedNotification types.");
+          markNotificationsAsRead(unreadIds);
         }
       }
     } catch (err) {
@@ -109,6 +108,7 @@ export default function NotificationsPanel({ isOpen, onClose, onUpdateUnreadCoun
   const handleMarkAllAsRead = () => {
     // This also needs to be aware of the source of notifications if they are marked read differently
     const allUnreadIds = notifications.filter(n => !n.isRead).map(n => n._id);
+    console.log("[NotificationsPanel] Attempting to mark all as read. Unread IDs collected:", allUnreadIds); // DEBUG LOG
     if(allUnreadIds.length > 0) {
         markNotificationsAsRead(allUnreadIds);
     } else {

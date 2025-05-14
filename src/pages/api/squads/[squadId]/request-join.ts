@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import type { NextApiRequest, NextApiResponse } from 'next';
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { connectToDatabase, UserDocument, SquadDocument, ISquadJoinRequest } from '@/lib/mongodb';
@@ -11,23 +11,26 @@ interface RequestJoinBody {
   message?: string;
 }
 
-export async function POST(request: Request, { params }: { params: { squadId: string } }) {
-  const session = await getServerSession(authOptions);
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse
+) {
+  if (req.method !== 'POST') {
+    res.setHeader('Allow', ['POST']);
+    return res.status(405).end(`Method ${req.method} Not Allowed`);
+  }
+
+  const session = await getServerSession(req, res, authOptions);
   if (!session || !session.user || !session.user.walletAddress) {
-    return NextResponse.json({ error: 'User not authenticated' }, { status: 401 });
+    return res.status(401).json({ error: 'User not authenticated' });
   }
 
-  const { squadId } = params;
-  if (!squadId) {
-    return NextResponse.json({ error: 'Squad ID is required' }, { status: 400 });
+  const { squadId } = req.query;
+  if (!squadId || typeof squadId !== 'string') {
+    return res.status(400).json({ error: 'Squad ID is required' });
   }
 
-  let requestBody: RequestJoinBody;
-  try {
-    requestBody = await request.json();
-  } catch (e) {
-    requestBody = {}; // Assume no message if body is not valid JSON or empty
-  }
+  const requestBody: RequestJoinBody = req.body || {};
   const { message } = requestBody;
 
   const userWalletAddress = session.user.walletAddress;
@@ -36,24 +39,21 @@ export async function POST(request: Request, { params }: { params: { squadId: st
     const { db } = await connectToDatabase();
     const usersCollection = db.collection<UserDocument>('users');
     const squadsCollection = db.collection<SquadDocument>('squads');
-    const squadJoinRequestsCollection = db.collection<ISquadJoinRequest>('squadjoinrequests'); // Mongoose auto-pluralizes and lowercases
+    const squadJoinRequestsCollection = db.collection<ISquadJoinRequest>('squadjoinrequests');
 
-    // 1. Check if user is already in a squad
     const currentUser = await usersCollection.findOne({ walletAddress: userWalletAddress });
     if (!currentUser) {
-      return NextResponse.json({ error: 'User profile not found.' }, { status: 404 });
+      return res.status(404).json({ error: 'User profile not found.' });
     }
     if (currentUser.squadId) {
-      return NextResponse.json({ error: 'You are already in a squad. Leave your current squad to request to join another.' }, { status: 400 });
+      return res.status(400).json({ error: 'You are already in a squad. Leave your current squad to request to join another.' });
     }
 
-    // 2. Check if the target squad exists
     const targetSquad = await squadsCollection.findOne({ squadId: squadId });
     if (!targetSquad) {
-      return NextResponse.json({ error: 'Squad not found' }, { status: 404 });
+      return res.status(404).json({ error: 'Squad not found' });
     }
 
-    // 3. Check if user already has a PENDING request for this squad
     const existingRequest = await squadJoinRequestsCollection.findOne({
       squadId: squadId,
       requestingUserWalletAddress: userWalletAddress,
@@ -61,23 +61,21 @@ export async function POST(request: Request, { params }: { params: { squadId: st
     });
 
     if (existingRequest) {
-      return NextResponse.json({ error: 'You already have a pending request to join this squad.' }, { status: 400 });
+      return res.status(400).json({ error: 'You already have a pending request to join this squad.' });
     }
 
-    // 4. Create the join request
     const newJoinRequest = new SquadJoinRequest({
       squadId: targetSquad.squadId,
-      squadName: targetSquad.name, // Denormalized squad name
+      squadName: targetSquad.name,
       requestingUserWalletAddress: userWalletAddress,
-      requestingUserXUsername: session.user.xUsername, // Denormalized from session
-      requestingUserXProfileImageUrl: session.user.xProfileImageUrl, // Denormalized from session
+      requestingUserXUsername: session.user.xUsername,
+      requestingUserXProfileImageUrl: session.user.xProfileImageUrl,
       status: 'pending',
-      message: message, // Optional message from user
+      message: message,
     });
 
     await newJoinRequest.save();
 
-    // 5. Notify squad leader
     await createNotification(
       db,
       targetSquad.leaderWalletAddress,
@@ -90,10 +88,10 @@ export async function POST(request: Request, { params }: { params: { squadId: st
       newJoinRequest.requestId
     );
 
-    return NextResponse.json({ message: 'Request to join squad sent successfully!', requestId: newJoinRequest.requestId }, { status: 201 });
+    return res.status(201).json({ message: 'Request to join squad sent successfully!', requestId: newJoinRequest.requestId });
 
   } catch (error) {
     console.error("Error requesting to join squad:", error);
-    return NextResponse.json({ error: 'Failed to send request to join squad' }, { status: 500 });
+    return res.status(500).json({ error: 'Failed to send request to join squad' });
   }
 } 

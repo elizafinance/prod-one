@@ -35,7 +35,7 @@ export async function POST(request: Request) {
     }
 
     const { db } = await connectToDatabase();
-    const invitationsCollection = db.collection<SquadInvitationDocument>('squad_invitations');
+    const invitationsCollection = db.collection<SquadInvitationDocument>('squadInvitations');
     const usersCollection = db.collection<UserDocument>('users');
     const squadsCollection = db.collection<SquadDocument>('squads');
 

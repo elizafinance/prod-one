@@ -66,11 +66,19 @@ export async function POST(request: Request) {
     const usersCollection = db.collection<UserDocument>('users');
 
     const leaderUser = await usersCollection.findOne({ walletAddress: leaderWalletAddress });
-    if (!leaderUser) {
-      return NextResponse.json({ error: 'Authenticated leader user not found in database.' }, { status: 404 });
+    let userDoc = leaderUser;
+    if (!userDoc) {
+      // Fallback lookup by xUserId if wallet not yet linked in DB
+      const xUserId = (session.user as any).xId;
+      if (xUserId) {
+        userDoc = await usersCollection.findOne({ xUserId });
+      }
+    }
+    if (!userDoc) {
+      return NextResponse.json({ error: 'Authenticated leader user not found in database. Please complete wallet linking first.' }, { status: 404 });
     }
     
-    const userPoints = leaderUser.points || 0;
+    const userPoints = userDoc.points || 0;
     const { tier, maxMembers } = getSquadTierInfo(userPoints);
     
     if (tier === 0) {
@@ -79,7 +87,7 @@ export async function POST(request: Request) {
       }, { status: 403 });
     }
     
-    if (leaderUser.squadId) {
+    if (userDoc.squadId) {
       return NextResponse.json({ error: 'You are already in a squad. Leave your current squad to create a new one.' }, { status: 400 });
     }
 

@@ -3,6 +3,8 @@ import { connectToDatabase, UserDocument, ActionDocument, ReferralBoost, SquadDo
 import airdropDataList from '@/data/airdropData.json'; // For checking airdrop amount
 import { randomBytes } from 'crypto';
 import { Db, ObjectId } from 'mongodb';
+import { withAuth } from '@/middleware/authGuard';
+import { withRateLimit } from '@/middleware/rateLimiter';
 
 interface AirdropGsheetEntry {
   Account: string;
@@ -57,7 +59,7 @@ interface ActivateRequestBody {
   squadInviteIdFromUrl?: string | null;
 }
 
-export async function POST(request: Request) {
+const baseHandler = withAuth(async (request: Request, session) => {
   try {
     const body: ActivateRequestBody = await request.json();
     const { walletAddress: newSolanaWalletAddress, xUserId, userDbId, referrerCodeFromQuery, squadInviteIdFromUrl } = body;
@@ -410,4 +412,6 @@ export async function POST(request: Request) {
     console.error("[Activate Rewards] General Error:", error);
     return NextResponse.json({ error: 'Failed to activate rewards' }, { status: 500 });
   }
-} 
+});
+
+export const POST = withRateLimit(baseHandler); 

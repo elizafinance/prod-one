@@ -12,7 +12,7 @@ export async function GET(request: Request) {
 
   try {
     const { db } = await connectToDatabase();
-    const invitationsCollection = db.collection<SquadInvitationDocument>('squad_invitations');
+    const invitationsCollection = db.collection<SquadInvitationDocument>('squadInvitations');
     const squadsCollection = db.collection<SquadDocument>('squads');
 
     // Find squads where the current user is the leader

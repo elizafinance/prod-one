@@ -1,13 +1,12 @@
 import { NextResponse } from 'next/server';
 import { connectToDatabase, UserDocument, ActionDocument, SquadDocument } from '@/lib/mongodb';
-import { randomBytes } from 'crypto'; // For generating referral code if user is new
-import { Db } from 'mongodb'; // Import Db type
+import { withAuth } from '@/middleware/authGuard';
+import { withRateLimit } from '@/middleware/rateLimiter';
 
 // Placeholder for your database connection and logic
 // import { connectToDatabase, User, Action } from '@/lib/mongodb'; // Example
 
 interface RequestBody {
-  walletAddress: string;
   actionType: 'shared_on_x' | 'followed_on_x' | 'joined_telegram'; // Expanded action types
 }
 
@@ -21,32 +20,12 @@ const POINTS_FOR_ACTION: Record<RequestBody['actionType'], number> = {
 // Define actions that should only award points once
 const ONE_TIME_ACTIONS: RequestBody['actionType'][] = ['followed_on_x', 'joined_telegram', 'shared_on_x']; // shared_on_x can be one-time or repeatable with daily/weekly limits (more complex)
 
-// Copied and adapted generateUniqueReferralCode function
-async function generateUniqueReferralCode(db: Db, length = 8): Promise<string> {
-  const usersCollection = db.collection<UserDocument>('users');
-  let referralCode = '';
-  let isUnique = false;
-  let attempts = 0;
-  const maxAttempts = 10; 
-  while (!isUnique && attempts < maxAttempts) {
-    referralCode = randomBytes(Math.ceil(length / 2)).toString('hex').slice(0, length);
-    const existingUser = await usersCollection.findOne({ referralCode });
-    if (!existingUser) {
-      isUnique = true;
-    }
-    attempts++;
-  }
-  if (!isUnique) {
-    console.warn(`Could not generate a unique referral code in log-social after ${maxAttempts} attempts. Appending random chars.`);
-    return referralCode + randomBytes(2).toString('hex'); 
-  }
-  return referralCode;
-}
-
-export async function POST(request: Request) {
+const handler = withAuth(async (request: Request, session) => {
   try {
     const body: RequestBody = await request.json();
-    const { walletAddress, actionType } = body;
+    const { actionType } = body;
+
+    const walletAddress = session.user.walletAddress as string;
 
     if (!walletAddress || !actionType) {
       return NextResponse.json({ error: 'Wallet address and action type are required' }, { status: 400 });
@@ -61,38 +40,36 @@ export async function POST(request: Request) {
     const actionsCollection = db.collection<ActionDocument>('actions');
     const squadsCollection = db.collection<SquadDocument>('squads');
 
-    let user = await usersCollection.findOne({ walletAddress });
-
-    if (!user) {
-      return NextResponse.json({ error: 'User not found. Please ensure account is activated.' }, { status: 404 });
-    }
-
-    const completedActions = user.completedActions || [];
-
-    // Check if this is a one-time action and if it's already completed
-    if (ONE_TIME_ACTIONS.includes(actionType) && completedActions.includes(actionType)) {
-      return NextResponse.json({ message: `Action '${actionType}' already recorded. No new points awarded.`, currentPoints: user.points });
-    }
-
     const pointsAwarded = POINTS_FOR_ACTION[actionType];
-    const updatedPoints = (user.points || 0) + pointsAwarded;
-    const updatedCompletedActions = [...completedActions];
-    if (!completedActions.includes(actionType)) {
-      updatedCompletedActions.push(actionType);
+
+    // Atomic update: only apply if action not already in completedActions (for one-time actions)
+    const userUpdateFilter: any = { walletAddress };
+    if (ONE_TIME_ACTIONS.includes(actionType)) {
+      userUpdateFilter.completedActions = { $ne: actionType };
     }
 
-    await usersCollection.updateOne(
-      { walletAddress },
-      { $set: { points: updatedPoints, completedActions: updatedCompletedActions, updatedAt: new Date() } }
+    const updateResult = await usersCollection.updateOne(
+      userUpdateFilter,
+      {
+        $inc: { points: pointsAwarded },
+        $addToSet: { completedActions: actionType },
+        $set: { updatedAt: new Date() },
+      }
     );
 
-    // Update squad points if user is in a squad
-    if (user.squadId) {
+    if (updateResult.modifiedCount === 0) {
+      return NextResponse.json({ message: `Action '${actionType}' already recorded. No new points awarded.` });
+    }
+
+    // fetch user to get squadId & new points
+    const user = await usersCollection.findOne({ walletAddress });
+
+    if (user?.squadId) {
       await squadsCollection.updateOne(
         { squadId: user.squadId },
-        { 
+        {
           $inc: { totalSquadPoints: pointsAwarded },
-          $set: { updatedAt: new Date() }
+          $set: { updatedAt: new Date() },
         }
       );
       console.log(`Updated squad ${user.squadId} points by ${pointsAwarded} from social action by ${walletAddress}`);
@@ -105,9 +82,9 @@ export async function POST(request: Request) {
       timestamp: new Date(),
     });
 
-    return NextResponse.json({ 
-      message: `Action '${actionType}' logged successfully.`, 
-      newPointsTotal: updatedPoints 
+    return NextResponse.json({
+      message: `Action '${actionType}' logged successfully.`,
+      newPointsTotal: user?.points ?? undefined,
     });
 
   } catch (error) {
@@ -119,7 +96,9 @@ export async function POST(request: Request) {
     } catch (parseError) {
         // Ignore if body can't be parsed again, use default
     }
-    console.error(`Error logging ${actionTypeForLog} for wallet: ${ (error as any)?.request?.json()?.walletAddress || 'unknown'}:`, error);
+    console.error(`Error logging ${actionTypeForLog} for wallet: ${session?.user?.walletAddress || 'unknown'}:`, error);
     return NextResponse.json({ error: 'Failed to log action' }, { status: 500 });
   }
-} 
+});
+
+export const POST = withRateLimit(handler); 

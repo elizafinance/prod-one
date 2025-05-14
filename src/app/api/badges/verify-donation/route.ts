@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
 import { Connection, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { connectToDatabase, UserDocument } from '@/lib/mongodb';
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/lib/auth";
+import { withAuth } from '@/middleware/authGuard';
 import { createNotification } from '@/lib/notificationUtils';
+import { withRateLimit } from '@/middleware/rateLimiter';
 
 // The donation amount required for the badge (0.1 SOL in lamports)
 const REQUIRED_DONATION_AMOUNT = 0.1 * LAMPORTS_PER_SOL;
@@ -12,18 +12,10 @@ const REQUIRED_DONATION_AMOUNT = 0.1 * LAMPORTS_PER_SOL;
 const DONATION_BADGE_ID = 'generous_donor_badge';
 
 // This API route verifies a donation transaction and awards a badge if valid
-export async function POST(request: Request) {
+const baseHandler = withAuth(async (request: Request, session) => {
   console.log('[VerifyDonation API] Starting verification process');
   
-  // Check authentication
-  const session = await getServerSession(authOptions);
-  if (!session || !session.user) {
-    console.error('[VerifyDonation API] User not authenticated');
-    return NextResponse.json({ error: 'User not authenticated' }, { status: 401 });
-  }
-  
-  // Get the user's wallet address from the session
-  const userWalletAddress = (session.user as any).walletAddress;
+  const userWalletAddress = session.user.walletAddress;
   if (!userWalletAddress) {
     console.error('[VerifyDonation API] Wallet address not found in session');
     return NextResponse.json({ error: 'Wallet address not found in session' }, { status: 400 });
@@ -185,4 +177,6 @@ export async function POST(request: Request) {
     console.error('Error verifying donation:', error);
     return NextResponse.json({ error: 'Failed to verify donation' }, { status: 500 });
   }
-} 
+});
+
+export const POST = withRateLimit(baseHandler); 

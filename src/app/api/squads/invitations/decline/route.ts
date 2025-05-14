@@ -23,7 +23,7 @@ export async function POST(request: Request) {
     if (!invitationId) { return NextResponse.json({ error: 'Invitation ID required.' }, { status: 400 });}
 
     const { db } = await connectToDatabase();
-    const invitationsCollection = db.collection<SquadInvitationDocument>('squad_invitations');
+    const invitationsCollection = db.collection<SquadInvitationDocument>('squadInvitations');
 
     const invitation = await invitationsCollection.findOne({
         invitationId,

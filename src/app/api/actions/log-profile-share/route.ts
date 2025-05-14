@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { connectToDatabase, UserDocument, ActionDocument, ReferralBoost } from '@/lib/mongodb';
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/lib/auth";
+import { withAuth } from '@/middleware/authGuard';
+import { withRateLimit } from '@/middleware/rateLimiter';
 import { v4 as uuidv4 } from 'uuid';
 
 interface LogShareRequestBody {
@@ -15,15 +15,8 @@ const REFERRAL_FRENZY_BOOST_DESCRIPTION = 'Referral Frenzy! +50% bonus for your 
 const REFERRAL_FRENZY_BOOST_USES = 3;
 const REFERRAL_FRENZY_BOOST_VALUE = 0.5;
 
-export async function POST(request: Request) {
-  const session = await getServerSession(authOptions);
-  // Ensure walletAddress is part of your session.user type via next-auth.d.ts
-  if (!session || !session.user || typeof session.user.walletAddress !== 'string') {
-    return NextResponse.json({ error: 'User not authenticated or wallet not linked in session' }, { status: 401 });
-  }
-  const userWalletAddress = session.user.walletAddress;
-  // Body wallet address is for confirmation, but session wallet address is authoritative for who gets the boost.
-  // For this action, the user performing it (from session) is the one getting the boost.
+const handler = withAuth(async (request: Request, session) => {
+  const userWalletAddress = session.user.walletAddress as string;
 
   try {
     const body: LogShareRequestBody = await request.json();
@@ -41,16 +34,22 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    let pointsUpdate = {};
-    let newCompletedActions = user.completedActions || [];
-    let alreadyDidThisSpecificShare = newCompletedActions.includes(PROFILE_SHARE_ACTION_ID);
+    const alreadyDidThisSpecificShare = (user.completedActions || []).includes(PROFILE_SHARE_ACTION_ID);
     let awardedPointsForThisShare = 0;
 
     if (!alreadyDidThisSpecificShare && PROFILE_SHARE_POINTS > 0) {
-      pointsUpdate = { $inc: { points: PROFILE_SHARE_POINTS } };
-      newCompletedActions.push(PROFILE_SHARE_ACTION_ID);
+      // atomic update
+      await usersCollection.updateOne(
+        { walletAddress: userWalletAddress, completedActions: { $ne: PROFILE_SHARE_ACTION_ID } },
+        {
+          $inc: { points: PROFILE_SHARE_POINTS },
+          $addToSet: { completedActions: PROFILE_SHARE_ACTION_ID },
+          $set: { updatedAt: new Date() },
+        }
+      );
+
       awardedPointsForThisShare = PROFILE_SHARE_POINTS;
-      
+
       await actionsCollection.insertOne({
         walletAddress: userWalletAddress,
         actionType: PROFILE_SHARE_ACTION_ID,
@@ -80,9 +79,7 @@ export async function POST(request: Request) {
     await usersCollection.updateOne(
       { walletAddress: userWalletAddress },
       {
-        ...pointsUpdate, // Apply points increment if any
         $set: {
-          completedActions: newCompletedActions,
           activeReferralBoosts: newActiveBoosts,
           updatedAt: new Date(),
         },
@@ -102,4 +99,6 @@ export async function POST(request: Request) {
     }
     return NextResponse.json({ error: 'Failed to log profile share' }, { status: 500 });
   }
-} 
+});
+
+export const POST = withRateLimit(handler); 

@@ -35,7 +35,7 @@ export async function POST(request: Request) {
     const { db } = await connectToDatabase();
     const squadsCollection = db.collection<SquadDocument>('squads');
     const usersCollection = db.collection<UserDocument>('users');
-    const invitationsCollection = db.collection<SquadInvitationDocument>('squad_invitations');
+    const invitationsCollection = db.collection<SquadInvitationDocument>('squadInvitations');
 
     const squad = await squadsCollection.findOne({ squadId });
     if (!squad) { return NextResponse.json({ error: 'Squad not found.' }, { status: 404 }); }

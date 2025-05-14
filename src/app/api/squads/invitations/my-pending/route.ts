@@ -25,7 +25,7 @@ export async function GET(request: Request) {
 
   try {
     const { db } = await connectToDatabase();
-    const invitationsCollection = db.collection<SquadInvitationDocument>('squad_invitations');
+    const invitationsCollection = db.collection<SquadInvitationDocument>('squadInvitations');
     const usersCollection = db.collection<UserDocument>('users');
 
     const pendingInvitations = await invitationsCollection.find({

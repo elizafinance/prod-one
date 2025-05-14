@@ -198,7 +198,7 @@ export default function ProposalsPage() {
         {!isLoading && !error && apiResponse && apiResponse.proposals.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {apiResponse.proposals.map(proposal => (
-              <ProposalCard key={proposal._id} proposal={proposal} onVoteClick={handleOpenVoteModal} />
+              <ProposalCard key={proposal._id} proposal={proposal} onVoteClick={handleOpenVoteModal} currentUserPoints={currentUserPoints} />
             ))}
           </div>
         )}

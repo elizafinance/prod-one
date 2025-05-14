@@ -91,12 +91,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       try {
         await newVote.save();
-      } catch (saveError: any) {
-        if (saveError.code === 11000) { // Duplicate key error (user already voted)
+      } catch (error: any) {
+        // Central catch – capture anything that slipped through earlier guards
+        console.error('[VoteAPI] Unhandled error casting vote for proposal', proposalId, 'by', voterWalletAddress, '\nError:', error);
+
+        if (error instanceof Error && error.name === 'ValidationError') {
+          return res.status(400).json({ error: error.message });
+        }
+
+        if (error?.code === 11000) { // Duplicate vote safeguard (should be handled earlier)
           return res.status(409).json({ error: 'You have already voted on this proposal.' });
         }
-        console.error('Error saving vote:', saveError); // Log other save errors
-        throw saveError; // Re-throw other save errors
+
+        // Send back the specific message in non-production to help surface issues; otherwise generic
+        const isProd = process.env.NODE_ENV === 'production';
+        return res.status(500).json({ error: isProd ? 'Failed to cast vote. Please try again later.' : (error.message || 'Failed to cast vote.') });
       }
 
       // Recalculate proposal total weighted votes and check for broadcast
@@ -144,16 +153,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       return res.status(201).json({ message: 'Vote cast successfully!', vote: newVote });
 
-    } catch (error) {
-      console.error('Error casting vote:', error);
+    } catch (error: any) {
+      console.error('[VoteAPI] Outer error casting vote:', error);
       if (error instanceof Error && error.name === 'ValidationError') {
         return res.status(400).json({ error: error.message });
       }
-      // Avoid sending generic Mongoose or DB errors to client if not a validation error or already handled duplicate
-      if ((error as any).code === 11000) { // Should be caught above, but as a safeguard
-         return res.status(409).json({ error: 'You have already voted on this proposal.' });
+      if (error?.code === 11000) {
+        return res.status(409).json({ error: 'You have already voted on this proposal.' });
       }
-      return res.status(500).json({ error: 'Failed to cast vote. An unexpected error occurred.' });
+      const isProd = process.env.NODE_ENV === 'production';
+      return res.status(500).json({ error: isProd ? 'Failed to cast vote. Please try again later.' : (error.message || 'Failed to cast vote.') });
     }
   } else {
     res.setHeader('Allow', ['POST']);

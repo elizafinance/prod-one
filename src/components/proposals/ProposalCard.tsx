@@ -40,7 +40,8 @@ export interface ProposalCardData {
 
 interface ProposalCardProps {
   proposal: ProposalCardData;
-  onVoteClick: (proposalId: string) => void; 
+  onVoteClick: (proposalId: string) => void;
+  currentUserPoints?: number | null; // Optional points to display user weight
 }
 
 // Environment variable targets for progress bars (with defaults)
@@ -66,7 +67,7 @@ const ProgressBar: React.FC<{ value: number; maxValue: number; colorClass: strin
   );
 };
 
-const ProposalCard: React.FC<ProposalCardProps> = ({ proposal, onVoteClick }) => {
+const ProposalCard: React.FC<ProposalCardProps> = ({ proposal, onVoteClick, currentUserPoints }) => {
   const timeRemaining = () => {
     const now = new Date();
     // Ensure proposal.epochEnd is a Date object
@@ -111,6 +112,12 @@ const ProposalCard: React.FC<ProposalCardProps> = ({ proposal, onVoteClick }) =>
       </div>
 
       <div className="mt-4 pt-4 border-t border-gray-200">
+        {currentUserPoints != null && (
+          <div className="mb-2 text-xs text-gray-600">
+            Your voting weight: <span className="font-semibold text-indigo-700">{currentUserPoints.toLocaleString()}</span> pts
+          </div>
+        )}
+
         {status === 'active' && (
           <>
             {QUORUM_VOTERS_TARGET > 0 && 

@@ -64,6 +64,7 @@ const VoteModal: React.FC<VoteModalProps> = ({ isOpen, onClose, proposal, onVote
   }, [isOpen, proposal, sessionStatus, proposal?._id]);
 
   const handleVoteSubmit = async (choice: 'up' | 'down' | 'abstain') => {
+    console.time('[VoteModal] vote');
     if (!isProposalActive) {
       toast.error('Voting period has ended for this proposal.');
       return;
@@ -78,15 +79,16 @@ const VoteModal: React.FC<VoteModalProps> = ({ isOpen, onClose, proposal, onVote
       });
       const result = await response.json();
       if (!response.ok) {
-        throw new Error(result.error || 'Failed to cast vote.');
+        throw new Error(result.error || result.message || 'Failed to cast vote.');
       }
       toast.success(`Vote (${choice}) cast successfully!`);
       setCurrentUserVote({ choice, createdAt: new Date().toISOString() }); // Optimistically update UI
       onVoteSuccess(); // Trigger parent to refetch proposal data or list
-      // Keep modal open to show their vote, or onClose(); based on desired UX
     } catch (err: any) {
+      console.error('[VoteModal] Vote submit error:', err);
       toast.error(err.message || 'An error occurred while voting.');
     }
+    console.timeEnd('[VoteModal] vote');
     setIsSubmittingVote(false);
   };
 
@@ -115,6 +117,9 @@ const VoteModal: React.FC<VoteModalProps> = ({ isOpen, onClose, proposal, onVote
           <p><strong>Current Weighted Score:</strong> {proposal.tally.totalEngagedWeight.toLocaleString()}</p>
           <p><strong>Votes:</strong> Up: {proposal.tally.upVotesCount}, Down: {proposal.tally.downVotesCount}, Abstain: {proposal.tally.abstainVotesCount} ({proposal.totalVoters} total)</p>
           {proposal.broadcasted && <p className="font-semibold text-green-600">This proposal has been broadcasted!</p>}
+          {currentUserPoints != null && (
+            <p><strong>Your voting weight:</strong> {currentUserPoints.toLocaleString()} pts</p>
+          )}
         </div>
 
         {isLoading && (

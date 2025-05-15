@@ -3,6 +3,25 @@ import { connectToDatabase, UserDocument, SquadDocument } from '@/lib/mongodb';
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 
+// Enriched types for squad details (can be shared if moved to a types file)
+interface EnrichedSquadMember {
+  walletAddress: string;
+  xUsername?: string;
+  xProfileImageUrl?: string;
+  points?: number;
+}
+
+// Define the expected response structure
+interface MySquadApiResponse {
+  squad: (SquadDocument & { 
+    membersFullDetails?: EnrichedSquadMember[]; 
+    totalSquadPoints?: number; 
+    leaderReferralCode?: string; 
+  }) | null; // Squad can be null if user is not in one
+  message?: string; // Optional message (e.g., "User is not currently in a squad")
+  error?: string; // Added optional error field
+}
+
 export async function GET(request: Request) {
   const session = await getServerSession(authOptions);
   console.log('[MySquadAPI] Session:', JSON.stringify(session));
@@ -41,20 +60,72 @@ export async function GET(request: Request) {
     const authoritativeWalletAddress = userFromDb.walletAddress; // This is the trusted wallet address
 
     if (!userFromDb.squadId) {
-      return NextResponse.json({ message: 'User is not currently in a squad.', squad: null }, { status: 200 });
+      const response: MySquadApiResponse = { message: 'User is not currently in a squad.', squad: null };
+      return NextResponse.json(response, { status: 200 });
     }
 
     const squad = await squadsCollection.findOne({ squadId: userFromDb.squadId });
     if (!squad) {
       // Data inconsistency, clear user's squadId from their DB record
       await usersCollection.updateOne({ xUserId: userXId }, { $unset: { squadId: "" }, $set: {updatedAt: new Date()} });
-      return NextResponse.json({ error: 'Squad not found, user data corrected. Please try joining a squad again.', squad: null }, { status: 404 });
+      const response: MySquadApiResponse = { error: 'Squad not found, user data corrected. Please try joining a squad again.', squad: null };
+      return NextResponse.json(response, { status: 404 });
     }
     
-    return NextResponse.json({ squad });
+    // Fetch full member details and calculate points (similar to details/[squadId] route)
+    const membersFullDetails: EnrichedSquadMember[] = [];
+    let calculatedTotalSquadPoints = 0;
+
+    if (squad.memberWalletAddresses && squad.memberWalletAddresses.length > 0) {
+      const memberUsers = await usersCollection.find(
+        { walletAddress: { $in: squad.memberWalletAddresses } },
+        { projection: { walletAddress: 1, xUsername: 1, xProfileImageUrl: 1, points: 1, _id: 0 } }
+      ).toArray();
+      
+      const memberUserMap = new Map<string, Partial<UserDocument>>();
+      memberUsers.forEach(member => {
+        if (member.walletAddress) {
+          memberUserMap.set(member.walletAddress, member);
+        }
+      });
+
+      for (const walletAddr of squad.memberWalletAddresses) {
+        const memberDetail = memberUserMap.get(walletAddr);
+        const memberPoints = memberDetail?.points || 0;
+        membersFullDetails.push({
+          walletAddress: walletAddr,
+          xUsername: memberDetail?.xUsername,
+          xProfileImageUrl: memberDetail?.xProfileImageUrl,
+          points: memberPoints,
+        });
+        calculatedTotalSquadPoints += memberPoints;
+      }
+    }
+
+    // Fetch leader's referral code
+    let leaderReferralCode: string | undefined = undefined;
+    if (squad.leaderWalletAddress) {
+      const leaderUser = await usersCollection.findOne(
+        { walletAddress: squad.leaderWalletAddress },
+        { projection: { _id: 0, referralCode: 1 } }
+      );
+      leaderReferralCode = leaderUser?.referralCode;
+    }
+    
+    const responsePayload: MySquadApiResponse = {
+      squad: {
+        ...squad,
+        membersFullDetails,
+        totalSquadPoints: calculatedTotalSquadPoints,
+        leaderReferralCode,
+      }
+    };
+    
+    return NextResponse.json(responsePayload);
 
   } catch (error) {
     console.error("Error fetching user's squad:", error);
-    return NextResponse.json({ error: 'Failed to fetch squad information' }, { status: 500 });
+    const response: MySquadApiResponse = { error: 'Failed to fetch squad information', squad: null };
+    return NextResponse.json(response, { status: 500 });
   }
 } 

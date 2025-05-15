@@ -19,6 +19,7 @@ interface SquadDetailsApiResponse {
   squad: SquadDocument & { 
     membersFullDetails?: Array<Partial<UserDocument>>; 
     leaderReferralCode?: string; // Added field
+    totalSquadPoints?: number;
   }
 }
 
@@ -85,11 +86,15 @@ export async function GET(
       membersFullDetails,
     };
 
+    // Calculate total points dynamically
+    const calculatedTotalSquadPoints = membersFullDetails.reduce((sum, member) => sum + (member.points || 0), 0);
+
     // Combine squad data with member details and leader referral code
     const responsePayload: SquadDetailsApiResponse = {
       squad: {
         ...enrichedSquadData,
-        leaderReferralCode: leaderReferralCode, // Include the code
+        totalSquadPoints: calculatedTotalSquadPoints,
+        leaderReferralCode: leaderReferralCode,
       }
     };
 

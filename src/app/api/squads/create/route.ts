@@ -105,9 +105,7 @@ export async function POST(request: Request) {
       description: description || '',
       leaderWalletAddress: leaderWalletAddress,
       memberWalletAddresses: [leaderWalletAddress],
-      totalSquadPoints: initialSquadPoints,
       maxMembers: maxMembers,
-      tier: tier,
       createdAt: new Date(),
       updatedAt: new Date(),
     };

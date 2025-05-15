@@ -19,6 +19,7 @@ interface EnrichedSquadMember {
 interface SquadDetailsData extends SquadDocument {
   membersFullDetails?: EnrichedSquadMember[]; // Changed back to optional since API might not always provide it
   leaderReferralCode?: string; // Add field for leader's referral code
+  totalSquadPoints: number; // Added to match the API response
 }
 
 export default function SquadDetailsPage() {

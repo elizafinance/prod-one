@@ -75,7 +75,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(403).json({ error: 'Only the squad leader can create proposals.' });
       }
 
-      if (squad.totalSquadPoints < REQUIRED_SQUAD_POINTS_FOR_PROPOSAL) {
+      // Dynamically calculate squad points by summing member points
+      let squadTotalPoints = 0;
+      if (squad.memberWalletAddresses && squad.memberWalletAddresses.length > 0) {
+        const memberUsers = await usersCollection.find(
+          { walletAddress: { $in: squad.memberWalletAddresses } },
+          { projection: { points: 1 } }
+        ).toArray();
+        squadTotalPoints = memberUsers.reduce((sum, u) => sum + (u.points || 0), 0);
+      }
+
+      if (squadTotalPoints < REQUIRED_SQUAD_POINTS_FOR_PROPOSAL) {
         return res.status(403).json({ error: `Squad must have at least ${REQUIRED_SQUAD_POINTS_FOR_PROPOSAL.toLocaleString()} points to create a proposal.` });
       }
       

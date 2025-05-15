@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { connectToDatabase, SquadDocument } from '@/lib/mongodb';
+import { connectToDatabase, SquadDocument, UserDocument } from '@/lib/mongodb';
 
 const SQUAD_LEADERBOARD_LIMIT = 20; // Example limit
 
@@ -8,27 +8,50 @@ export async function GET(request: Request) {
     const { db } = await connectToDatabase();
     const squadsCollection = db.collection<SquadDocument>('squads');
 
-    const leaderboard = await squadsCollection
-      .find(
-        {},
-        {
-          projection: { // Only return necessary fields for the leaderboard
-            squadId: 1,
-            name: 1,
-            description: 1,
-            leaderWalletAddress: 1, // Might be useful to show leader's (masked) address or name
-            memberCount: { $size: "$memberWalletAddresses" }, // Dynamically calculate member count
-            totalSquadPoints: 1,
-            _id: 0,
-          },
+    // MongoDB Aggregation Pipeline
+    const leaderboard = await squadsCollection.aggregate([
+      // Stage 1: Lookup to join with users collection to get member details
+      {
+        $lookup: {
+          from: 'users', // The collection to join
+          localField: 'memberWalletAddresses', // Field from the input documents (squads)
+          foreignField: 'walletAddress', // Field from the documents of the "from" collection (users)
+          as: 'memberDetails' // Output array field
         }
-      )
-      .sort({ totalSquadPoints: -1 }) // Sort by points descending
-      .limit(SQUAD_LEADERBOARD_LIMIT)
-      .toArray();
-
-    // You might want to fetch leader usernames here if desired for a richer display,
-    // but that would involve more DB lookups.
+      },
+      // Stage 2: Calculate total points and member count
+      {
+        $addFields: {
+          calculatedTotalSquadPoints: {
+            $sum: '$memberDetails.points' // Sum the points of the members
+          },
+          calculatedMemberCount: {
+            $size: '$memberWalletAddresses' // Count members based on the wallet addresses array
+          }
+        }
+      },
+      // Stage 3: Sort by the calculated total points
+      {
+        $sort: { calculatedTotalSquadPoints: -1 }
+      },
+      // Stage 4: Limit the results
+      {
+        $limit: SQUAD_LEADERBOARD_LIMIT
+      },
+      // Stage 5: Project the final desired fields
+      {
+        $project: {
+          _id: 0, // Exclude the default MongoDB _id
+          squadId: 1,
+          name: 1,
+          description: 1,
+          leaderWalletAddress: 1,
+          totalSquadPoints: '$calculatedTotalSquadPoints', // Rename for client consistency
+          memberCount: '$calculatedMemberCount' // Rename for client consistency
+          // Note: memberDetails array is not projected to keep payload smaller
+        }
+      }
+    ]).toArray();
 
     return NextResponse.json(leaderboard);
 

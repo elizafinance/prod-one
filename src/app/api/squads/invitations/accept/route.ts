@@ -80,7 +80,6 @@ export async function POST(request: Request) {
           { squadId: user.squadId },
           { 
             $pull: { memberWalletAddresses: currentUserWalletAddress },
-            $inc: { totalSquadPoints: -pointsToContribute },
             $set: { updatedAt: new Date() }
           }
         );
@@ -122,7 +121,6 @@ export async function POST(request: Request) {
       { squadId: invitation.squadId },
       {
         $addToSet: { memberWalletAddresses: currentUserWalletAddress },
-        $inc: { totalSquadPoints: pointsToContribute },
         $set: { updatedAt: new Date() },
       }
     );

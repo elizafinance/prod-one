@@ -87,16 +87,23 @@ export interface ActionDocument {
 
 export interface SquadDocument {
   _id?: any;
-  squadId: string; // Unique identifier for the squad
-  name: string; // Name of the squad, should ideally be unique
-  description?: string;
-  leaderWalletAddress: string; // Wallet address of the squad leader
-  memberWalletAddresses: string[]; // Array of wallet addresses of squad members
-  totalSquadPoints: number;
-  maxMembers?: number; // Maximum number of members allowed in this squad
-  tier?: number; // Tier level of the squad (1, 2, or 3)
-  createdAt?: Date;
-  updatedAt?: Date;
+  squadId: string; // Unique ID for the squad (e.g., UUID)
+  name: string;
+  description: string;
+  leaderWalletAddress: string;
+  memberWalletAddresses: string[];
+  // totalSquadPoints: number; // This will now be calculated dynamically
+  maxMembers?: number;
+  tags?: string[];
+  profileImageUrl?: string;
+  // Timestamps
+  createdAt: Date;
+  updatedAt: Date;
+  // Optional: Store last activity for sorting or pruning inactive squads
+  lastActivityAt?: Date;
+  // Optional: Store if squad is private or public, approval rules etc.
+  isPrivate?: boolean;
+  requiresApproval?: boolean;
 }
 
 export interface SquadInvitationDocument {

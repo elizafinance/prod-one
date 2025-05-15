@@ -9,7 +9,9 @@ import { toast } from 'sonner';
 import CreateProposalModal from '@/components/modals/CreateProposalModal';
 import { Button } from "@/components/ui/button";
 
-interface MySquadData extends SquadDocument {}
+interface MySquadData extends SquadDocument {
+  totalSquadPoints: number;
+}
 
 const PROPOSAL_CREATION_MIN_SQUAD_POINTS = parseInt(process.env.NEXT_PUBLIC_SQUAD_POINTS_TO_CREATE_PROPOSAL || "10000", 10);
 

@@ -24,6 +24,7 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: 'You are not currently in a squad.' }, { status: 400 });
     }
 
+    const pointsToDeduct = user.points || 0;
     const squadIdUserWasIn = user.squadId;
     const currentSquad = await squadsCollection.findOne({ squadId: squadIdUserWasIn });
     if (!currentSquad) {
@@ -31,7 +32,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Squad data inconsistent, your squad link has been cleared.' }, { status: 404 });
     }
 
-    await squadsCollection.updateOne({ squadId: squadIdUserWasIn }, { $pull: { memberWalletAddresses: userWalletAddress }, $set: { updatedAt: new Date() } });
+    await squadsCollection.updateOne(
+      { squadId: squadIdUserWasIn }, 
+      { 
+        $pull: { memberWalletAddresses: userWalletAddress }, 
+        $set: { updatedAt: new Date() } 
+      }
+    );
     await usersCollection.updateOne({ walletAddress: userWalletAddress }, { $unset: { squadId: "" }, $set: { updatedAt: new Date() } });
     
     const remainingMembers = currentSquad.memberWalletAddresses.filter(wa => wa !== userWalletAddress);

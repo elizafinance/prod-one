@@ -38,20 +38,26 @@ export async function POST(
     if (!squad.memberWalletAddresses.includes(memberWalletAddressToKick)) { return NextResponse.json({ error: 'User not in squad.' }, { status: 400 });}
 
     const kickedUserDoc = await usersCollection.findOne({ walletAddress: memberWalletAddressToKick });
-    if (!kickedUserDoc) { return NextResponse.json({ error: 'Member to kick not found in database.' }, { status: 404 });}
-    const pointsToDeduct = kickedUserDoc.points || 0;
-    const kickedUserXUsername = kickedUserDoc?.xUsername || memberWalletAddressToKick;
+
+    let pointsToDeduct = 0;
+    let kickedUserXUsername = memberWalletAddressToKick; // Default to wallet address
+
+    if (kickedUserDoc) {
+      pointsToDeduct = kickedUserDoc.points || 0;
+      kickedUserXUsername = kickedUserDoc.xUsername || memberWalletAddressToKick;
+      // If user doc exists, unset their squadId
+      await usersCollection.updateOne({ walletAddress: memberWalletAddressToKick }, { $unset: { squadId: "" }, $set: { updatedAt: new Date() }});
+    } else {
+      console.warn(`[KickAPI] User document not found for ${memberWalletAddressToKick}, proceeding with kick from squad list. Points deducted will be 0.`);
+    }
 
     await squadsCollection.updateOne(
       { squadId: squadIdToManage }, 
       { 
         $pull: { memberWalletAddresses: memberWalletAddressToKick }, 
-        $inc: { totalSquadPoints: -pointsToDeduct },
-        $set: { updatedAt: new Date() }
+        $set: { updatedAt: new Date() },
       }
     );
-    
-    await usersCollection.updateOne({ walletAddress: memberWalletAddressToKick }, { $unset: { squadId: "" }, $set: { updatedAt: new Date() }});
 
     await createNotification(
       db, memberWalletAddressToKick, 'squad_kicked',

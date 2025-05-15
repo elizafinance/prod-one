@@ -60,7 +60,6 @@ export async function POST(request: Request) {
       { squadId: squadIdToJoin },
       {
         $addToSet: { memberWalletAddresses: userWalletAddress },
-        $inc: { totalSquadPoints: pointsToContribute }, // Add joining member's points
         $set: { updatedAt: new Date() }
       }
     );

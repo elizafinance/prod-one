@@ -10,6 +10,7 @@ import RequestToJoinModal from '@/components/modals/RequestToJoinModal'; // Impo
 
 interface SquadBrowseEntry extends SquadDocument {
   memberCount: number; // Added from leaderboard API projection
+  totalSquadPoints: number; // Added from leaderboard API projection
 }
 
 interface MySquadInfo {

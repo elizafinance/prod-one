@@ -61,7 +61,15 @@ export async function GET(
 
       // Populate details in the original order of memberWalletAddresses
       for (const walletAddr of squad.memberWalletAddresses) {
-        const memberDetail = memberUserMap.get(walletAddr);
+        let memberDetail: Partial<UserDocument> | undefined = memberUserMap.get(walletAddr);
+        // Fallback lookup if initial bulk query missed this member (e.g., case-mismatch or late profile creation)
+        if (!memberDetail) {
+          const fallbackDoc = await usersCollection.findOne({ walletAddress: walletAddr }, { projection: { walletAddress: 1, xUsername: 1, xProfileImageUrl: 1, points: 1, _id: 0 } });
+          if (fallbackDoc && fallbackDoc.walletAddress) {
+            memberDetail = fallbackDoc as Partial<UserDocument>;
+            memberUserMap.set(fallbackDoc.walletAddress, fallbackDoc);
+          }
+        }
         membersFullDetails.push({
           walletAddress: walletAddr,
           xUsername: memberDetail?.xUsername,

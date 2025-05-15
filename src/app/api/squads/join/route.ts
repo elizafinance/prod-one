@@ -33,9 +33,23 @@ export async function POST(request: Request) {
     const squadsCollection = db.collection<SquadDocument>('squads');
     const usersCollection = db.collection<UserDocument>('users');
 
-    const user = await usersCollection.findOne({ walletAddress: userWalletAddress });
+    let user = await usersCollection.findOne({ walletAddress: userWalletAddress });
     if (!user) {
-      return NextResponse.json({ error: 'Authenticated user not found in database.' }, { status: 404 });
+      // Auto-create a minimal user record so they can join a squad immediately after wallet connect
+      const minimalUser: UserDocument = {
+        walletAddress: userWalletAddress,
+        xUserId: session.user.xId || session.user.sub || userWalletAddress,
+        xUsername: session.user.xUsername || '',
+        xProfileImageUrl: session.user.xProfileImageUrl || '',
+        points: 0,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      } as any;
+      const insertRes = await usersCollection.insertOne(minimalUser);
+      user = { ...minimalUser, _id: insertRes.insertedId } as any;
+    }
+    if (!user) {
+      return NextResponse.json({ error: 'User record could not be created.' }, { status: 500 });
     }
     if (user.squadId) {
       return NextResponse.json({ error: 'You are already in a squad. Leave your current squad to join another.' }, { status: 400 });

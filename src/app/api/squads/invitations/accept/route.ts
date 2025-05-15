@@ -42,11 +42,32 @@ export async function POST(request: Request) {
     const squadsCollection = db.collection<SquadDocument>('squads');
 
     // 1. Find the pending invitation
-    const invitation = await invitationsCollection.findOne({
+    let invitation = await invitationsCollection.findOne({
       invitationId,
       invitedUserWalletAddress: currentUserWalletAddress,
       status: 'pending',
     });
+
+    if (!invitation) {
+      // Fallback: the invitation may have been written before the user linked their wallet, using xUserId as placeholder
+      const xId = (session.user as any).xId || undefined;
+      if (xId) {
+        invitation = await invitationsCollection.findOne({
+          invitationId,
+          invitedUserWalletAddress: xId,
+          status: 'pending',
+        });
+
+        if (invitation) {
+          // Update the invitation to now reference the real wallet address so future queries succeed
+          await invitationsCollection.updateOne(
+            { invitationId },
+            { $set: { invitedUserWalletAddress: currentUserWalletAddress, updatedAt: new Date() } }
+          );
+          console.log(`[Accept Invite] Migrated invitation ${invitationId} from xId placeholder to wallet ${currentUserWalletAddress}`);
+        }
+      }
+    }
 
     if (!invitation) {
       return NextResponse.json({ error: 'Invitation not found, already processed, or not intended for you.' }, { status: 404 });

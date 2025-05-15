@@ -354,6 +354,18 @@ const baseHandler = withAuth(async (request: Request, session) => {
       { $set: updateData }
     );
 
+    // --- Synchronize any squad invitations that were created before the wallet was linked ---
+    // Some invitations may have been written with invitedUserWalletAddress equal to the user's X ID
+    // (acting as a placeholder). After the user links a real Solana address, update those records so
+    // future look-ups (which use walletAddress) will succeed.
+    const inviteSyncRes = await squadInvitesCollection.updateMany(
+      { invitedUserWalletAddress: xUserId, status: 'pending' },
+      { $set: { invitedUserWalletAddress: newSolanaWalletAddress, updatedAt: new Date() } }
+    );
+    if (inviteSyncRes.modifiedCount > 0) {
+      console.log(`[Activate Rewards] Synchronized ${inviteSyncRes.modifiedCount} squad invitations from xUserId placeholder to wallet address.`);
+    }
+
     // ---> START: Create squad invitation if conditions met
     let squadInviteCreated = false;
     if (squadInviteIdFromUrl && !userToUpdate.squadId) {

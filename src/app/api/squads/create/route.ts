@@ -66,17 +66,34 @@ export async function POST(request: Request) {
     const squadsCollection = db.collection<SquadDocument>('squads');
     const usersCollection = db.collection<UserDocument>('users');
 
-    const leaderUser = await usersCollection.findOne({ walletAddress: sessionWalletAddress });
-    let userDoc = leaderUser;
-    if (!userDoc) {
-      // Fallback lookup by xUserId if wallet not yet linked in DB
-      const xUserId = (session.user as any).xId;
-      if (xUserId) {
-        userDoc = await usersCollection.findOne({ xUserId });
-      }
+    // Try canonical lookup by xUserId (always present after auth)
+    const xUserId = (session.user as any).xId;
+    if (!xUserId) {
+      return NextResponse.json({ error: 'Session missing xId. Re-authenticate.' }, { status: 401 });
     }
+
+    let userDoc = await usersCollection.findOne({ xUserId });
     if (!userDoc) {
-      return NextResponse.json({ error: 'Authenticated leader user not found in database. Please complete wallet linking first.' }, { status: 404 });
+      return NextResponse.json({ error: 'User record not found in database.' }, { status: 404 });
+    }
+
+    // Guard – enforce wallet linkage before squad creation
+    const isSolPk = (w: string) => typeof w === 'string' && w.length >= 32 && w.length <= 44;
+
+    if (!isSolPk(sessionWalletAddress)) {
+      return NextResponse.json({ error: 'Connected wallet address is invalid.' }, { status: 400 });
+    }
+
+    if (!userDoc.walletAddress) {
+      // Auto-patch user with wallet from session
+      await usersCollection.updateOne({ _id: userDoc._id }, {
+        $set: { walletAddress: sessionWalletAddress, updatedAt: new Date() }
+      });
+      userDoc.walletAddress = sessionWalletAddress;
+    }
+
+    if (userDoc.walletAddress !== sessionWalletAddress) {
+      return NextResponse.json({ error: 'Connected wallet does not match profile wallet. Log out and back in.' }, { status: 400 });
     }
     
     const userPoints = userDoc.points || 0;

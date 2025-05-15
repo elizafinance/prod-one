@@ -30,27 +30,26 @@ const UserAvatar: React.FC<UserAvatarProps> = ({
   // Get first letter of username for fallback
   const fallbackText = username ? username.charAt(0).toUpperCase() : '?';
   
-  // Process Twitter image URL to make it more reliable
-  let optimizedImageUrl = profileImageUrl || '';
-  
-  // Only process if there's an actual URL
-  if (optimizedImageUrl) {
-    // Replace '_normal' with '_bigger' for higher resolution
-    if (optimizedImageUrl.includes('_normal.')) {
-      optimizedImageUrl = optimizedImageUrl.replace('_normal.', '_bigger.');
-    }
-    
-    // Convert http to https if needed
-    if (optimizedImageUrl.startsWith('http:')) {
-      optimizedImageUrl = optimizedImageUrl.replace('http:', 'https:');
-    }
-    
-    // Add cache-busting parameter to avoid CORS issues with Twitter
-    optimizedImageUrl = `${optimizedImageUrl}${optimizedImageUrl.includes('?') ? '&' : '?'}cb=${Date.now()}`;
+  let initialUrl = profileImageUrl || '';
+  // Clean up protocol
+  if (initialUrl.startsWith('http:')) {
+    initialUrl = initialUrl.replace('http:', 'https:');
   }
 
-  // Set up a clean public profile image URL for NextJS Image to use
-  const imageUrl = (!profileImageUrl || imageError || optimizedImageUrl === '') ? null : optimizedImageUrl;
+  const cacheBusted = initialUrl ? `${initialUrl}${initialUrl.includes('?') ? '&' : '?'}cb=${Date.now()}` : '';
+
+  const [imageSrc, setImageSrc] = useState<string>(cacheBusted);
+
+  const handleImgError = () => {
+    if (imageSrc && imageSrc.includes('_bigger')) {
+      const normalUrl = imageSrc.replace('_bigger', '_normal');
+      setImageSrc(normalUrl);
+    } else {
+      setImageError(true);
+    }
+  };
+
+  const imageUrl = (!profileImageUrl || imageError || imageSrc === '') ? null : imageSrc;
 
   return (
     <div className={`${sizeClass} relative rounded-full overflow-hidden flex items-center justify-center bg-gray-200 ${className}`}>
@@ -62,7 +61,7 @@ const UserAvatar: React.FC<UserAvatarProps> = ({
           fill
           unoptimized
           className="object-cover"
-          onError={() => setImageError(true)}
+          onError={handleImgError}
         />
       ) : (
         <span className="text-gray-700 font-bold">

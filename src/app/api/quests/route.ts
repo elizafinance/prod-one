@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
+import { ensureMongooseConnected } from '@/lib/mongooseConnect';
 import CommunityQuest from '@/models/communityQuest.model';
 import { redisService } from '@/services/redis.service'; // Assuming path based on previous setup
 import { redisConfig } from '@/config/redis.config';   // Assuming path
@@ -8,13 +9,30 @@ import { redisConfig } from '@/config/redis.config';   // Assuming path
 export async function GET(request: Request) {
   try {
     await connectToDatabase();
-    // Connect to Redis (it handles singleton internally)
-    await redisService.connect(); 
+    await ensureMongooseConnected();
+    await redisService.connect();
 
-    const activeQuests = await CommunityQuest.find({
-      status: 'active',
-      // Optionally add date filters, e.g., end_ts: { $gte: new Date() }
-    }).sort({ end_ts: 1 }) // Sort by soonest ending, or by start_ts
+    const { searchParams } = new URL(request.url);
+    const scope = searchParams.get('scope'); // 'community' | 'squad'
+    const statusParam = searchParams.get('status') || 'active'; // default active
+
+    const now = new Date();
+    const query: any = {};
+    if (scope) query.scope = scope;
+
+    if (statusParam === 'active') {
+      // Treat as currently running quests (start<=now<=end) even if doc status is still 'scheduled'
+      query.$and = [
+        { start_ts: { $lte: now } },
+        { end_ts: { $gte: now } }
+      ];
+      query.status = { $in: ['active', 'scheduled'] };
+    } else if (statusParam) {
+      query.status = statusParam;
+    }
+
+    const activeQuests = await CommunityQuest.find(query)
+      .sort({ end_ts: 1 }) // Sort by soonest ending, or by start_ts
       .lean();
 
     const questsWithProgress = await Promise.all(

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { connectToDatabase } from '@/lib/mongodb';
+import { connectToDatabase } from '@/lib/mongodb'; // Retained for potential direct driver use (caching URI validation)
+import { ensureMongooseConnected } from '@/lib/mongooseConnect';
 import CommunityQuestModel from '@/models/communityQuest.model'; // Renamed for clarity in previous steps
 import { getServerSession } from "next-auth/next"; // For auth (actual options to be used)
 import { authOptions } from "@/lib/auth"; // Assuming your authOptions are here
@@ -8,7 +9,7 @@ import { authOptions } from "@/lib/auth"; // Assuming your authOptions are here
 interface CreateQuestRequestBody {
   title: string;
   description_md: string;
-  goal_type: 'total_referrals' | 'users_at_tier' | 'aggregate_spend' | 'squad_meetup'; // Added squad_meetup
+  goal_type: 'total_referrals' | 'users_at_tier' | 'aggregate_spend' | 'total_squad_points' | 'squad_meetup'; // Included total_squad_points
   goal_target: number;
   goal_target_metadata?: {
     tier_name?: string;
@@ -53,6 +54,7 @@ export async function GET(request: Request) {
 
   try {
     await connectToDatabase();
+    await ensureMongooseConnected();
     
     const totalQuests = await CommunityQuestModel.countDocuments(query);
     const totalPages = Math.ceil(totalQuests / limit);
@@ -102,6 +104,7 @@ export async function POST(request: Request) {
     }
 
     await connectToDatabase();
+    await ensureMongooseConnected();
 
     const newQuestData: any = {
       title: body.title,

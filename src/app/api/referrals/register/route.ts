@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { connectToDatabase, UserDocument, ActionDocument, ReferralBoost, SquadDocument } from '@/lib/mongodb';
 // import { randomBytes } from 'crypto'; // Not needed here if new users are created with codes elsewhere
+import { rabbitmqService } from '@/services/rabbitmq.service';
+import { rabbitmqConfig } from '@/config/rabbitmq.config';
 
 interface RequestBody {
   newWalletAddress: string;
@@ -91,15 +93,33 @@ export async function POST(request: Request) {
     );
     
     // Update referrer's squad points if they are in a squad
-    if (referrer.squadId && pointsToAwardReferrer > 0) { // pointsToAwardReferrer includes standard + boost
-      await squadsCollection.updateOne(
+    if (referrer.squadId) {
+      const squadUpdate = await squadsCollection.updateOne(
         { squadId: referrer.squadId },
         { 
-          $inc: { totalSquadPoints: pointsToAwardReferrer },
-          $set: { updatedAt: new Date() }
+          $inc: { totalSquadPoints: pointsToAwardReferrer }, 
+          $set: { updatedAt: new Date() } 
         }
       );
-      console.log(`Updated squad ${referrer.squadId} points by ${pointsToAwardReferrer} from referral by ${referrer.walletAddress}`);
+      console.log(`[Referral Register] Referrer ${referrer.walletAddress} squad ${referrer.squadId} points updated by ${pointsToAwardReferrer}. Matched: ${squadUpdate.matchedCount}, Modified: ${squadUpdate.modifiedCount}`);
+      if (squadUpdate.modifiedCount > 0 && pointsToAwardReferrer > 0) {
+        try {
+          await rabbitmqService.publishToExchange(
+            rabbitmqConfig.eventsExchange,
+            rabbitmqConfig.routingKeys.squadPointsUpdated,
+            {
+              squadId: referrer.squadId,
+              pointsChange: pointsToAwardReferrer,
+              reason: 'referrer_bonus_registration',
+              timestamp: new Date().toISOString(),
+              responsibleUserId: referrer.walletAddress // The referrer whose action led to points
+            }
+          );
+          console.log(`[Referral Register] Published squad.points.updated for referrer's squad ${referrer.squadId}`);
+        } catch (publishError) {
+          console.error(`[Referral Register] Failed to publish squad.points.updated for referrer's squad ${referrer.squadId}:`, publishError);
+        }
+      }
     }
 
     // Log the standard referral action
@@ -123,6 +143,8 @@ export async function POST(request: Request) {
     }
 
     // Create or update the new user, linking them to the referrer
+    let referredUserWalletAddress = newWalletAddress; // To ensure we have the correct wallet address for the event
+
     if (!newUser) {
       // New user being registered via referral link *after* referrer already exists.
       // They should have gotten initial points via check-airdrop or get-code if that was their first touchpoint.
@@ -132,7 +154,7 @@ export async function POST(request: Request) {
         walletAddress: newWalletAddress,
         xUserId: newWalletAddress, // Assuming newWalletAddress can serve as xUserId
         points: 0, // Or POINTS_FOR_BEING_REFERRED if you implement that
-        referredBy: referrer.walletAddress,
+        referredBy: referrer.walletAddress, // Link to the referrer's wallet address
         createdAt: new Date(),
         updatedAt: new Date(),
         completedActions: [] // Initialize if they are brand new through this path
@@ -141,10 +163,32 @@ export async function POST(request: Request) {
       await usersCollection.updateOne(
         { walletAddress: newWalletAddress },
         { 
-          $set: { referredBy: referrer.walletAddress, updatedAt: new Date() },
+          $set: { referredBy: referrer.walletAddress, updatedAt: new Date() }, // Link to the referrer's wallet address
           // $inc: { points: POINTS_FOR_BEING_REFERRED } // Optionally award points for being referred
         }
       );
+      // Ensure newUser object has the walletAddress if it was fetched
+      referredUserWalletAddress = newUser.walletAddress || newWalletAddress;
+    }
+
+    // Publish user.referred.success event
+    try {
+      const eventPayload = {
+        userId: referredUserWalletAddress, // The user who was referred
+        referredByUserId: referrer.walletAddress, // The user who made the referral
+        timestamp: new Date().toISOString(),
+        // questRelevantValue: 1 // Each successful referral counts as 1
+      };
+      await rabbitmqService.publishToExchange(
+        rabbitmqConfig.eventsExchange,
+        rabbitmqConfig.routingKeys.userReferredSuccess,
+        eventPayload
+      );
+      console.log('[Referral Register] Successfully published user.referred.success event:', eventPayload);
+    } catch (publishError) {
+      console.error('[Referral Register] Failed to publish user.referred.success event:', publishError);
+      // Decide if this failure should affect the API response.
+      // For now, we log and continue, as the core referral logic succeeded.
     }
 
     return NextResponse.json({ 

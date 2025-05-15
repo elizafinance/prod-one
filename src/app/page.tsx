@@ -87,7 +87,7 @@ if (isNaN(REQUIRED_DEFAI_AMOUNT)) {
 }
 
 export default function HomePage() {
-  const { data: session, status: authStatus } = useSession();
+  const { data: session, status: authStatus, update: updateSession } = useSession();
   const wallet = useWallet();
   const { connection } = useConnection(); // Correct usage
   const router = useRouter();
@@ -345,14 +345,10 @@ export default function HomePage() {
 
   useEffect(() => {
     if (authStatus === "authenticated" && session?.user?.xId && session?.user?.dbId && wallet.connected && wallet.publicKey && !isRewardsActive && !isActivatingRewards && !activationAttempted) {
-      // Ensure dbId is also present, indicating our signIn callback likely completed its DB ops for this user
-      const dbIdForApi = session.user.dbId; // No need to check for null if it's in the condition
+      const dbIdForApi = session.user.dbId;
       activateRewardsAndFetchData(wallet.publicKey.toBase58(), session.user.xId, dbIdForApi);
     } else if (authStatus === "authenticated" && wallet.connected && wallet.publicKey && isRewardsActive && hasSufficientDefai === null && !isCheckingDefaiBalance) {
-      // New logic: If already authenticated/connected/rewards active, check balance if not already done/checked
       console.log("Rewards active, checking DeFAI balance...");
-      
-      // Small delay to ensure connection is fully established
       setTimeout(() => {
         if (connection && wallet.publicKey) {
           checkDefaiBalance(wallet.publicKey, connection);
@@ -362,7 +358,6 @@ export default function HomePage() {
         }
       }, 1000);
     } else if (authStatus === "authenticated" && wallet.connected && isRewardsActive && !isFetchingInvites) {
-        // Fetch invites if rewards are active and not already fetching them (e.g., on page load/refresh if already activated)
         fetchPendingInvites();
     }
     if (authStatus === "authenticated" && !wallet.connected && isRewardsActive) {
@@ -376,30 +371,35 @@ export default function HomePage() {
       isActivatingRewards, activateRewardsAndFetchData, userData, mySquadData, 
       fetchMySquadData, isFetchingSquad, pendingInvites, fetchPendingInvites, 
       userCheckedNoSquad, 
-      hasSufficientDefai, // Added balance state
-      isCheckingDefaiBalance, // Added balance check state
-      connection, // Added connection
-      checkDefaiBalance, // Added check function
-      isFetchingInvites, // Added missing dependency
+      hasSufficientDefai, 
+      isCheckingDefaiBalance, 
+      connection, 
+      checkDefaiBalance, 
+      updateSession,
+      isFetchingInvites,
       activationAttempted
     ]);
   
-  // Track previous wallet address to detect actual wallet changes (avoid resetting on object identity changes)
+  // This useEffect from HEAD for managing prevWalletAddress and activationAttempted should be kept.
+  // It was outside the explicit conflict markers but is vital for the activationAttempted logic.
   useEffect(() => {
     const currentAddress = wallet.publicKey ? wallet.publicKey.toBase58() : null;
 
-    // If the wallet disconnected fully
     if (!wallet.connected) {
       setPrevWalletAddress(null);
-      setActivationAttempted(false);
+      setActivationAttempted(false); 
       return;
     }
 
-    // When the address truly changes (or first connects), reset flags
     if (currentAddress && currentAddress !== prevWalletAddress) {
       setPrevWalletAddress(currentAddress);
-      setUserCheckedNoSquad(false);
-      setActivationAttempted(false);
+      setUserCheckedNoSquad(false); 
+      setActivationAttempted(false); 
+      setIsRewardsActive(false);
+      setUserData(null);
+      setMySquadData(null);
+      setHasSufficientDefai(null); 
+      setPendingInvites([]);
     }
   }, [wallet.connected, wallet.publicKey, prevWalletAddress]);
 

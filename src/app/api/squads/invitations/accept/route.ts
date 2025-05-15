@@ -9,6 +9,8 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { Db } from 'mongodb';
 import { createNotification } from '@/lib/notificationUtils';
+import { rabbitmqService } from '@/services/rabbitmq.service';
+import { rabbitmqConfig } from '@/config/rabbitmq.config';
 
 interface AcceptInvitationRequestBody {
   invitationId: string;
@@ -117,13 +119,33 @@ export async function POST(request: Request) {
     }
     
     // 4. Process joining the squad (similar to /api/squads/join)
-    await squadsCollection.updateOne(
+    const squadUpdateResult = await squadsCollection.updateOne(
       { squadId: invitation.squadId },
       {
         $addToSet: { memberWalletAddresses: currentUserWalletAddress },
         $set: { updatedAt: new Date() },
       }
     );
+    console.log(`[Accept Invite] New squad ${invitation.squadId} updated. Matched: ${squadUpdateResult.matchedCount}, Modified: ${squadUpdateResult.modifiedCount}`);
+
+    if (squadUpdateResult.modifiedCount > 0 && pointsToContribute > 0) {
+      try {
+        await rabbitmqService.publishToExchange(
+          rabbitmqConfig.eventsExchange,
+          rabbitmqConfig.routingKeys.squadPointsUpdated,
+          {
+            squadId: invitation.squadId,
+            pointsChange: pointsToContribute,
+            reason: 'user_joined_squad_via_invite',
+            timestamp: new Date().toISOString(),
+            responsibleUserId: currentUserWalletAddress
+          }
+        );
+        console.log(`[Accept Invite] Published squad.points.updated for new squad ${invitation.squadId}`);
+      } catch (publishError) {
+        console.error(`[Accept Invite] Failed to publish squad.points.updated for new squad ${invitation.squadId}:`, publishError);
+      }
+    }
 
     await usersCollection.updateOne(
       { walletAddress: currentUserWalletAddress },

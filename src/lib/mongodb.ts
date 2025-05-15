@@ -1,4 +1,4 @@
-import { MongoClient, Db } from 'mongodb';
+import { MongoClient, Db, Collection, ObjectId } from 'mongodb';
 
 const MONGODB_URI = process.env.MONGODB_URI;
 const MONGODB_DB_NAME = process.env.MONGODB_DB_NAME;
@@ -47,9 +47,8 @@ export async function connectToDatabase(): Promise<{ client: MongoClient; db: Db
   return cached as { client: MongoClient; db: Db };
 }
 
-// Example of how you might define a User interface (adapt as needed)
 export interface UserDocument {
-  _id?: any;
+  _id?: ObjectId; // Prefer ObjectId, but main had 'any'
   walletAddress?: string;
   xUserId: string;
   xUsername?: string;
@@ -61,10 +60,12 @@ export interface UserDocument {
   highestAirdropTierLabel?: string;
   referralsMadeCount?: number;
   activeReferralBoosts?: ReferralBoost[];
-  squadId?: string; // ID of the squad the user belongs to
-  earnedBadgeIds?: string[]; // New field for storing earned badge identifiers
+  squadId?: string; 
+  earnedBadgeIds?: string[];
   createdAt?: Date;
   updatedAt?: Date;
+  current_tier_name?: string;
+  tier_updated_at?: Date;
 }
 
 export interface ReferralBoost {
@@ -75,79 +76,101 @@ export interface ReferralBoost {
   description: string;
 }
 
-// Example of how you might define an Action interface
 export interface ActionDocument {
-  _id?: any;
+  _id?: ObjectId; // Prefer ObjectId
   walletAddress: string;
-  actionType: string; // e.g., 'shared_on_x', 'followed_on_x', 'referral_signup'
+  actionType: string; 
   pointsAwarded: number;
   timestamp?: Date;
   notes?: string;
 }
 
 export interface SquadDocument {
-  _id?: any;
-  squadId: string; // Unique ID for the squad (e.g., UUID)
+  _id?: ObjectId; 
+  squadId: string;
   name: string;
-  description: string;
+  description?: string; 
   leaderWalletAddress: string;
   memberWalletAddresses: string[];
-  // totalSquadPoints: number; // This will now be calculated dynamically
+  totalSquadPoints: number; // Kept from squad-goals for quest engine
+  tier?: number; 
   maxMembers?: number;
-  tags?: string[];
-  profileImageUrl?: string;
-  // Timestamps
+  avatarImageUrl?: string; // From squad-goals (could be profile)
+  bannerImageUrl?: string; // From squad-goals
+  profileImageUrl?: string; // From HEAD (distinct from avatar?)
+  tags?: string[]; // From HEAD
   createdAt: Date;
   updatedAt: Date;
-  // Optional: Store last activity for sorting or pruning inactive squads
-  lastActivityAt?: Date;
-  // Optional: Store if squad is private or public, approval rules etc.
-  isPrivate?: boolean;
-  requiresApproval?: boolean;
+  lastActivityAt?: Date; // From HEAD
+  settings?: { // From squad-goals, incorporating HEAD's fields
+    isPublic?: boolean; // isPrivate from HEAD would be !isPublic
+    requiresApproval?: boolean;
+  };
 }
 
 export interface SquadInvitationDocument {
-  _id?: any;
-  invitationId: string; // Unique ID for the invitation
-  squadId: string;       // ID of the squad inviting
-  squadName: string;     // Name of the squad (for display in invite)
-  invitedByUserWalletAddress: string; // Wallet address of the user who sent the invite (e.g., squad leader)
-  invitedUserWalletAddress: string; // Wallet address of the user being invited
-  status: 'pending' | 'accepted' | 'declined' | 'revoked'; // Status of the invitation
-  createdAt?: Date;
-  // expiresAt?: Date; // Optional: for time-limited invites, can be added later
-  updatedAt?: Date; // To track when the status last changed
+  _id?: ObjectId;
+  invitationId: string;
+  squadId: string;
+  squadName: string;
+  invitedByUserWalletAddress: string;
+  invitedUserWalletAddress: string;
+  status: 'pending' | 'accepted' | 'declined' | 'revoked' | 'expired';
+  message?: string;
+  createdAt: Date;
+  updatedAt: Date;
+  expiresAt?: Date;
 }
 
-export type NotificationType =
+export type NotificationType = 
+  | 'generic'
+  | 'welcome'
+  | 'airdrop_claim_available'
+  | 'referral_success' 
+  | 'referred_by_success' 
+  | 'quest_completed_community'
+  | 'quest_reward_received'   
   | 'squad_invite_received'
   | 'squad_invite_accepted'
   | 'squad_invite_declined'
   | 'squad_invite_revoked'
-  | 'squad_member_joined'    // When someone (not self) joins your squad
-  | 'squad_member_left'      // When someone (not self) leaves your squad
-  | 'squad_kicked'           // When you are kicked from a squad
-  | 'squad_leader_changed'   // When your squad's leader changes
-  | 'squad_disbanded'        // When your squad is disbanded
-  | 'squad_join_request_received' // Leader receives a join request
-  | 'squad_join_request_approved' // Requester notified that their request was approved
-  | 'squad_join_request_rejected' // Requester notified that their request was rejected
-  ;       // Add more types as needed, e.g., for Community Quests, Power-ups earned, etc.
+  | 'squad_member_joined'    
+  | 'squad_member_left'      
+  | 'squad_kicked'           
+  | 'squad_leader_changed'   
+  | 'squad_disbanded'        
+  | 'squad_join_request_received' 
+  | 'squad_join_request_approved' 
+  | 'squad_join_request_rejected' 
+  | 'squad_reward_received'  
+  | 'milestone_unlocked'     
+  | 'badge_earned'           
+  | 'rank_up'                
+  | 'system_message';
 
 export interface NotificationDocument {
-  _id?: any;
-  notificationId: string; // Unique ID for the notification
-  recipientWalletAddress: string; // The user who should receive this notification
+  _id?: ObjectId;
+  userId: string;
   type: NotificationType;
-  message: string; // User-friendly message, e.g., "@UserX invited you to join Squad Y!"
-  relatedSquadId?: string;
-  relatedSquadName?: string; // For easier display without extra lookup
-  relatedUserWalletAddress?: string; // e.g., who sent invite, who joined/left
-  relatedUserXUsername?: string; // For easier display
-  relatedInvitationId?: string; // For squad invitations to store the invitation ID
+  title: string;
+  message: string;
+  ctaUrl?: string;
   isRead: boolean;
-  createdAt?: Date;
+  isArchived?: boolean; 
+  createdAt: Date;      
+  updatedAt: Date;      
+  relatedQuestId?: string;
+  relatedQuestTitle?: string;
+  relatedSquadId?: string;
+  relatedSquadName?: string;
+  relatedUserId?: string;
+  relatedUserName?: string;
+  relatedInvitationId?: string;
+  rewardAmount?: number;
+  rewardCurrency?: string;
+  badgeId?: string;
 }
 
-// Add the export for ISquadJoinRequest here
-export type { ISquadJoinRequest } from '@/models/SquadJoinRequest'; // Assuming the path to the new model file 
+// Assuming ISquadJoinRequest and its model file exist as per HEAD branch
+// If SquadJoinRequest.ts doesn't exist or is not intended, this line should be removed.
+export type { ISquadJoinRequest } from '@/models/SquadJoinRequest';

@@ -1,48 +1,59 @@
 /** @type {import('ts-jest').JestConfigWithTsJest} */
-module.exports = {
-  preset: 'ts-jest',
-  testEnvironment: 'node', // Default for backend tests, can be overridden or set to jsdom for frontend
-  roots: [
-    '<rootDir>/src',
-    '<rootDir>/__tests__' // Or wherever you plan to put test files
-  ],
+export default {
+  preset: 'ts-jest/presets/default-esm', // Use ESM preset for ts-jest
+  testEnvironment: 'node',
+  globalSetup: '<rootDir>/__tests__/jest.globalSetup.js',
+  globalTeardown: '<rootDir>/__tests__/jest.globalTeardown.js',
   moduleNameMapper: {
-    // Handle module aliases (this will be important for Next.js projects)
+    // Handle module aliases (if you have them in tsconfig.json)
     '^@/(.*)$': '<rootDir>/src/$1',
-    // Mock CSS/image imports if testing frontend components that import them
-    '\\.(css|less|scss|sass)$_': 'identity-obj-proxy',
-    '\\.(jpg|jpeg|png|gif|webp|svg)$_': '<rootDir>/__mocks__/fileMock.js',
+    // Mock for CSS/SCSS modules if tests import components that use them
+    '\\.(css|less|scss|sass)$ ': 'identity-obj-proxy',
+    '\\.(jpg|jpeg|png|gif|webp|svg)$ ': '<rootDir>/__mocks__/fileMock.js',
   },
   transform: {
-    // Use babel-jest to transpile tests with the next/babel preset
-    // https://jestjs.io/docs/configuration#transform-objectstring-pathtotransformer--pathtotransformer-object
-    '^.+\\.tsx?$': ['ts-jest', { tsconfig: 'tsconfig.jest.json' }], // Use a separate tsconfig for tests if needed
-    '^.+\\.jsx?$': 'babel-jest',
+    // Ensure ts-jest processes .js, .jsx, .ts, .tsx files as ESM
+    '^.+\\.[tj]sx?$': [
+      'ts-jest',
+      {
+        useESM: true,
+        // tsconfig: 'tsconfig.jest.json', // Optional: if you have a separate tsconfig for jest
+      },
+    ],
   },
-  setupFilesAfterEnv: [
-    // '<rootDir>/jest.setup.js' // For global test setup, like Jest DOM matchers
-  ],
+  // Indicates whether each individual test should be reported during the run
+  verbose: true,
   // Automatically clear mock calls and instances between every test
   clearMocks: true,
-  // Indicates whether the coverage information should be collected while executing the test
-  collectCoverage: true,
-  // An array of glob patterns indicating a set of files for which coverage information should be collected
-  collectCoverageFrom: [
-    'src/**/*.{ts,tsx}',
-    '!src/**/*.d.ts',
-    '!src/**/_app.{ts,tsx}', // Exclude Next.js specific files if not testing them directly
-    '!src/**/_document.{ts,tsx}',
-    '!src/pages/api/**', // Often API routes are tested via integration/e2e rather than unit
-    '!src/scripts/cron/**' // Cron scripts might be tested differently or need specific setup
+  // A list of paths to modules that run some code to configure or set up the testing framework before each test
+  // setupFilesAfterEnv: ['<rootDir>/jest.setup.js'], // if you have a setup file
+  // The glob patterns Jest uses to detect test files
+  testMatch: [
+    '**/__tests__/**/*.test.[jt]s?(x)',
+    // '**/?(*.)+(spec|test).[tj]s?(x)' // Default jest pattern
   ],
-  // The directory where Jest should output its coverage files
-  coverageDirectory: "coverage",
-  // Indicates which provider should be used to instrument code for coverage
-  coverageProvider: "v8",
+  // An array of regexp pattern strings that are matched against all source file paths, matched files will skip transformation
+  transformIgnorePatterns: [
+    // Default: '/node_modules/'. Adjust if specific node_modules need transformation.
+    // For now, keeping default. If error shifts to a node_module, revisit this.
+    '/node_modules/',
+    '\\.pnp\\.[^/\]+$',
+  ],
   testPathIgnorePatterns: [
     "<rootDir>/.next/", 
     "<rootDir>/node_modules/",
     "<rootDir>/build/",
     "<rootDir>/dist/"
   ],
+  // Necessary for ESM support if you are not using `type: "module"` in package.json
+  // extensionsToTreatAsEsm: ['.ts', '.tsx'], // Already using type:module, so this might not be strictly needed but good for clarity
+  // Fix for `ReferenceError: TextEncoder is not defined` if it occurs
+  // globals: {
+  //   TextEncoder: require('util').TextEncoder,
+  //   TextDecoder: require('util').TextDecoder,
+  // },
+  // collectCoverage: true, // Uncomment to enable coverage collection
+  // coverageDirectory: "coverage", // Output directory for coverage reports
+  // coverageProvider: "v8", // or "babel"
+  // coverageReporters: ["json", "text", "lcov", "clover"], // Coverage report formats
 }; 

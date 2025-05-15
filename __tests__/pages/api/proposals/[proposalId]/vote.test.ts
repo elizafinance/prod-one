@@ -73,21 +73,45 @@ describe('/api/proposals/[proposalId]/vote', () => {
 
   it('should prevent voting if user is not authenticated', async () => {
     mockGetServerSession.mockResolvedValueOnce(null);
-    mockReq = { method: 'POST', query: { proposalId: new Types.ObjectId().toString() }, body: { choice: 'up' } };
+    mockReq = { 
+      method: 'POST', 
+      query: { proposalId: new Types.ObjectId().toString() }, 
+      body: { choice: 'up' },
+      headers: {
+        'x-wallet-sig': 'mockSig',
+        'x-wallet-msg': 'mockMsg'
+      }
+    };
     await handler(mockReq as NextApiRequest, mockRes as NextApiResponse);
     expect(mockStatus).toHaveBeenCalledWith(401);
     expect(mockJson).toHaveBeenCalledWith(expect.objectContaining({ error: expect.stringContaining('User not authenticated') }));
   });
 
   it('should prevent voting with invalid proposal ID', async () => {
-    mockReq = { method: 'POST', query: { proposalId: 'invalid-id' }, body: { choice: 'up' } };
+    mockReq = { 
+      method: 'POST', 
+      query: { proposalId: 'invalid-id' }, 
+      body: { choice: 'up' },
+      headers: {
+        'x-wallet-sig': 'mockSig',
+        'x-wallet-msg': 'mockMsg'
+      }
+    };
     await handler(mockReq as NextApiRequest, mockRes as NextApiResponse);
     expect(mockStatus).toHaveBeenCalledWith(400);
     expect(mockJson).toHaveBeenCalledWith(expect.objectContaining({ error: 'Valid Proposal ID is required.' }));
   });
 
   it('should prevent voting with invalid choice', async () => {
-    mockReq = { method: 'POST', query: { proposalId: new Types.ObjectId().toString() }, body: { choice: 'maybe' } };
+    mockReq = { 
+      method: 'POST', 
+      query: { proposalId: new Types.ObjectId().toString() }, 
+      body: { choice: 'maybe' },
+      headers: {
+        'x-wallet-sig': 'mockSig',
+        'x-wallet-msg': 'mockMsg'
+      }
+    };
     await handler(mockReq as NextApiRequest, mockRes as NextApiResponse);
     expect(mockStatus).toHaveBeenCalledWith(400);
     expect(mockJson).toHaveBeenCalledWith(expect.objectContaining({ error: 'Invalid vote choice. Must be one of: up, down, abstain.' }));
@@ -96,7 +120,15 @@ describe('/api/proposals/[proposalId]/vote', () => {
   it('should prevent a user from voting twice (duplicate key error)', async () => {
     // @ts-ignore
     MockedVote.prototype.save.mockRejectedValueOnce({ code: 11000 }); 
-    mockReq = { method: 'POST', query: { proposalId: new Types.ObjectId().toString() }, body: { choice: 'up' } };
+    mockReq = { 
+      method: 'POST', 
+      query: { proposalId: new Types.ObjectId().toString() }, 
+      body: { choice: 'up' },
+      headers: {
+        'x-wallet-sig': 'mockSignatureForDuplicateTest',
+        'x-wallet-msg': 'mockMessageForDuplicateTest'
+      }
+    };
     
     await handler(mockReq as NextApiRequest, mockRes as NextApiResponse);
     
@@ -106,7 +138,15 @@ describe('/api/proposals/[proposalId]/vote', () => {
 
   it('should allow a valid vote', async () => {
     const proposalId = new Types.ObjectId();
-    mockReq = { method: 'POST', query: { proposalId: proposalId.toString() }, body: { choice: 'up' } };
+    mockReq = { 
+      method: 'POST', 
+      query: { proposalId: proposalId.toString() }, 
+      body: { choice: 'up' },
+      headers: {
+        'x-wallet-sig': 'mockSignatureForValidVote',
+        'x-wallet-msg': 'mockMessageForValidVote'
+      } 
+    };
     
     await handler(mockReq as NextApiRequest, mockRes as NextApiResponse);
     

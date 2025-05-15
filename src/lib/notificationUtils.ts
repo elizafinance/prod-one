@@ -1,40 +1,51 @@
-import { Db } from 'mongodb';
-import { v4 as uuidv4 } from 'uuid';
-import { NotificationDocument, NotificationType } from '@/lib/mongodb'; // Assuming mongodb.ts is in the same lib directory
+import { Db, ObjectId } from 'mongodb';
+import { NotificationDocument, NotificationType } from '@/lib/mongodb';
 
 export async function createNotification(
   db: Db,
   recipientWalletAddress: string,
   type: NotificationType,
+  title: string,
   message: string,
+  ctaUrl?: string,
+  relatedQuestId?: string,
+  relatedQuestTitle?: string,
   relatedSquadId?: string,
   relatedSquadName?: string,
-  relatedUserWalletAddress?: string,
-  relatedUserXUsername?: string,
-  relatedInvitationId?: string
+  relatedUserId?: string,
+  relatedUserName?: string,
+  relatedInvitationId?: string,
+  rewardAmount?: number,
+  rewardCurrency?: string,
+  badgeId?: string
 ): Promise<void> {
   const notificationsCollection = db.collection<NotificationDocument>('notifications');
   
-  const notificationId = type === 'squad_invite_received' && relatedInvitationId 
-    ? relatedInvitationId 
-    : uuidv4();
-  
-  const newNotification: NotificationDocument = {
-    notificationId,
-    recipientWalletAddress,
+  const now = new Date();
+  const newNotificationData: Omit<NotificationDocument, '_id'> = {
+    userId: recipientWalletAddress,
     type,
+    title,
     message,
-    relatedSquadId,
-    relatedSquadName,
-    relatedUserWalletAddress,
-    relatedUserXUsername,
-    relatedInvitationId,
+    ctaUrl,
     isRead: false,
-    createdAt: new Date(),
+    createdAt: now,
+    updatedAt: now,
+    ...(relatedQuestId && { relatedQuestId }),
+    ...(relatedQuestTitle && { relatedQuestTitle }),
+    ...(relatedSquadId && { relatedSquadId }),
+    ...(relatedSquadName && { relatedSquadName }),
+    ...(relatedUserId && { relatedUserId }),
+    ...(relatedUserName && { relatedUserName }),
+    ...(relatedInvitationId && { relatedInvitationId }),
+    ...(rewardAmount && { rewardAmount }),
+    ...(rewardCurrency && { rewardCurrency }),
+    ...(badgeId && { badgeId }),
   };
+
   try {
-    await notificationsCollection.insertOne(newNotification);
-    console.log(`Notification created: ${type} for ${recipientWalletAddress} (ID: ${newNotification.notificationId})`);
+    const result = await notificationsCollection.insertOne(newNotificationData as NotificationDocument);
+    console.log(`Notification created: ${type} for ${recipientWalletAddress} (DB ID: ${result.insertedId})`);
   } catch (error) {
     console.error(`Failed to create notification (${type}) for ${recipientWalletAddress}:`, error);
     // Depending on your error handling strategy, you might re-throw or handle silently

@@ -5,6 +5,8 @@ import { randomBytes } from 'crypto';
 import { Db, ObjectId } from 'mongodb';
 import { withAuth } from '@/middleware/authGuard';
 import { withRateLimit } from '@/middleware/rateLimiter';
+import { rabbitmqService } from '@/services/rabbitmq.service';
+import { rabbitmqConfig } from '@/config/rabbitmq.config';
 
 interface AirdropGsheetEntry {
   Account: string;
@@ -244,6 +246,43 @@ const baseHandler = withAuth(async (request: Request, session) => {
                         { $inc: { totalSquadPoints: pointsToAwardReferrer }, $set: { updatedAt: new Date() } } // Use pointsToAwardReferrer which includes boost
                     );
                     console.log(`[Activate Rewards] Squad update result: matchedCount=${squadUpdateResult.matchedCount}, modifiedCount=${squadUpdateResult.modifiedCount}`);
+                    if (squadUpdateResult.modifiedCount > 0 && pointsToAwardReferrer !== 0) {
+                        try {
+                            await rabbitmqService.publishToExchange(
+                                rabbitmqConfig.eventsExchange,
+                                rabbitmqConfig.routingKeys.squadPointsUpdated,
+                                {
+                                    squadId: referrer.squadId,
+                                    pointsChange: pointsToAwardReferrer, // This is the DELTA
+                                    reason: 'referrer_bonus_activation',
+                                    timestamp: new Date().toISOString(),
+                                    responsibleUserId: referrer.walletAddress // The referrer who earned points for the squad
+                                }
+                            );
+                            console.log(`[Activate Rewards] Published squad.points.updated for referrer's squad ${referrer.squadId}`);
+                        } catch (publishError) {
+                            console.error(`[Activate Rewards] Failed to publish squad.points.updated for referrer's squad ${referrer.squadId}:`, publishError);
+                        }
+                    }
+                }
+
+                // Publish user.referred.success event
+                try {
+                  const eventPayload = {
+                    userId: newSolanaWalletAddress, // The user who was referred and activated wallet
+                    referredByUserId: referrer.walletAddress, // The user who made the referral
+                    timestamp: new Date().toISOString(),
+                    // questRelevantValue: 1 // Each successful referral counts as 1
+                  };
+                  await rabbitmqService.publishToExchange(
+                    rabbitmqConfig.eventsExchange,
+                    rabbitmqConfig.routingKeys.userReferredSuccess,
+                    eventPayload
+                  );
+                  console.log('[Activate Rewards] Successfully published user.referred.success event:', eventPayload);
+                } catch (publishError) {
+                  console.error('[Activate Rewards] Failed to publish user.referred.success event:', publishError);
+                  // Log and continue, core activation & referral logic succeeded.
                 }
             } else {
                 console.log(`[Activate Rewards] Referrer validation failed: referrer wallet address is ${referrer.walletAddress || 'missing'}, new user wallet is ${newSolanaWalletAddress}`);
@@ -380,6 +419,22 @@ const baseHandler = withAuth(async (request: Request, session) => {
         }
       );
       console.log(`[Activate Rewards] Updated squad ${potentiallyUpdatedUser.squadId} points by ${pointsGainedThisSession} for user ${xUserId}`);
+      try {
+        await rabbitmqService.publishToExchange(
+            rabbitmqConfig.eventsExchange,
+            rabbitmqConfig.routingKeys.squadPointsUpdated,
+            {
+                squadId: potentiallyUpdatedUser.squadId,
+                pointsChange: pointsGainedThisSession, // This is the DELTA
+                reason: 'user_activation_points',
+                timestamp: new Date().toISOString(),
+                responsibleUserId: potentiallyUpdatedUser.walletAddress // The user whose activation points contributed
+            }
+        );
+        console.log(`[Activate Rewards] Published squad.points.updated for user's squad ${potentiallyUpdatedUser.squadId}`);
+      } catch (publishError) {
+          console.error(`[Activate Rewards] Failed to publish squad.points.updated for user's squad ${potentiallyUpdatedUser.squadId}:`, publishError);
+      }
     }
 
     // Fetch the fully updated user for the response

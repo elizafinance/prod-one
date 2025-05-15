@@ -1,146 +1,187 @@
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 // import { NotificationDocument } from '@/lib/mongodb'; // Will use UnifiedNotification
-import NotificationItem from '@/components/notifications/NotificationItem'; // Adjust path if needed
+import NotificationItem, { NotificationDisplayData } from '@/components/notifications/NotificationItem'; // Adjust path if needed
 import { toast } from 'sonner';
 import Link from 'next/link';
 import { useWallet } from '@solana/wallet-adapter-react'; // To ensure user is connected for API calls
 
-// Define UnifiedNotification structure (should be consistent with other usages)
-interface UnifiedNotification {
-  _id: string; 
-  type: 'squad_invite' | 'generic_notification'; 
-  message: string;
-  squadId?: string; 
-  squadName?: string;
-  inviterWalletAddress?: string; 
-  isRead: boolean; 
-  createdAt: Date;
-  ctaLink?: string; 
-  ctaText?: string; 
+interface NotificationsApiResponse {
+  notifications: NotificationDisplayData[];
+  unreadCount: number;
+  currentPage: number;
+  totalPages: number;
+  totalNotifications: number;
 }
 
-export default function AllNotificationsPage() {
-  const [notifications, setNotifications] = useState<UnifiedNotification[]>([]); // Use UnifiedNotification
+const NOTIFICATIONS_PER_PAGE = 20; // Match default or allow config
+
+export default function NotificationsHistoryPage() {
+  const [notifications, setNotifications] = useState<NotificationDisplayData[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [unreadCount, setUnreadCount] = useState(0);
   const { connected } = useWallet();
 
-  const fetchAllNotifications = useCallback(async (markAsReadOnClick = false) => {
-    if (!connected) return; // Don't fetch if wallet not connected (session won't be there for API)
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+
+  const fetchAllNotifications = useCallback(async (pageToFetch = 1) => {
+    if (!connected) return;
     
     setIsLoading(true);
     setError(null);
     try {
-      // Fetch with a higher limit or no limit for "all" notifications page
-      const response = await fetch('/api/notifications/my-notifications?limit=100'); 
+      const response = await fetch(`/api/notifications?page=${pageToFetch}&limit=${NOTIFICATIONS_PER_PAGE}`);
       if (!response.ok) {
-        throw new Error('Failed to fetch notifications');
+        const errData = await response.json();
+        throw new Error(errData.error || 'Failed to fetch notifications');
       }
-      const data: { notifications: UnifiedNotification[], unreadCount: number } = await response.json(); // Explicitly type data
-      setNotifications(data.notifications || []);
-      setUnreadCount(data.unreadCount || 0); 
-      // No automatic mark as read for all on this page, only individual clicks or "Mark All"
-    } catch (err) {
-      setError((err as Error).message || 'Could not load notifications.');
-      console.error(err);
+      const data: NotificationsApiResponse = await response.json();
+      setNotifications(data.notifications);
+      setUnreadCount(data.unreadCount);
+      setCurrentPage(data.currentPage);
+      setTotalPages(data.totalPages);
+    } catch (err: any) {
+      setError(err.message);
+      console.error("Error fetching all notifications:", err);
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoading(false);
   }, [connected]);
 
   useEffect(() => {
-    fetchAllNotifications();
-  }, [fetchAllNotifications]);
+    fetchAllNotifications(currentPage);
+  }, [fetchAllNotifications, currentPage, connected]); // Add connected to re-fetch if wallet connects
 
-  const markNotificationsAsRead = async (notificationIds: string[]) => {
-    if (notificationIds.length === 0) return;
+  const handleMarkAsRead = async (notificationId: string): Promise<void> => {
+    // Optimistically update UI. NotificationItem calls the API.
+    setNotifications(prev => prev.map(n => 
+      n.notificationId === notificationId ? { ...n, isRead: true } : n
+    ));
+    setUnreadCount(prev => Math.max(0, prev -1));
+  };
+
+  const handleMarkAllAsRead = async () => {
+    if (unreadCount === 0) return;
+    setIsLoading(true);
+    setError(null);
     try {
-      const response = await fetch('/api/notifications/mark-read', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ notificationIds }),
-      });
-      if (response.ok) {
-        // Refresh notifications to show them as read and update unread count
-        fetchAllNotifications(); 
-        toast.success("Notifications marked as read.")
-      } else {
-        toast.error("Failed to mark notifications as read.");
+      const response = await fetch('/api/notifications/mark-all-read', { method: 'POST' });
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.error || 'Failed to mark all notifications as read');
       }
-    } catch (err) {
-      toast.error("Error marking notifications as read.");
-      console.error(err);
+      // const result = await response.json();
+      // console.log(result.message);
+      // alert(result.message); // Or use a toast notification
+      // Refetch notifications to get the updated state from the server
+      fetchAllNotifications(currentPage); 
+    } catch (err: any) {
+      console.error("Error in handleMarkAllAsRead:", err);
+      setError(err.message || "Failed to mark all notifications as read.");
+      setIsLoading(false); // Ensure loading is stopped on error
+    }
+    // setIsLoading(false) will be called by fetchAllNotifications in its finally block if successful
+  };
+
+  const handlePageChange = (newPage: number) => {
+    if (newPage >= 1 && newPage <= totalPages) {
+      setCurrentPage(newPage);
     }
   };
 
-  const handleMarkOneAsRead = (notificationId: string) => {
-    // Check if already read to avoid unnecessary API call, though backend also checks
-    const notif = notifications.find(n => n._id === notificationId); // Use _id for finding
-    if (notif && !notif.isRead) {
-        markNotificationsAsRead([notificationId]);
-    }
-  };
-  
-  const handleMarkAllAsRead = () => {
-    const allUnreadIds = notifications.filter(n => !n.isRead).map(n => n._id); // Use _id for mapping
-    if(allUnreadIds.length > 0) {
-        markNotificationsAsRead(allUnreadIds);
-    } else {
-        toast.info("No unread notifications to mark.");
-    }
-  };
+  if (!connected && !isLoading) { // Show connect wallet message if not loading and not connected
+    return (
+        <div className="container mx-auto px-4 py-8 text-center">
+            <h1 className="text-3xl font-bold text-white mb-6">Notifications</h1>
+            <p className="text-xl text-gray-400">Please connect your wallet to view your notifications.</p>
+            {/* Optionally, add a wallet connect button here if you have a global one */} 
+        </div>
+    );
+  }
+
+  if (isLoading && notifications.length === 0) { // Show full page loader only if no data yet
+    return <div className="container mx-auto px-4 py-8 text-center text-xl text-gray-400">Loading notifications...</div>;
+  }
+
+  if (error) {
+    return <div className="container mx-auto px-4 py-8 text-center text-xl text-red-500">Error: {error}</div>;
+  }
 
   return (
-    <main className="flex flex-col items-center min-h-screen p-4 sm:p-8 bg-gradient-to-b from-gray-900 to-gray-800 text-white">
-      <div className="w-full max-w-3xl mx-auto py-8 sm:py-12">
-        <div className="flex justify-between items-center mb-10">
-          <h1 className="text-4xl sm:text-5xl font-bold font-spacegrotesk tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-cyan-500 to-sky-500">
-            All Notifications
-          </h1>
-          <Link href="/" passHref>
-            <button 
-              className="bg-gray-600 hover:bg-gray-700 text-white font-semibold py-2 px-5 rounded-lg shadow-md hover:shadow-lg transform hover:scale-105 transition-all duration-150 ease-in-out whitespace-nowrap"
-            >
-              Back to Dashboard
-            </button>
-          </Link>
+    <div className="container mx-auto px-4 py-8 bg-gray-900 min-h-screen text-gray-100">
+      <div className="max-w-2xl mx-auto">
+        <div className="flex justify-between items-center mb-6 pb-4 border-b border-gray-700">
+          <h1 className="text-3xl font-bold text-white">All Notifications</h1>
+          {unreadCount > 0 && (
+             <button 
+                onClick={handleMarkAllAsRead}
+                disabled={isLoading} // Disable button while any loading is in progress
+                className="text-sm text-blue-400 hover:text-blue-300 disabled:opacity-50 disabled:cursor-not-allowed"
+             >
+                Mark all as read ({unreadCount})
+             </button>
+          )}
         </div>
 
-        <div className="mb-6 flex justify-end">
-            {notifications.length > 0 && unreadCount > 0 && (
-                 <button onClick={handleMarkAllAsRead} className="text-sm bg-blue-500 hover:bg-blue-600 text-white font-semibold py-1.5 px-3 rounded-md shadow-sm transition-colors">
-                    Mark all ({unreadCount}) as read
-                </button>
-            )}
-        </div>
-
-        {isLoading && (
+        {notifications.length === 0 && !isLoading ? (
           <div className="text-center py-10">
-            <p className="text-xl text-gray-400">Loading All Notifications...</p>
-            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-sky-500 mx-auto mt-4"></div>
+            <p className="text-gray-400 text-lg">You have no notifications.</p>
+            <Link href="/quests" className="mt-4 inline-block text-blue-400 hover:underline">
+              Explore Quests
+            </Link>
           </div>
-        )}
-        {error && <p className="text-center text-red-400 bg-red-900 bg-opacity-30 p-4 rounded-lg">Error: {error}</p>}
-        
-        {!isLoading && !error && notifications.length === 0 && (
-          <div className="text-center py-10 bg-gray-800 bg-opacity-50 p-6 rounded-lg shadow-xl">
-            <p className="text-2xl text-gray-300 mb-3">No Notifications Found!</p>
-            <p className="text-gray-400">All quiet on the notification front.</p>
-          </div>
-        )}
-
-        {!isLoading && !error && notifications.length > 0 && (
-          <div className="bg-white/5 backdrop-blur-sm shadow-2xl rounded-xl p-2 sm:p-4">
-            <ul className="divide-y divide-gray-700/50">
+        ) : (
+          <>
+            <div className="space-y-px bg-gray-800 rounded-lg shadow">
               {notifications.map(notif => (
-                <NotificationItem key={notif._id} notification={notif} onMarkAsRead={handleMarkOneAsRead} /> // Use _id for key
+                <NotificationItem 
+                  key={notif.notificationId} 
+                  notification={notif} 
+                  onMarkAsRead={handleMarkAsRead} 
+                />
               ))}
-            </ul>
-          </div>
+            </div>
+            {totalPages > 1 && (
+              <div className="mt-8 flex justify-center items-center space-x-2">
+                <button 
+                  onClick={() => handlePageChange(currentPage - 1)} 
+                  disabled={currentPage === 1 || isLoading}
+                  className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Previous
+                </button>
+                {Array.from({ length: totalPages }, (_, i) => i + 1).filter(pageNumber => 
+                    pageNumber === 1 || pageNumber === totalPages || 
+                    (pageNumber >= currentPage -1 && pageNumber <= currentPage + 1) ||
+                    (currentPage <=3 && pageNumber <=3) ||
+                    (currentPage >= totalPages - 2 && pageNumber >= totalPages -2)
+                ).map((pageNumber, index, arr) => (
+                    <React.Fragment key={pageNumber}>
+                        {index > 0 && arr[index-1] !== pageNumber -1 && <span className="text-gray-500 px-1">...</span>}
+                        <button 
+                            onClick={() => handlePageChange(pageNumber)} 
+                            disabled={isLoading}
+                            className={`px-4 py-2 rounded-md disabled:opacity-50 disabled:cursor-not-allowed ${currentPage === pageNumber ? 'bg-blue-600 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-300'}`}
+                        >
+                            {pageNumber}
+                        </button>
+                    </React.Fragment>
+                ))}
+                <button 
+                  onClick={() => handlePageChange(currentPage + 1)} 
+                  disabled={currentPage === totalPages || isLoading}
+                  className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Next
+                </button>
+              </div>
+            )}
+          </>
         )}
       </div>
-    </main>
+    </div>
   );
 } 

@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { connectToDatabase, UserDocument, SquadDocument } from '@/lib/mongodb';
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
+import { rabbitmqService } from '@/services/rabbitmq.service';
+import { rabbitmqConfig } from '@/config/rabbitmq.config';
 
 interface JoinSquadRequestBody {
   squadIdToJoin: string;
@@ -55,15 +57,39 @@ export async function POST(request: Request) {
 
     const pointsToContribute = user.points || 0;
 
-    // Add user to squad's member list and add their points to squad total
-    await squadsCollection.updateOne(
+    // Add member to squad and update squad points
+    const squadUpdateResult = await squadsCollection.updateOne(
       { squadId: squadIdToJoin },
       {
         $addToSet: { memberWalletAddresses: userWalletAddress },
         $inc: { totalSquadPoints: pointsToContribute }, // Add joining member's points
-        $set: { updatedAt: new Date() }
+        $set: { updatedAt: new Date() },
       }
     );
+
+    if (squadUpdateResult.matchedCount === 0) {
+      return NextResponse.json({ error: 'Squad not found or no update occurred.' }, { status: 404 });
+    }
+    console.log(`[Join Squad] Squad ${squadIdToJoin} updated with new member ${userWalletAddress} and points ${pointsToContribute}`);
+
+    if (pointsToContribute > 0) {
+        try {
+            await rabbitmqService.publishToExchange(
+                rabbitmqConfig.eventsExchange,
+                rabbitmqConfig.routingKeys.squadPointsUpdated,
+                {
+                    squadId: squadIdToJoin,
+                    pointsChange: pointsToContribute,
+                    reason: 'user_joined_squad_direct',
+                    timestamp: new Date().toISOString(),
+                    responsibleUserId: userWalletAddress
+                }
+            );
+            console.log(`[Join Squad] Published squad.points.updated for squad ${squadIdToJoin}`);
+        } catch (publishError) {
+            console.error(`[Join Squad] Failed to publish squad.points.updated for squad ${squadIdToJoin}:`, publishError);
+        }
+    }
 
     // Update user's document with squadId
     // Optionally, update user.pointsContributedToSquad if you implement that field

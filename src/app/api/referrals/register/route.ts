@@ -93,15 +93,33 @@ export async function POST(request: Request) {
     );
     
     // Update referrer's squad points if they are in a squad
-    if (referrer.squadId && pointsToAwardReferrer > 0) { // pointsToAwardReferrer includes standard + boost
-      await squadsCollection.updateOne(
+    if (referrer.squadId) {
+      const squadUpdate = await squadsCollection.updateOne(
         { squadId: referrer.squadId },
         { 
-          $inc: { totalSquadPoints: pointsToAwardReferrer },
-          $set: { updatedAt: new Date() }
+          $inc: { totalSquadPoints: pointsToAwardReferrer }, 
+          $set: { updatedAt: new Date() } 
         }
       );
-      console.log(`Updated squad ${referrer.squadId} points by ${pointsToAwardReferrer} from referral by ${referrer.walletAddress}`);
+      console.log(`[Referral Register] Referrer ${referrer.walletAddress} squad ${referrer.squadId} points updated by ${pointsToAwardReferrer}. Matched: ${squadUpdate.matchedCount}, Modified: ${squadUpdate.modifiedCount}`);
+      if (squadUpdate.modifiedCount > 0 && pointsToAwardReferrer > 0) {
+        try {
+          await rabbitmqService.publishToExchange(
+            rabbitmqConfig.eventsExchange,
+            rabbitmqConfig.routingKeys.squadPointsUpdated,
+            {
+              squadId: referrer.squadId,
+              pointsChange: pointsToAwardReferrer,
+              reason: 'referrer_bonus_registration',
+              timestamp: new Date().toISOString(),
+              responsibleUserId: referrer.walletAddress // The referrer whose action led to points
+            }
+          );
+          console.log(`[Referral Register] Published squad.points.updated for referrer's squad ${referrer.squadId}`);
+        } catch (publishError) {
+          console.error(`[Referral Register] Failed to publish squad.points.updated for referrer's squad ${referrer.squadId}:`, publishError);
+        }
+      }
     }
 
     // Log the standard referral action

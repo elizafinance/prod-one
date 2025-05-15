@@ -244,6 +244,24 @@ export async function POST(request: Request) {
                         { $inc: { totalSquadPoints: pointsToAwardReferrer }, $set: { updatedAt: new Date() } } // Use pointsToAwardReferrer which includes boost
                     );
                     console.log(`[Activate Rewards] Squad update result: matchedCount=${squadUpdateResult.matchedCount}, modifiedCount=${squadUpdateResult.modifiedCount}`);
+                    if (squadUpdateResult.modifiedCount > 0 && pointsToAwardReferrer !== 0) {
+                        try {
+                            await rabbitmqService.publishToExchange(
+                                rabbitmqConfig.eventsExchange,
+                                rabbitmqConfig.routingKeys.squadPointsUpdated,
+                                {
+                                    squadId: referrer.squadId,
+                                    pointsChange: pointsToAwardReferrer, // This is the DELTA
+                                    reason: 'referrer_bonus_activation',
+                                    timestamp: new Date().toISOString(),
+                                    responsibleUserId: referrer.walletAddress // The referrer who earned points for the squad
+                                }
+                            );
+                            console.log(`[Activate Rewards] Published squad.points.updated for referrer's squad ${referrer.squadId}`);
+                        } catch (publishError) {
+                            console.error(`[Activate Rewards] Failed to publish squad.points.updated for referrer's squad ${referrer.squadId}:`, publishError);
+                        }
+                    }
                 }
 
                 // Publish user.referred.success event
@@ -399,6 +417,22 @@ export async function POST(request: Request) {
         }
       );
       console.log(`[Activate Rewards] Updated squad ${potentiallyUpdatedUser.squadId} points by ${pointsGainedThisSession} for user ${xUserId}`);
+      try {
+        await rabbitmqService.publishToExchange(
+            rabbitmqConfig.eventsExchange,
+            rabbitmqConfig.routingKeys.squadPointsUpdated,
+            {
+                squadId: potentiallyUpdatedUser.squadId,
+                pointsChange: pointsGainedThisSession, // This is the DELTA
+                reason: 'user_activation_points',
+                timestamp: new Date().toISOString(),
+                responsibleUserId: potentiallyUpdatedUser.walletAddress // The user whose activation points contributed
+            }
+        );
+        console.log(`[Activate Rewards] Published squad.points.updated for user's squad ${potentiallyUpdatedUser.squadId}`);
+      } catch (publishError) {
+          console.error(`[Activate Rewards] Failed to publish squad.points.updated for user's squad ${potentiallyUpdatedUser.squadId}:`, publishError);
+      }
     }
 
     // Fetch the fully updated user for the response

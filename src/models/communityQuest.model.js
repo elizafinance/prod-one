@@ -1,39 +1,67 @@
 import mongoose from 'mongoose';
 
+const questStatusEnum = ['draft', 'scheduled', 'active', 'paused', 'succeeded', 'failed', 'expired', 'archived'];
+const goalTypeEnum = [
+  'total_referrals',      // Community: Total referrals made by all participants
+  'users_at_tier',        // Community: Number of unique users reaching a specific tier
+  'aggregate_spend',      // Community: Total spend (e.g., SOL, USDC) by all participants
+  'total_squad_points'    // Squad: Total points accumulated by a squad
+];
+const questScopeEnum = ['community', 'squad'];
+const rewardSplitEnum = ['equal', 'leader_only', 'proportional', 'none']; // 'none' if rewards are manual or handled by a generic 'quest_succeeded' event
+
 const communityQuestSchema = new mongoose.Schema({
-  title: { type: String, required: true },
-  description_md: { type: String, required: true },
-  goal_type: {
-    type: String,
-    enum: ['total_referrals', 'users_at_tier', 'aggregate_spend'],
-    required: true,
+  title: { type: String, required: true, trim: true },
+  description: { type: String, required: true, trim: true },
+  status: { type: String, enum: questStatusEnum, default: 'draft', required: true },
+  
+  scope: { type: String, enum: questScopeEnum, default: 'community', required: true },
+
+  goal_type: { type: String, enum: goalTypeEnum, required: true },
+  goal_target: { type: Number, required: true }, // e.g., 1000 referrals, 50 users, 100000 spend, 50000 squad points
+  goal_target_metadata: { // Flexible field for additional goal parameters
+    tier_name: { type: String }, // For 'users_at_tier'
+    currency: { type: String },  // For 'aggregate_spend', e.g., 'SOL', 'USDC', 'POINTS'
+    // Add other metadata as needed for future quest types
   },
-  goal_target_metadata: {
-    type: mongoose.Schema.Types.Mixed,
-    default: null,
-  },
-  goal_target: { type: Number, required: true },
-  reward_type: {
-    type: String,
-    enum: ['points', 'nft', 'points+nft'],
-    required: true,
-  },
-  reward_points: { type: Number },
-  reward_nft_id: { type: String },
+  
   start_ts: { type: Date, required: true },
   end_ts: { type: Date, required: true },
-  status: {
-    type: String,
-    enum: ['scheduled', 'active', 'succeeded', 'failed', 'expired'],
-    default: 'scheduled',
-    index: true,
-  },
-  created_by: { type: String, comment: "Identifier for the admin who created the quest" },
-}, { timestamps: { createdAt: 'created_ts', updatedAt: 'updated_ts' } });
+  
+  rewards: [{ // Array to define potential rewards
+    type: { type: String, required: true }, // e.g., 'points', 'nft_collection', 'spl_token', 'badge', 'custom'
+    value: { type: mongoose.Schema.Types.Mixed, required: true }, // e.g., 1000 (points), 'CollectionMintAddress', { tokenMint: 'TokenMint', amount: 100 }, 'BadgeID'
+    description: { type: String }
+  }],
+  reward_split: { type: String, enum: rewardSplitEnum, default: 'none' }, // Relevant for scope: 'squad'
 
-communityQuestSchema.index({ goal_type: 1, status: 1, end_ts: 1 });
+  // Admin fields
+  created_by: { type: mongoose.Schema.Types.ObjectId, ref: 'AdminUser' }, // Or just a wallet address
+  updated_by: { type: mongoose.Schema.Types.ObjectId, ref: 'AdminUser' },
 
-const goalTypeEnum = ['total_referrals', 'users_at_tier', 'aggregate_spend'];
-communityQuestSchema.path('goal_type', { type: String, enum: goalTypeEnum, required: true });
+  // Soft delete
+  deleted_at: { type: Date, default: null },
+  
+  // Timestamps
+  created_ts: { type: Date, default: Date.now },
+  updated_at: { type: Date, default: Date.now }
+});
 
-export default mongoose.models.CommunityQuest || mongoose.model('CommunityQuest', communityQuestSchema); 
+communityQuestSchema.index({ status: 1, start_ts: 1, end_ts: 1 });
+communityQuestSchema.index({ goal_type: 1, status: 1 });
+communityQuestSchema.index({ scope: 1, status: 1 });
+
+// Pre-save hook to update `updated_at`
+communityQuestSchema.pre('save', function(next) {
+  this.updated_at = new Date();
+  next();
+});
+
+communityQuestSchema.pre('findOneAndUpdate', function(next) {
+  this.set({ updated_at: new Date() });
+  next();
+});
+
+const CommunityQuest = mongoose.models.CommunityQuest || mongoose.model('CommunityQuest', communityQuestSchema);
+
+export default CommunityQuest; 

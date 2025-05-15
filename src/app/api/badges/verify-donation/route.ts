@@ -164,13 +164,20 @@ export async function POST(request: Request) {
     await createNotification(
       db,
       userWalletAddress,
-      'badge_earned' as any, // Type cast to resolve type issue
-      'You earned the ✨ Generous Donor badge for your SOL donation! +250 points added to your profile.',
+      'badge_earned',
+      'Badge Earned: Generous Donor!',
+      `You earned the ✨ Generous Donor badge for your SOL donation! +250 points added to your profile.`,
+      `/profile/${userWalletAddress}?section=badges`,
       undefined,
       undefined,
       undefined,
       undefined,
-      undefined
+      undefined,
+      undefined,
+      undefined,
+      250,
+      'points',
+      DONATION_BADGE_ID
     );
     
     console.log(`[VerifyDonation API] Successfully awarded badge to ${userWalletAddress}`);

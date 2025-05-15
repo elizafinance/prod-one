@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { connectToDatabase, UserDocument, ActionDocument, SquadDocument } from '@/lib/mongodb';
 import { randomBytes } from 'crypto'; // For generating referral code if user is new
 import { Db } from 'mongodb'; // Import Db type
+import { rabbitmqService } from '@/services/rabbitmq.service';
+import { rabbitmqConfig } from '@/config/rabbitmq.config';
 
 // Placeholder for your database connection and logic
 // import { connectToDatabase, User, Action } from '@/lib/mongodb'; // Example
@@ -87,15 +89,34 @@ export async function POST(request: Request) {
     );
 
     // Update squad points if user is in a squad
-    if (user.squadId) {
-      await squadsCollection.updateOne(
+    if (user.squadId && pointsAwarded > 0) {
+      console.log(`[Log Social Action] Updating squad points for squad ${user.squadId} by ${pointsAwarded}`);
+      const squadUpdateResult = await squadsCollection.updateOne(
         { squadId: user.squadId },
         { 
           $inc: { totalSquadPoints: pointsAwarded },
           $set: { updatedAt: new Date() }
         }
       );
-      console.log(`Updated squad ${user.squadId} points by ${pointsAwarded} from social action by ${walletAddress}`);
+      console.log(`[Log Social Action] Squad points update result: matched ${squadUpdateResult.matchedCount}, modified ${squadUpdateResult.modifiedCount}`);
+      if (squadUpdateResult.modifiedCount > 0) {
+        try {
+          await rabbitmqService.publishToExchange(
+            rabbitmqConfig.eventsExchange,
+            rabbitmqConfig.routingKeys.squadPointsUpdated,
+            {
+              squadId: user.squadId,
+              pointsChange: pointsAwarded,
+              reason: `social_action:${actionType}`,
+              timestamp: new Date().toISOString(),
+              responsibleUserId: user.walletAddress
+            }
+          );
+          console.log(`[Log Social Action] Published squad.points.updated for squad ${user.squadId}`);
+        } catch (publishError) {
+          console.error(`[Log Social Action] Failed to publish squad.points.updated for squad ${user.squadId}:`, publishError);
+        }
+      }
     }
 
     await actionsCollection.insertOne({

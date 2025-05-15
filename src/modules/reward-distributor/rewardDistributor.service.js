@@ -5,157 +5,255 @@ import CommunityQuest from '../../models/communityQuest.model.js';
 import QuestContribution from '../../models/questContribution.model.js';
 import QuestRewardLedger from '../../models/questRewardLedger.model.js';
 import { notificationService } from '../../services/notification.service.js';
+import User from '../../models/user.model';
+import Squad from '../../models/squad.model';
 
-const MAX_RETRIES_REWARD_DIST = 3;
+const MAX_RETRIES = 3;
 
-async function handleRewardDistributionEvent(message) {
-  const { questId, questTitle, completedAt } = message;
-  console.log(`[RewardDistributor] Received event to distribute rewards for quest: ${questTitle} (${questId}) completed at ${completedAt}`);
+async function processQuestCompletion(message) {
+  const { questId, questTitle, completedAt, scope, squadId: completedSquadId } = message;
+  console.log(`[RewardDistributor] Received quest completion for distribution. QuestID: ${questId}, Scope: ${scope}, SquadID (if any): ${completedSquadId}`);
 
   try {
     const { db } = await connectToDatabase();
     const usersCollection = db.collection<UserDocument>('users');
 
     const quest = await CommunityQuest.findById(questId).lean();
-
     if (!quest) {
-      console.error(`[RewardDistributor] Quest ${questId} not found. Cannot distribute rewards.`);
-      return { success: true, retryable: false }; // ACK, non-retryable (quest gone)
+      console.error(`[RewardDistributor] Quest ${questId} not found. Discarding message.`);
+      return { success: true, retryable: false };
     }
 
-    if (quest.status !== 'succeeded') {
-      console.warn(`[RewardDistributor] Quest ${questId} is not in 'succeeded' state (current: ${quest.status}). Skipping.`);
-      return { success: true, retryable: false }; // ACK, non-retryable (state changed)
+    if (quest.status !== 'succeeded' && scope !== 'squad') {
+        // For community quests, we might rely on the quest status being 'succeeded'
+        // For squad quests, the main quest status might not change if multiple squads can complete it.
+        // The event from QuestEngine for squad completion is the trigger.
+        console.warn(`[RewardDistributor] Quest ${questId} (community scope) is not in 'succeeded' state (current: ${quest.status}). Proceeding with caution or potentially skipping.`);
+        // Depending on rules, might return or proceed. For now, let's proceed if event received.
     }
 
-    const eligibleContributions = await QuestContribution.find({
-      quest_id: quest._id,
-      metric_value: { $gt: 0 } // Only users who contributed
-    }).lean();
-
-    if (!eligibleContributions.length) {
-      console.log(`[RewardDistributor] No eligible participants for quest ${questId}.`);
-      return { success: true, retryable: false }; // ACK, no one to reward
+    if (!quest.rewards || quest.rewards.length === 0) {
+      console.log(`[RewardDistributor] Quest ${questId} has no defined rewards. Nothing to distribute.`);
+      return { success: true, retryable: false };
     }
 
-    console.log(`[RewardDistributor] Found ${eligibleContributions.length} eligible participants for quest ${questId}.`);
-    let allUsersProcessedSuccessfully = true;
-
-    for (const contribution of eligibleContributions) {
-      try {
-        // Note: contribution.user_id is an ObjectId from QuestContribution schema
-        const user = await usersCollection.findOne({ _id: contribution.user_id }); 
-        if (!user) {
-          console.warn(`[RewardDistributor] User ${contribution.user_id} for quest ${questId} not found. Skipping reward for this user.`);
-          continue; // Skip this user, but don't fail the whole batch for one missing user
-        }
-
-        let rewardsGivenThisUser = [];
-
-        // 1. Distribute Points
-        if ((quest.reward_type === 'points' || quest.reward_type === 'points+nft') && quest.reward_points && quest.reward_points > 0) {
-          // Ensure idempotency: Check if this user already received points for this quest
-          const existingPointsReward = await QuestRewardLedger.findOne({
-            quest_id: quest._id,
-            user_id: user._id,
-            reward_type: 'points'
-          });
-
-          if (!existingPointsReward) {
-            await usersCollection.updateOne({ _id: user._id }, { $inc: { points: quest.reward_points }, $set: { updatedAt: new Date() } });
-            await QuestRewardLedger.create({
-              quest_id: quest._id,
-              user_id: user._id,
-              reward_type: 'points',
-              reward_details: { points_awarded: quest.reward_points, quest_title: quest.title },
-              status: 'issued' // or 'claimed' if points are immediate
-            });
-            rewardsGivenThisUser.push(`${quest.reward_points} points`);
-            console.log(`[RewardDistributor] Awarded ${quest.reward_points} points to user ${user._id} for quest ${questId}.`);
-          } else {
-            console.log(`[RewardDistributor] User ${user._id} already received points for quest ${questId}. Skipping.`);
-          }
-        }
-
-        // 2. Distribute NFT (Placeholder for actual NFT logic)
-        if ((quest.reward_type === 'nft' || quest.reward_type === 'points+nft') && quest.reward_nft_id) {
-          // Ensure idempotency: Check if this user already received/flagged for NFT for this quest
-          const existingNftReward = await QuestRewardLedger.findOne({
-            quest_id: quest._id,
-            user_id: user._id,
-            reward_type: 'nft'
-          });
-
-          if (!existingNftReward) {
-            console.log(`[RewardDistributor] User ${user._id} eligible for NFT ${quest.reward_nft_id} for quest ${questId}. (TODO: Implement minting)`);
-            // TODO: Implement actual NFT minting/distribution trigger here
-            // This might involve calling an external service, an on-chain transaction, or adding to a minting queue.
-            await QuestRewardLedger.create({
-              quest_id: quest._id,
-              user_id: user._id,
-              reward_type: 'nft',
-              reward_details: { nft_id: quest.reward_nft_id, quest_title: quest.title, status_remark: 'Pending Mint/Claim' },
-              status: 'pending' // Or 'issued' if NFT is off-chain and immediately available
-            });
-            rewardsGivenThisUser.push(`NFT ${quest.reward_nft_id}`);
-            console.log(`[RewardDistributor] Flagged user ${user._id} for NFT ${quest.reward_nft_id} for quest ${questId}.`);
-          } else {
-            console.log(`[RewardDistributor] User ${user._id} already flagged/received NFT for quest ${questId}. Skipping.`);
-          }
-        }
-        if (rewardsGivenThisUser.length > 0) {
-          allUsersProcessedSuccessfully = true;
-        }
-
-        // Create notification if any reward was processed in this attempt for the user
-        if (rewardsGivenThisUser.length > 0) {
-          const rewardMessage = rewardsGivenThisUser.join(' & ');
-          await notificationService.createNotification(
-            user.walletAddress, // Assuming user document has walletAddress
-            'quest_reward_received',
-            `Congratulations! You received ${rewardMessage} from the community quest: "${quest.title}".`,
-            {
-              relatedQuestId: quest._id.toString(),
-              relatedQuestTitle: quest.title,
-              rewardSummary: rewardMessage
-            }
-          );
-        }
-
-      } catch (userRewardError) {
-        console.error(`[RewardDistributor] Error distributing rewards to user ${contribution.user_id} for quest ${questId}:`, userRewardError);
-        allUsersProcessedSuccessfully = false; // Mark that at least one user failed
-        // For individual user errors, we might log and continue, rather than retrying the whole batch.
-        // If a specific user error *should* retry the whole message, this logic needs adjustment.
+    if (scope === 'squad') {
+      if (!completedSquadId) {
+        console.error(`[RewardDistributor] Squad quest ${questId} completion event missing squadId. Discarding.`);
+        return { success: true, retryable: false };
       }
+      await distributeRewardsForSquad(quest, completedSquadId, completedAt);
+    } else {
+      await distributeRewardsForCommunityQuest(quest, completedAt);
     }
 
-    if (!allUsersProcessedSuccessfully) {
-        console.warn(`[RewardDistributor] Some errors occurred during reward distribution for quest ${questId}. Check logs. The message will be ACKed if all DB/network operations for the main check were okay.`);
-        // Depending on severity, could return { success: false, retryable: true } to retry the whole batch
-        // For now, if main quest checks passed, we ACK and assume individual errors are logged.
-    }
-    return { success: true, retryable: false }; // Assume success if we reached here, individual errors logged
-
+    return { success: true, retryable: false };
   } catch (error) {
-    console.error(`[RewardDistributor] Critical error processing reward distribution for quest ${questId}:`, error);
-    const retryable = error.name === 'MongoNetworkError'; // Only retry for DB network issues here
+    console.error(`[RewardDistributor] Error processing quest ${questId} completion:`, error);
+    const retryable = error.name === 'MongoNetworkError'; // Add other retryable errors as needed
     return { success: false, retryable };
   }
 }
 
-async function consumeRewardDistributionEvents() {
+async function distributeRewardsForSquad(quest, squadId, completedAt) {
+  console.log(`[RewardDistributor/Squad] Distributing rewards for quest ${quest._id} to squad ${squadId}`);
+  const squad = await Squad.findOne({ squadId: squadId }).lean();
+  if (!squad) {
+    console.error(`[RewardDistributor/Squad] Squad ${squadId} not found for quest ${quest._id}. Cannot distribute rewards.`);
+    return;
+  }
+
+  let recipients = [];
+  switch (quest.reward_split) {
+    case 'leader_only':
+      if (squad.leaderWalletAddress) recipients = [squad.leaderWalletAddress];
+      break;
+    case 'equal':
+      recipients = squad.memberWalletAddresses || [];
+      break;
+    case 'proportional':
+      console.warn(`[RewardDistributor/Squad] 'proportional' reward split for squad quest ${quest._id} is not fully supported, defaulting to 'equal'.`);
+      recipients = squad.memberWalletAddresses || [];
+      break;
+    case 'none':
+    default:
+      console.log(`[RewardDistributor/Squad] Reward split is '${quest.reward_split || 'none'}' for quest ${quest._id}. No automated distribution for squad.`);
+      return;
+  }
+
+  if (!recipients.length) {
+    console.log(`[RewardDistributor/Squad] No recipients determined for squad ${squadId}, quest ${quest._id} with split type ${quest.reward_split}.`);
+    return;
+  }
+
+  for (const reward of quest.rewards) {
+    for (const userId of recipients) {
+      let uniqueRewardIdentifier = {};
+      if (reward.type === 'points') {
+        uniqueRewardIdentifier = { 'reward_details.points_awarded': Number(reward.value) }; // Value might be split for 'equal'
+      } else if (reward.type === 'spl_token' && reward.value?.tokenMint) {
+        uniqueRewardIdentifier = { 'reward_details.spl_token_mint': reward.value.tokenMint, 'reward_details.spl_token_amount': reward.value.amount };
+      } else if ((reward.type === 'nft_collection_item' || reward.type === 'nft') && reward.value) {
+        uniqueRewardIdentifier = { 'reward_details.nft_mint_address': reward.value }; 
+      } else if (reward.type === 'badge' && reward.value) {
+        uniqueRewardIdentifier = { 'reward_details.badge_id': reward.value };
+      }
+
+      const existingLedger = await QuestRewardLedger.findOne({
+        quest_id: quest._id,
+        user_id: userId,
+        squad_id: squadId, 
+        reward_type: reward.type,
+        ...uniqueRewardIdentifier // Add specific checks for the reward value to ensure idempotency
+      });
+
+      if (existingLedger && existingLedger.status === 'processed') {
+        console.log(`[RewardDistributor/Squad] User ${userId} already processed reward type ${reward.type} for squad ${squadId}, quest ${quest._id}. Skipping.`);
+        continue;
+      }
+      
+      const ledgerEntry = {
+        quest_id: quest._id, user_id: userId, squad_id: squadId, reward_type: reward.type,
+        reward_details: {}, reward_description: reward.description || `Reward from squad quest: ${quest.title}`,
+        status: 'pending', distributed_at: new Date(completedAt)
+      };
+      let pointsToAwardUser = 0;
+
+      if (reward.type === 'points') {
+        let actualPoints = Number(reward.value);
+        if (quest.reward_split === 'equal' && recipients.length > 0) {
+            actualPoints = Math.floor(Number(reward.value) / recipients.length);
+        }
+        ledgerEntry.reward_details.points_awarded = actualPoints;
+        pointsToAwardUser = actualPoints;
+        if (actualPoints !== 0) { // Only update if there are points to award
+            const userUpdateResult = await User.findOneAndUpdate({ walletAddress: userId }, { $inc: { points: actualPoints } }, { new: true });
+            if(userUpdateResult) console.log(`[RewardDistributor/Squad] User ${userId} points updated by ${actualPoints}. New total: ${userUpdateResult.points}`);
+            else console.warn(`[RewardDistributor/Squad] User ${userId} not found for point update.`);
+        }
+      } else if (reward.type === 'spl_token') {
+        ledgerEntry.reward_details.spl_token_mint = reward.value?.tokenMint;
+        ledgerEntry.reward_details.spl_token_amount = reward.value?.amount;
+        console.log(`[RewardDistributor/Squad] STUB: Distribute SPL token ${reward.value?.tokenMint} amount ${reward.value?.amount} to ${userId}`);
+      } else if (reward.type === 'nft_collection_item' || reward.type === 'nft') {
+        ledgerEntry.reward_details.nft_mint_address = reward.value;
+        console.log(`[RewardDistributor/Squad] STUB: Distribute NFT from ${reward.value} to ${userId}`);
+      } else if (reward.type === 'badge') {
+        ledgerEntry.reward_details.badge_id = reward.value;
+        const userUpdateResult = await User.findOneAndUpdate({ walletAddress: userId }, { $addToSet: { earnedBadgeIds: reward.value } }, { new: true });
+        if(userUpdateResult) console.log(`[RewardDistributor/Squad] User ${userId} awarded badge ${reward.value}. Badges: ${userUpdateResult.earnedBadgeIds?.join(', ')}`);
+        else console.warn(`[RewardDistributor/Squad] User ${userId} not found for badge update.`);
+      }
+
+      ledgerEntry.status = 'processed'; 
+      await QuestRewardLedger.create(ledgerEntry);
+      await notificationService.createNotification({
+        userId: userId,
+        type: 'squad_reward_received',
+        title: `🏆 Squad Quest Reward!`,
+        message: `Your squad, ${squad.name}, completed '${quest.title}'! You've received a reward. Details: ${reward.description || reward.type}`,
+        ctaUrl: `/quests/${quest._id}`,
+        relatedQuestId: quest._id.toString(),
+        relatedQuestTitle: quest.title,
+        relatedSquadId: squadId,
+        relatedSquadName: squad.name,
+      });
+    }
+  }
+}
+
+async function distributeRewardsForCommunityQuest(quest, completedAt) {
+  console.log(`[RewardDistributor/Community] Distributing rewards for community quest ${quest._id}`);
+  // Find all unique participants (contributors) for this quest.
+  const participants = await QuestContribution.find({ quest_id: quest._id, squad_id: null }).distinct('user_id');
+
+  if (!participants || participants.length === 0) {
+    console.log(`[RewardDistributor/Community] No participants found for community quest ${quest._id}.`);
+    return;
+  }
+
+  console.log(`[RewardDistributor/Community] Found ${participants.length} participants for quest ${quest._id}`);
+
+  for (const reward of quest.rewards) {
+    for (const userId of participants) {
+      let uniqueRewardIdentifier = {};
+      if (reward.type === 'points') {
+        uniqueRewardIdentifier = { 'reward_details.points_awarded': Number(reward.value) };
+      } else if (reward.type === 'spl_token' && reward.value?.tokenMint) {
+        uniqueRewardIdentifier = { 'reward_details.spl_token_mint': reward.value.tokenMint, 'reward_details.spl_token_amount': reward.value.amount };
+      } else if ((reward.type === 'nft_collection_item' || reward.type === 'nft') && reward.value) {
+        uniqueRewardIdentifier = { 'reward_details.nft_mint_address': reward.value }; 
+      } else if (reward.type === 'badge' && reward.value) {
+        uniqueRewardIdentifier = { 'reward_details.badge_id': reward.value };
+      }
+
+      const existingLedger = await QuestRewardLedger.findOne({
+        quest_id: quest._id, user_id: userId, squad_id: null, reward_type: reward.type,
+        ...uniqueRewardIdentifier
+      });
+
+      if (existingLedger && existingLedger.status === 'processed') {
+        console.log(`[RewardDistributor/Community] User ${userId} already processed reward type ${reward.type} for quest ${quest._id}. Skipping.`);
+        continue;
+      }
+
+      const ledgerEntry = {
+        quest_id: quest._id, user_id: userId, squad_id: null, reward_type: reward.type,
+        reward_details: {}, reward_description: reward.description || `Reward from community quest: ${quest.title}`,
+        status: 'pending', distributed_at: new Date(completedAt)
+      };
+      let pointsToAwardUser = 0;
+
+      if (reward.type === 'points') {
+        const pointsValue = Number(reward.value);
+        ledgerEntry.reward_details.points_awarded = pointsValue;
+        pointsToAwardUser = pointsValue;
+        if (pointsValue !== 0) {
+            const userUpdateResult = await User.findOneAndUpdate({ walletAddress: userId }, { $inc: { points: pointsValue } }, { new: true });
+            if(userUpdateResult) console.log(`[RewardDistributor/Community] User ${userId} points updated by ${pointsValue}. New total: ${userUpdateResult.points}`);
+            else console.warn(`[RewardDistributor/Community] User ${userId} not found for point update.`);
+        }
+      } else if (reward.type === 'spl_token') {
+        ledgerEntry.reward_details.spl_token_mint = reward.value?.tokenMint;
+        ledgerEntry.reward_details.spl_token_amount = reward.value?.amount;
+        console.log(`[RewardDistributor/Community] STUB: Distribute SPL token ${reward.value?.tokenMint} amount ${reward.value?.amount} to ${userId}`);
+      } else if (reward.type === 'nft_collection_item' || reward.type === 'nft') {
+        ledgerEntry.reward_details.nft_mint_address = reward.value;
+        console.log(`[RewardDistributor/Community] STUB: Distribute NFT from ${reward.value} to ${userId}`);
+      } else if (reward.type === 'badge') {
+        ledgerEntry.reward_details.badge_id = reward.value;
+        const userUpdateResult = await User.findOneAndUpdate({ walletAddress: userId }, { $addToSet: { earnedBadgeIds: reward.value } }, { new: true });
+        if(userUpdateResult) console.log(`[RewardDistributor/Community] User ${userId} awarded badge ${reward.value}. Badges: ${userUpdateResult.earnedBadgeIds?.join(', ')}`);
+        else console.warn(`[RewardDistributor/Community] User ${userId} not found for badge update.`);
+      }
+
+      ledgerEntry.status = 'processed';
+      await QuestRewardLedger.create(ledgerEntry);
+      await notificationService.createNotification({
+        userId: userId,
+        type: 'quest_reward_received',
+        title: `🎁 Quest Reward!`, 
+        message: `You've received a reward for completing '${quest.title}'! Details: ${reward.description || reward.type}`,
+        ctaUrl: `/quests/${quest._id}`,
+        relatedQuestId: quest._id.toString(),
+        relatedQuestTitle: quest.title,
+      });
+    }
+  }
+}
+
+async function consumeRewardEvents() {
   try {
     const channel = await rabbitmqService.getChannel();
     const queueName = rabbitmqConfig.rewardDistributionQueue;
     const dlxName = rabbitmqConfig.deadLetterExchange;
-    const dlqName = rabbitmqConfig.rewardDistributionDLQ;
+    const dlqName = rabbitmqConfig.rewardDistributionDLQ; 
     const dlqRoutingKey = `${rabbitmqConfig.dlqRoutingKeyPrefix}${queueName}`;
 
     await channel.assertExchange(dlxName, 'direct', { durable: true });
     await channel.assertQueue(dlqName, { durable: true });
     await channel.bindQueue(dlqName, dlxName, dlqRoutingKey);
-    console.log(`[RewardDistributor] DLX (${dlxName}) and DLQ (${dlqName}) setup complete. Bound with key: ${dlqRoutingKey}`);
+    console.log(`[RewardDistributor] DLX (${dlxName}) and DLQ (${dlqName}) setup complete for rewards.`);
 
     await channel.assertQueue(queueName, {
       durable: true,
@@ -164,11 +262,13 @@ async function consumeRewardDistributionEvents() {
         'x-dead-letter-routing-key': dlqRoutingKey
       }
     });
-    console.log(`[RewardDistributor] Queue '${queueName}' asserted with DLX routing to '${dlxName}' with key '${dlqRoutingKey}'.`);
+    console.log(`[RewardDistributor] Queue '${queueName}' asserted with DLX routing.`);
 
-    // Binding to eventsExchange as QuestEngine publishes the trigger there with queueName as routing key
+    // Bind to the events exchange with its own queue name as the routing key
+    // This assumes QuestEngine publishes to eventsExchange with routingKey = rewardDistributionQueue
+    await channel.assertExchange(rabbitmqConfig.eventsExchange, 'topic', { durable: true });
     await channel.bindQueue(queueName, rabbitmqConfig.eventsExchange, queueName);
-    console.log(`[RewardDistributor] Bound queue ${queueName} to exchange ${rabbitmqConfig.eventsExchange} with key ${queueName}. Waiting for messages.`);
+    console.log(`[RewardDistributor] Bound queue '${queueName}' to exchange '${rabbitmqConfig.eventsExchange}' with routing key '${queueName}'.`);
 
     channel.consume(queueName, async (msg) => {
       if (msg !== null) {
@@ -176,7 +276,7 @@ async function consumeRewardDistributionEvents() {
         try {
           messageContent = JSON.parse(msg.content.toString());
         } catch (parseError) {
-          console.error('[RewardDistributor] Failed to parse message. Discarding (ACKing):', parseError, msg.content.toString());
+          console.error('[RewardDistributor] Failed to parse message. Discarding (ACKing):', parseError);
           channel.ack(msg);
           return;
         }
@@ -185,32 +285,38 @@ async function consumeRewardDistributionEvents() {
         let handlerResult = { success: false, retryable: false };
 
         try {
-          handlerResult = await handleRewardDistributionEvent(messageContent);
+          // No routing key check needed here if queue is directly bound or has specific binding key
+          console.log(`[RewardDistributor] Received message for reward distribution, attempt: ${attempt}`, messageContent);
+          handlerResult = await processQuestCompletion(messageContent);
         } catch (processingError) {
-          console.error('[RewardDistributor] Uncaught error during message processing:', processingError);
-          handlerResult = { success: false, retryable: false }; 
+          console.error('[RewardDistributor] Uncaught error during reward processing:', processingError);
+          handlerResult = { success: false, retryable: false };
         }
 
         if (handlerResult.success) {
           channel.ack(msg);
         } else {
           attempt++;
-          if (attempt <= MAX_RETRIES_REWARD_DIST && handlerResult.retryable) {
-            console.log(`[RewardDistributor] NACKing message for retry (attempt ${attempt}/${MAX_RETRIES_REWARD_DIST}). Message:`, messageContent);
+          if (attempt <= MAX_RETRIES && handlerResult.retryable) {
+            console.log(`[RewardDistributor] NACKing reward message for retry (attempt ${attempt}/${MAX_RETRIES}).`);
             channel.nack(msg, false, true); // Requeue
           } else {
-            console.error(`[RewardDistributor] Message failed after ${attempt-1} attempts or non-retryable. Sending to DLQ. Message:`, messageContent);
+            console.error(`[RewardDistributor] Reward message processing failed after ${attempt - 1} attempts or was non-retryable. Sending to DLQ.`);
             channel.nack(msg, false, false); // Send to DLX
           }
         }
       }
     });
   } catch (error) {
-    console.error('[RewardDistributor] Failed to start consumer:', error);
+    console.error('[RewardDistributor] Failed to start reward consumer:', error);
     process.exit(1);
   }
 }
 
 export const rewardDistributorService = {
-  start: consumeRewardDistributionEvents,
+  start: consumeRewardEvents,
+  // Expose individual methods for testing or manual triggers if needed
+  processQuestCompletion,
+  distributeRewardsForSquad,
+  distributeRewardsForCommunityQuest
 }; 

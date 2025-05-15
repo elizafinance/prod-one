@@ -4,6 +4,8 @@ import { v4 as uuidv4 } from 'uuid';
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth"; // Corrected import path
 import profanityList from '@/data/profanity-list.json'; // Import the profanity list
+import { rabbitmqService } from '@/services/rabbitmq.service';
+import { rabbitmqConfig } from '@/config/rabbitmq.config';
 
 interface CreateSquadRequestBody {
   squadName: string;
@@ -91,30 +93,46 @@ export async function POST(request: Request) {
     const newSquadId = uuidv4();
     const initialSquadPoints = userPoints;
 
-    const newSquad: SquadDocument = {
+    const newSquad: Omit<SquadDocument, '_id'> = {
       squadId: newSquadId,
       name: squadName,
       description: description || '',
       leaderWalletAddress: leaderWalletAddress,
       memberWalletAddresses: [leaderWalletAddress],
       totalSquadPoints: initialSquadPoints,
-      maxMembers: maxMembers,
-      tier: tier,
+      tier: 1,
+      maxMembers,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
 
     await squadsCollection.insertOne(newSquad);
+    console.log("[Create Squad] New squad created:", newSquad.squadId);
 
     await usersCollection.updateOne(
       { walletAddress: leaderWalletAddress },
-      { 
-        $set: { 
-          squadId: newSquadId, 
-          updatedAt: new Date() 
-        }
-      }
+      { $set: { squadId: newSquadId, updatedAt: new Date() } }
     );
+    console.log(`[Create Squad] User ${leaderWalletAddress} updated with squadId ${newSquadId}`);
+
+    if (initialSquadPoints > 0) {
+        try {
+            await rabbitmqService.publishToExchange(
+                rabbitmqConfig.eventsExchange,
+                rabbitmqConfig.routingKeys.squadPointsUpdated,
+                {
+                    squadId: newSquadId,
+                    pointsChange: initialSquadPoints,
+                    reason: 'squad_created_with_initial_points',
+                    timestamp: new Date().toISOString(),
+                    responsibleUserId: leaderWalletAddress
+                }
+            );
+            console.log(`[Create Squad] Published squad.points.updated for new squad ${newSquadId} with initial points ${initialSquadPoints}`);
+        } catch (publishError) {
+            console.error(`[Create Squad] Failed to publish squad.points.updated for new squad ${newSquadId}:`, publishError);
+        }
+    }
 
     return NextResponse.json({ 
       message: 'Squad created successfully!', 

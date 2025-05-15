@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { io, Socket } from 'socket.io-client';
+import { useCommunityQuestProgressStore, useSquadQuestProgressStore, QuestProgressData } from '@/store/useQuestProgressStore'; // Adjust path if needed
 
 // Define the structure of the quest data we expect from the API
 interface QuestDisplayData {
@@ -63,8 +64,6 @@ const ProgressBar: React.FC<{ current: number; goal: number }> = ({ current, goa
   );
 };
 
-const WEBSOCKET_SERVER_URL = process.env.NEXT_PUBLIC_WEBSOCKET_URL || 'http://localhost:3001';
-
 export default function QuestsPage() {
   const [quests, setQuests] = useState<QuestDisplayData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -92,43 +91,47 @@ export default function QuestsPage() {
   }, []);
 
   useEffect(() => {
-    // Ensure this only runs on the client side
-    if (typeof window === 'undefined') return;
+    // Initialize stores or fetch initial data if needed
+    const { setCommunityQuestProgress } = useCommunityQuestProgressStore.getState();
+    const { setSquadQuestProgress } = useSquadQuestProgressStore.getState();
+
+    const WEBSOCKET_SERVER_URL = process.env.NEXT_PUBLIC_WEBSOCKET_URL || 'http://localhost:3001';
+    console.log(`[QuestsPage/WS] Connecting to WebSocket server: ${WEBSOCKET_SERVER_URL}`);
 
     const socket: Socket = io(WEBSOCKET_SERVER_URL, {
-      // transports: ['websocket'], // Optional: force websocket only
+        // transports: ['websocket'], // Optional: force websocket only
+        // reconnectionAttempts: 5,
     });
 
     socket.on('connect', () => {
-      console.log('[QuestsPage/WS] Connected to WebSocket server:', socket.id);
-    });
-
-    socket.on('quest_progress_update', (update: QuestProgressUpdateEvent) => {
-      console.log('[QuestsPage/WS] Received quest_progress_update:', update);
-      setQuests(prevQuests => 
-        prevQuests.map(quest => 
-          quest._id === update.questId 
-            ? { ...quest, progress: update.currentProgress, goal: update.goalTarget } 
-            : quest
-        )
-      );
+        console.log('[QuestsPage/WS] Connected to WebSocket server:', socket.id);
     });
 
     socket.on('disconnect', (reason) => {
-      console.log('[QuestsPage/WS] Disconnected from WebSocket server:', reason);
+        console.log('[QuestsPage/WS] Disconnected from WebSocket server:', reason);
     });
 
-    socket.on('connect_error', (err) => {
-      console.error('[QuestsPage/WS] Connection error:', err);
-      // Potentially set an error state to inform the user if connection fails persistently
+    socket.on('connect_error', (error) => {
+        console.error('[QuestsPage/WS] Connection Error:', error);
     });
 
-    // Cleanup on component unmount
+    // Listener for quest progress updates
+    socket.on('quest_progress_update', (data: QuestProgressData) => {
+        console.log('[QuestsPage/WS] Received quest_progress_update:', data);
+        if (data.scope === 'squad' && data.squadId) {
+            setSquadQuestProgress(data);
+        } else if (data.scope === 'community') {
+            setCommunityQuestProgress(data);
+        } else {
+            console.warn('[QuestsPage/WS] Received progress update with unknown scope or missing squadId for squad scope:', data);
+        }
+    });
+
     return () => {
-      console.log('[QuestsPage/WS] Disconnecting WebSocket...');
-      socket.disconnect();
+        console.log('[QuestsPage/WS] Disconnecting WebSocket...');
+        socket.disconnect();
     };
-  }, []); // Empty dependency array means this effect runs once on mount and cleans up on unmount
+}, []); // Ensure correct dependencies if any external setters are used directly in effect
 
   if (isLoading) {
     return (

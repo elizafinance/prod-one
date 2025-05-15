@@ -1,4 +1,4 @@
-import { MongoClient, Db } from 'mongodb';
+import { MongoClient, Db, Collection, ObjectId } from 'mongodb';
 
 const MONGODB_URI = process.env.MONGODB_URI;
 const MONGODB_DB_NAME = process.env.MONGODB_DB_NAME;
@@ -92,33 +92,47 @@ export interface ActionDocument {
 }
 
 export interface SquadDocument {
-  _id?: any;
-  squadId: string; // Unique identifier for the squad
-  name: string; // Name of the squad, should ideally be unique
+  _id?: ObjectId;
+  squadId: string;
+  name: string;
   description?: string;
-  leaderWalletAddress: string; // Wallet address of the squad leader
-  memberWalletAddresses: string[]; // Array of wallet addresses of squad members
+  leaderWalletAddress: string;
+  memberWalletAddresses: string[];
   totalSquadPoints: number;
-  maxMembers?: number; // Maximum number of members allowed in this squad
-  tier?: number; // Tier level of the squad (1, 2, or 3)
-  createdAt?: Date;
-  updatedAt?: Date;
+  tier?: number;
+  maxMembers?: number;
+  avatarImageUrl?: string;
+  bannerImageUrl?: string;
+  createdAt: Date;
+  updatedAt: Date;
+  settings?: {
+    isPublic?: boolean;
+    requiresApproval?: boolean;
+  };
 }
 
 export interface SquadInvitationDocument {
-  _id?: any;
-  invitationId: string; // Unique ID for the invitation
-  squadId: string;       // ID of the squad inviting
-  squadName: string;     // Name of the squad (for display in invite)
-  invitedByUserWalletAddress: string; // Wallet address of the user who sent the invite (e.g., squad leader)
-  invitedUserWalletAddress: string; // Wallet address of the user being invited
-  status: 'pending' | 'accepted' | 'declined' | 'revoked'; // Status of the invitation
-  createdAt?: Date;
-  // expiresAt?: Date; // Optional: for time-limited invites, can be added later
-  updatedAt?: Date; // To track when the status last changed
+  _id?: ObjectId;
+  invitationId: string;
+  squadId: string;
+  squadName: string;
+  invitedByUserWalletAddress: string;
+  invitedUserWalletAddress: string;
+  status: 'pending' | 'accepted' | 'declined' | 'revoked' | 'expired';
+  message?: string;
+  createdAt: Date;
+  updatedAt: Date;
+  expiresAt?: Date;
 }
 
-export type NotificationType =
+export type NotificationType = 
+  | 'generic'
+  | 'welcome'
+  | 'airdrop_claim_available'
+  | 'referral_success' // You referred someone
+  | 'referred_by_success' // Someone referred you, and you signed up
+  | 'quest_completed_community' // A community quest you participated in was completed
+  | 'quest_reward_received'   // You received a reward from a community quest
   | 'squad_invite_received'
   | 'squad_invite_accepted'
   | 'squad_invite_declined'
@@ -128,26 +142,31 @@ export type NotificationType =
   | 'squad_kicked'           // When you are kicked from a squad
   | 'squad_leader_changed'   // When your squad's leader changes
   | 'squad_disbanded'
-  // Community Quest Notifications
-  | 'quest_reward_received' // User received a reward from a completed quest
-  | 'quest_newly_active'    // A new quest has become active (general notification, or targeted later)
-  | 'quest_completed_community' // A quest the user participated in was completed by the community
-  | 'quest_failed_community';   // A quest the user participated in failed or expired
+  | 'squad_reward_received'  // You received a reward as part of your squad's achievement
+  | 'milestone_unlocked'
+  | 'badge_earned'
+  | 'rank_up'
+  | 'system_message';
 
 export interface NotificationDocument {
-  _id?: any;
-  notificationId: string; // Unique ID for the notification
-  recipientWalletAddress: string; // The user who should receive this notification
+  _id?: ObjectId;
+  userId: string;
   type: NotificationType;
-  message: string; // User-friendly message, e.g., "@UserX invited you to join Squad Y!"
-  relatedQuestId?: string; // Link to the quest
-  relatedQuestTitle?: string; // For easier display
-  reward_details_summary?: string; // e.g., "+500 Points", "Special NFT Unlocked!"
-  relatedSquadId?: string;
-  relatedSquadName?: string; // For easier display without extra lookup
-  relatedUserWalletAddress?: string; // e.g., who sent invite, who joined/left
-  relatedUserXUsername?: string; // For easier display
-  relatedInvitationId?: string; // For squad invitations to store the invitation ID
+  title: string;
+  message: string;
+  ctaUrl?: string;
   isRead: boolean;
-  createdAt?: Date;
+  isArchived?: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+  relatedQuestId?: string;
+  relatedQuestTitle?: string;
+  relatedSquadId?: string;
+  relatedSquadName?: string;
+  relatedUserId?: string;
+  relatedUserName?: string;
+  relatedInvitationId?: string;
+  rewardAmount?: number;
+  rewardCurrency?: string;
+  badgeId?: string;
 } 

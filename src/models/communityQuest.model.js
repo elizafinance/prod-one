@@ -40,8 +40,8 @@ const communityQuestSchema = new mongoose.Schema({
   reward_split: { type: String, enum: rewardSplitEnum, default: 'none' }, // Relevant for scope: 'squad'
 
   // Admin fields
-  created_by: { type: mongoose.Schema.Types.ObjectId, ref: 'AdminUser' }, // Or just a wallet address
-  updated_by: { type: mongoose.Schema.Types.ObjectId, ref: 'AdminUser' },
+  created_by: { type: String }, // Changed from ObjectId to String to store adminIdentifier directly
+  updated_by: { type: String }, // Assuming updated_by should also be String if it follows the same pattern
 
   // Soft delete
   deleted_at: { type: Date, default: null },

@@ -104,25 +104,36 @@ export async function POST(request: Request) {
 
     const newQuestData: any = {
       ...body,
+      description: body.description_md,
       start_ts: new Date(body.start_ts),
       end_ts: new Date(body.end_ts),
-      status: 'scheduled', // Default status for new quests
-      created_by: adminIdentifier, 
-      // created_ts and updated_ts will be handled by Mongoose timestamps
+      status: 'scheduled',
+      created_by: adminIdentifier,
     };
+    delete newQuestData.description_md;
+
     // Conditionally add goal_target_metadata based on goal_type
     if (body.goal_type === 'users_at_tier' && body.goal_target_metadata?.tier_name) {
         newQuestData.goal_target_metadata = { tier_name: body.goal_target_metadata.tier_name };
     } else if (body.goal_type === 'aggregate_spend' && body.goal_target_metadata?.currency) {
         newQuestData.goal_target_metadata = { currency: body.goal_target_metadata.currency };
     } else if (body.goal_type === 'squad_meetup') {
-        if (typeof body.goal_target_metadata?.proximity_meters !== 'number' || typeof body.goal_target_metadata?.time_window_minutes !== 'number') {
-            return NextResponse.json({ error: 'Proximity (meters) and Time Window (minutes) are required for Squad Meetup quests.' }, { status: 400 });
+        const proxMeters = body.goal_target_metadata?.proximity_meters;
+        const timeWindow = body.goal_target_metadata?.time_window_minutes;
+        if (
+            typeof proxMeters !== 'number' || proxMeters <= 0 ||
+            typeof timeWindow !== 'number' || timeWindow <= 0
+        ) {
+            return NextResponse.json({ error: 'Valid, positive Proximity (meters) and Time Window (minutes) are required for Squad Meetup quests.' }, { status: 400 });
         }
         newQuestData.goal_target_metadata = {
-            proximity_meters: body.goal_target_metadata.proximity_meters,
-            time_window_minutes: body.goal_target_metadata.time_window_minutes
+            proximity_meters: proxMeters,
+            time_window_minutes: timeWindow
         };
+        // Ensure goal_target (min members) is also positive for squad_meetup
+        if (typeof body.goal_target !== 'number' || body.goal_target <= 0) {
+            return NextResponse.json({ error: 'Valid, positive Goal Target (min members) is required for Squad Meetup quests.' }, { status: 400 });
+        }
     } else {
         // If not one of these types, or metadata not provided, ensure it's not set or is set to null
         // The model has `default: null` for goal_target_metadata, so not setting it is fine.

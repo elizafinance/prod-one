@@ -33,7 +33,7 @@ export async function GET(request: Request) {
   try {
     const { db } = await connectToDatabase();
     const notificationsCollection = db.collection<NotificationDocument>('notifications');
-    const squadInvitesCollection = db.collection<SquadInvitationDocument>('squad_invitations');
+    const squadInvitesCollection = db.collection<SquadInvitationDocument>('squadInvitations');
 
     const genericDbNotifications = await notificationsCollection
       .find({

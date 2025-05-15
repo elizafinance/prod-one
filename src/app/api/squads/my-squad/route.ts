@@ -60,6 +60,15 @@ export async function GET(request: Request) {
     const authoritativeWalletAddress = userFromDb.walletAddress; // This is the trusted wallet address
 
     if (!userFromDb.squadId) {
+      // Edge-case self-healing: the user might actually lead a squad but their user record lacks squadId
+      const possibleLeaderSquad = await squadsCollection.findOne({ leaderWalletAddress: userFromDb.walletAddress });
+      if (possibleLeaderSquad) {
+        await usersCollection.updateOne({ _id: userFromDb._id }, { $set: { squadId: possibleLeaderSquad.squadId, updatedAt: new Date() } });
+        userFromDb.squadId = possibleLeaderSquad.squadId;
+      }
+    }
+
+    if (!userFromDb.squadId) {
       const response: MySquadApiResponse = { message: 'User is not currently in a squad.', squad: null };
       return NextResponse.json(response, { status: 200 });
     }

@@ -31,6 +31,7 @@ export default function BrowseSquadsPage() {
   const [error, setError] = useState<string | null>(null);
   const { publicKey, connected } = useWallet();
   const router = useRouter();
+  const currentUserWalletAddress = publicKey?.toBase58();
 
   // New state for request to join modal
   const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
@@ -161,7 +162,8 @@ export default function BrowseSquadsPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {squads.map((squad) => {
               const hasPendingRequestForThisSquad = currentUserPendingRequests.some(req => req.squadId === squad.squadId && req.status === 'pending');
-              const isSquadFull = squad.memberCount >= (parseInt(process.env.NEXT_PUBLIC_MAX_SQUAD_MEMBERS || '50')); // Default to 50 if env not set
+              const isSquadFull = squad.memberCount >= (squad.maxMembers || parseInt(process.env.NEXT_PUBLIC_MAX_SQUAD_MEMBERS || '50'));
+              const isUserLeaderHere = squad.leaderWalletAddress === publicKey?.toBase58();
 
               return (
                 <div key={squad.squadId} className="bg-white border border-gray-200 shadow-lg rounded-lg p-6 flex flex-col justify-between min-h-[280px]">
@@ -169,12 +171,18 @@ export default function BrowseSquadsPage() {
                     <h2 className="text-2xl font-bold text-sky-700 mb-2">{squad.name}</h2>
                     {squad.description && <p className="text-sm text-gray-600 mb-3 line-clamp-3">{squad.description}</p>}
                     <p className="text-sm text-gray-500">Leader: <span className="font-mono text-xs">{squad.leaderWalletAddress.substring(0,6)}...</span></p>
-                    <p className="text-sm text-gray-500">Members: {squad.memberCount} / {process.env.NEXT_PUBLIC_MAX_SQUAD_MEMBERS || 50}</p>
+                    <p className="text-sm text-gray-500">Members: {squad.memberCount} / {squad.maxMembers || process.env.NEXT_PUBLIC_MAX_SQUAD_MEMBERS || 50}</p>
                     <p className="text-lg font-semibold text-transparent bg-clip-text bg-gradient-to-r from-green-500 to-teal-500 mt-1">Points: {squad.totalSquadPoints.toLocaleString()}</p>
                   </div>
                   <div className="mt-4 space-y-2">
                     {(!connected || !publicKey) ? (
                       <p className="text-xs text-center text-orange-600 py-2">Connect wallet to interact</p>
+                    ) : isUserLeaderHere ? (
+                      <button 
+                        disabled 
+                        className="w-full py-2 px-4 bg-gray-300 text-gray-600 font-semibold rounded-lg cursor-not-allowed">
+                        You are Leader
+                      </button>
                     ) : mySquadInfo?.squadId ? (
                       <button 
                         disabled 

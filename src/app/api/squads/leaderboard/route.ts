@@ -23,7 +23,15 @@ export async function GET(request: Request) {
       {
         $addFields: {
           calculatedTotalSquadPoints: {
-            $sum: '$memberDetails.points' // Sum the points of the members
+            $sum: {
+              $map: {
+                input: '$memberDetails',
+                as: 'm',
+                in: {
+                  $cond: [ { $isNumber: '$$m.points' }, '$$m.points', { $toInt: '$$m.points' } ]
+                }
+              }
+            }
           },
           calculatedMemberCount: {
             $size: '$memberWalletAddresses' // Count members based on the wallet addresses array

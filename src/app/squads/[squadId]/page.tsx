@@ -20,6 +20,7 @@ interface SquadDetailsData extends SquadDocument {
   membersFullDetails?: EnrichedSquadMember[]; // Changed back to optional since API might not always provide it
   leaderReferralCode?: string; // Add field for leader's referral code
   totalSquadPoints: number; // Added to match the API response
+  maxMembers?: number; // Added maxMembers field
 }
 
 export default function SquadDetailsPage() {
@@ -575,7 +576,7 @@ export default function SquadDetailsPage() {
         </div>
 
         <div className="mb-8">
-          <h2 className="text-xl font-semibold text-gray-800 mb-3">Members ({squadDetails.membersFullDetails?.length || squadDetails.memberWalletAddresses.length} / {process.env.NEXT_PUBLIC_MAX_SQUAD_MEMBERS || 10})</h2>
+          <h2 className="text-xl font-semibold text-gray-800 mb-3">Members ({squadDetails.membersFullDetails?.length || squadDetails.memberWalletAddresses.length} / {squadDetails.maxMembers || process.env.NEXT_PUBLIC_MAX_SQUAD_MEMBERS || 100})</h2>
           <ul className="space-y-2 max-h-72 overflow-y-auto bg-gray-50 border border-gray-200 p-3 rounded-lg">
             {squadDetails.membersFullDetails && squadDetails.membersFullDetails.length > 0 ? (
               squadDetails.membersFullDetails.map(member => (

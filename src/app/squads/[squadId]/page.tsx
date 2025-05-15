@@ -30,32 +30,181 @@ interface Quest {
   _id: string; // Assuming _id is string on frontend after serialization
   title: string;
   description: string;
+  goal_type: 'total_referrals' | 'users_at_tier' | 'aggregate_spend' | 'total_squad_points' | 'squad_meetup'; // Added squad_meetup
   goal_target: number;
   goal_target_metadata?: {
     tier_name?: string;
     currency?: string;
+    proximity_meters?: number;    // For squad_meetup
+    time_window_minutes?: number; // For squad_meetup
   };
   // Add other fields from CommunityQuest that are needed by the UI
+  scope?: 'community' | 'squad'; // Added scope to Quest interface
+  rewards?: any[]; // Added rewards to Quest interface, consider defining a Reward type
+  start_ts?: string; // Added start_ts
+  end_ts?: string;   // Added end_ts
+  status?: string;   // Added status
 }
 
+// Define a shared utility function for message construction if not already in a shared file
+// This MUST match the backend's constructSignableMessage logic
+const constructClientSignableMessage = (params: {
+  questId: string,
+  squadId: string,
+  latitude: number,
+  longitude: number,
+  clientTimestampISO: string
+}) => {
+  return `DeFAI Squad Meetup Check-in: QuestID=${params.questId}, SquadID=${params.squadId}, Lat=${params.latitude.toFixed(6)}, Lon=${params.longitude.toFixed(6)}, Timestamp=${params.clientTimestampISO}`;
+};
+
 // Example: Placeholder for a Quest Card component
-const QuestCard = ({ quest, progress }: { quest: Quest, progress?: QuestProgressData }) => {
+const QuestCard = ({ quest, progress, squadId }: { quest: Quest, progress?: QuestProgressData, squadId: string | undefined }) => {
+    const { publicKey, signMessage } = useWallet();
+    const [isCheckingIn, setIsCheckingIn] = useState(false);
+
+    const handleCheckIn = async () => {
+        if (!publicKey || !signMessage) {
+            toast.error('Wallet not connected or does not support message signing.');
+            return;
+        }
+        if (!squadId) {
+            toast.error('Squad ID not available for check-in.');
+            return;
+        }
+        if (quest.status !== 'active') {
+            toast.info('This quest is not currently active.');
+            return;
+        }
+
+        setIsCheckingIn(true);
+        toast.info('Getting your location...');
+
+        navigator.geolocation.getCurrentPosition(
+            async (position) => {
+                const { latitude, longitude, accuracy } = position.coords;
+                const clientTimestamp = new Date();
+                const clientTimestampISO = clientTimestamp.toISOString();
+
+                const messageToSign = constructClientSignableMessage({
+                    questId: quest._id,
+                    squadId: squadId,
+                    latitude: latitude,
+                    longitude: longitude,
+                    clientTimestampISO: clientTimestampISO
+                });
+
+                try {
+                    toast.info('Please sign the message in your wallet to confirm check-in.');
+                    const messageBytes = new TextEncoder().encode(messageToSign);
+                    const signatureBytes = await signMessage(messageBytes);
+                    
+                    // Convert signature to Base64
+                    const signatureBase64 = Buffer.from(signatureBytes).toString('base64');
+
+                    const payload = {
+                        questId: quest._id,
+                        squadId: squadId,
+                        latitude,
+                        longitude,
+                        accuracy,
+                        clientTimestamp: clientTimestampISO,
+                        signedMessage: messageToSign,
+                        signature: signatureBase64,
+                    };
+
+                    toast.info('Submitting your check-in...');
+                    const response = await fetch('/api/quests/check-in', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload),
+                    });
+
+                    const responseData = await response.json();
+                    if (response.ok) {
+                        toast.success(responseData.message || 'Check-in successful! Pending match.');
+                    } else {
+                        toast.error(responseData.error || 'Check-in failed. Please try again.');
+                    }
+                } catch (error: any) {
+                    console.error("Check-in error:", error);
+                    toast.error(error.message || 'An error occurred during check-in.');
+                } finally {
+                    setIsCheckingIn(false);
+                }
+            },
+            (error) => {
+                console.error("Geolocation error:", error);
+                toast.error(`Geolocation error: ${error.message}`);
+                setIsCheckingIn(false);
+            },
+            { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 } // Geolocation options
+        );
+    };
+
     const displayProgress = progress?.currentProgress || 0;
-    const displayGoal = progress?.goalTarget || quest.goal_target;
+    // Adjust displayGoal based on quest type if necessary, for now it defaults to quest.goal_target
+    let displayGoal = quest.goal_target;
+    let goalDescription = `Goal: ${displayGoal}`;
+    let additionalInfo = <></>;
+
+    if (quest.goal_type === 'squad_meetup') {
+        goalDescription = `Goal: At least ${quest.goal_target} members meet up.`;
+        additionalInfo = (
+            <>
+                <p className="text-xs text-gray-500 mt-1">
+                    Meetup Conditions: 
+                    Within {quest.goal_target_metadata?.proximity_meters || 'N/A'} meters, 
+                    {quest.goal_target_metadata?.time_window_minutes || 'N/A'} minutes.
+                </p>
+                <button 
+                    onClick={handleCheckIn}
+                    disabled={isCheckingIn || quest.status !== 'active' || !squadId || !publicKey}
+                    className="mt-2 px-3 py-1.5 text-xs font-medium text-center text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:ring-4 focus:outline-none focus:ring-blue-800 disabled:opacity-50"
+                >
+                    {isCheckingIn ? 'Checking in...' : 'Check-in for Meetup'}
+                </button>
+            </>
+        );
+        // For meetup quests, progress might be represented differently (e.g., number of successful meetups recorded)
+        // For now, the standard progress bar might not be perfectly representative.
+    } else if (quest.goal_target_metadata?.currency) {
+        goalDescription = `Goal: ${displayGoal.toLocaleString()} ${quest.goal_target_metadata.currency}`;
+    } else if (quest.goal_target_metadata?.tier_name) {
+        goalDescription = `Goal: ${displayGoal} users reach ${quest.goal_target_metadata.tier_name} tier`;
+    }
+
     const percentage = displayGoal > 0 ? (displayProgress / displayGoal) * 100 : 0;
 
     return (
-        <div style={{ border: '1px solid #ccc', margin: '10px', padding: '10px' }}>
-            <h4>{quest.title} (Squad Quest)</h4>
-            <p>{quest.description}</p>
-            <p>Goal: {displayGoal} {quest.goal_target_metadata?.currency || ''}</p>
-            <p>Progress: {displayProgress}</p>
-            <div style={{ width: '100%', backgroundColor: '#eee' }}>
-                <div style={{ width: `${percentage}%`, backgroundColor: 'green', height: '20px' }}>
-                    {Math.round(percentage)}%
+        // Using Tailwind CSS classes for styling from a similar component in the project
+        <div className="bg-gray-800 border border-gray-700 shadow-lg rounded-xl p-5 hover:shadow-gray-700/60 transition-shadow duration-300">
+            <h4 className="text-lg font-semibold text-sky-400 mb-2">{quest.title} ({quest.scope === 'squad' ? 'Squad Quest' : 'Community Quest'})</h4>
+            <p className="text-sm text-gray-300 mb-3 h-12 overflow-y-auto">{quest.description}</p>
+            <p className="text-sm text-gray-400 font-medium">{goalDescription}</p>
+            
+            {/* Progress Bar - Conditionally render or adjust for meetup quests if needed */}
+            {quest.goal_type !== 'squad_meetup' && (
+                <div className="w-full bg-gray-700 rounded-full h-2.5 my-2">
+                    <div 
+                        className="bg-green-500 h-2.5 rounded-full transition-all duration-500 ease-out"
+                        style={{ width: `${Math.min(percentage, 100)}%` }}
+                    >
+                    </div>
                 </div>
-            </div>
-            {progress?.updatedAt && <p><small>Last update: {new Date(progress.updatedAt).toLocaleTimeString()}</small></p>}
+            )}
+            <p className="text-xs text-gray-500 mb-1">
+                {quest.goal_type !== 'squad_meetup' ? 
+                    `${Math.round(percentage)}% complete (${displayProgress.toLocaleString()} / ${displayGoal.toLocaleString()})` : 
+                    (progress?.currentProgress ? `Meetups recorded: ${progress.currentProgress}` : 'No meetups recorded yet.')
+                }
+            </p>
+            
+            {additionalInfo}
+
+            {progress?.updatedAt && <p className="text-xs text-gray-500 mt-2"><small>Last progress: {new Date(progress.updatedAt).toLocaleTimeString()}</small></p>}
+            {quest.status && <p className={`text-xs mt-1 font-semibold ${quest.status === 'active' ? 'text-green-400' : 'text-yellow-400'}`}>Status: {quest.status}</p>}
+            {quest.end_ts && <p className="text-xs text-gray-500"><small>Ends: {new Date(quest.end_ts).toLocaleDateString()}</small></p>}
         </div>
     );
 };
@@ -950,7 +1099,7 @@ export default function SquadDetailsPage() {
           {!isLoadingQuests && activeSquadQuests.length > 0 && (
             <div className="space-y-4">
               {activeSquadQuests.map(quest => (
-                <QuestCard key={quest._id} quest={quest} progress={squadProgressMap[quest._id]} />
+                <QuestCard key={quest._id} quest={quest} progress={squadProgressMap[quest._id]} squadId={squadDetails?.squadId} />
               ))}
             </div>
           )}

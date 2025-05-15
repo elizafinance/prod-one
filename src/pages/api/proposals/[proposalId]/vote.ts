@@ -220,12 +220,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               recipientWalletAddress: u.walletAddress as string,
               type: 'proposal_broadcasted' as const,
               title: `Proposal '${proposal.tokenName}' Broadcasted!`,
-              message: `A proposal from squad ${proposal.squadName} has reached the broadcast threshold. Check it out and join the discussion!`,
+              message: `A proposal from squad ${squad ? squad.name : 'Unknown Squad'} has reached the broadcast threshold. Check it out and join the discussion!`,
               data: {
                 proposalId: proposal._id.toString(),
                 proposalName: proposal.tokenName,
-                squadId: squad.squadId.toString(),
-                squadName: squad.name,
+                squadId: squad ? squad.squadId.toString() : 'unknown',
+                squadName: squad ? squad.name : 'Unknown Squad',
               },
             }));
 

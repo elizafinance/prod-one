@@ -53,18 +53,31 @@ export async function POST(request: Request) {
     }
 
     // 2. Check user's current squad status (they shouldn't be in one)
-    const user = await usersCollection.findOne({ walletAddress: currentUserWalletAddress });
+    let user: UserDocument | null = await usersCollection.findOne({ walletAddress: currentUserWalletAddress });
     if (!user) {
-      return NextResponse.json({ error: 'Authenticated user not found in database.' }, { status: 404 }); // Should not happen
+      // Auto-create minimal user profile so invite can be accepted seamlessly
+      const newUser: UserDocument = {
+        walletAddress: currentUserWalletAddress,
+        xUserId: session.user.id || session.user.sub || currentUserWalletAddress, // fallback
+        xUsername: session.user.xUsername || '',
+        xProfileImageUrl: session.user.xProfileImageUrl || '',
+        points: 0,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      } as any;
+      const insertRes = await usersCollection.insertOne(newUser);
+      user = { ...newUser, _id: insertRes.insertedId } as any;
     }
 
-    let pointsToContribute = user.points || 0;
+    // At this point user is guaranteed
+    const userDoc = user as UserDocument;
+    const pointsToContribute = userDoc.points || 0;
     
     // If user is already in a squad, leave that squad first
-    if (user.squadId) {
-      console.log(`User ${currentUserWalletAddress} is leaving squad ${user.squadId} to join ${invitation.squadId}`);
+    if (userDoc.squadId) {
+      console.log(`User ${currentUserWalletAddress} is leaving squad ${userDoc.squadId} to join ${invitation.squadId}`);
       
-      const currentSquad = await squadsCollection.findOne({ squadId: user.squadId });
+      const currentSquad = await squadsCollection.findOne({ squadId: userDoc.squadId });
       if (currentSquad) {
         // If they're the squad leader, reject (they must transfer leadership or disband first)
         if (currentSquad.leaderWalletAddress === currentUserWalletAddress) {
@@ -79,7 +92,7 @@ export async function POST(request: Request) {
         
         // Remove user from their current squad and deduct their points
         await squadsCollection.updateOne(
-          { squadId: user.squadId },
+          { squadId: userDoc.squadId },
           { 
             $pull: { memberWalletAddresses: currentUserWalletAddress },
             $set: { updatedAt: new Date() }

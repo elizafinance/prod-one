@@ -4,6 +4,8 @@ import { ensureMongooseConnected } from '@/lib/mongooseConnect';
 import CommunityQuestModel from '@/models/communityQuest.model'; // Renamed for clarity in previous steps
 import { getServerSession } from "next-auth/next"; // For auth (actual options to be used)
 import { authOptions } from "@/lib/auth"; // Assuming your authOptions are here
+import { User } from '@/models/User';
+import { Notification } from '@/models/Notification';
 
 // Interface for POST request body (adjust as needed based on CommunityQuest schema)
 interface CreateQuestRequestBody {
@@ -174,6 +176,30 @@ export async function POST(request: Request) {
     const newQuest = new CommunityQuestModel(newQuestData);
 
     await newQuest.save();
+
+    // Notify squad members about new squad-scope quest becoming available
+    if (newQuest.scope === 'squad') {
+      try {
+        // Find all users that belong to any squad
+        const squadUsers = await User.find({ squadId: { $exists: true, $ne: null } }).select('_id walletAddress squadId').lean();
+        if (squadUsers.length) {
+          const notifs = squadUsers.map((u: any) => ({
+            recipientUserId: u._id,
+            recipientWalletAddress: u.walletAddress,
+            type: 'general',
+            title: 'New Squad Quest!',
+            message: `${body.title} is now live. Rally your squad to hit the goal.`,
+            data: { questId: newQuest._id, squadId: u.squadId },
+            isRead: false,
+            createdAt: new Date()
+          }));
+          // Bulk insert (ignore errors silently)
+          await Notification.insertMany(notifs, { ordered: false });
+        }
+      } catch (notifyErr) {
+        console.error('[Admin Quests POST] Error creating notifications for squad quest:', notifyErr);
+      }
+    }
 
     return NextResponse.json(newQuest, { status: 201 });
   } catch (error: any) {

@@ -178,16 +178,16 @@ const QuestCard = ({ quest, progress, squadId }: { quest: Quest, progress?: Ques
 
     return (
         // Using Tailwind CSS classes for styling from a similar component in the project
-        <div className="bg-gray-800 border border-gray-700 shadow-lg rounded-xl p-5 hover:shadow-gray-700/60 transition-shadow duration-300">
-            <h4 className="text-lg font-semibold text-sky-400 mb-2">{quest.title} ({quest.scope === 'squad' ? 'Squad Quest' : 'Community Quest'})</h4>
-            <p className="text-sm text-gray-300 mb-3 h-12 overflow-y-auto">{quest.description}</p>
-            <p className="text-sm text-gray-400 font-medium">{goalDescription}</p>
+        <div className="bg-white border border-blue-200 rounded-xl p-5 shadow-md hover:shadow-lg transition-shadow duration-300">
+            <h4 className="text-lg font-semibold text-blue-600 mb-2">{quest.title} <span className="text-xs font-normal text-gray-500">({quest.scope === 'squad' ? 'Squad Quest' : 'Community Quest'})</span></h4>
+            <p className="text-sm text-gray-700 mb-3 h-12 overflow-y-auto">{quest.description}</p>
+            <p className="text-sm text-gray-600 font-medium">{goalDescription}</p>
             
             {/* Progress Bar - Conditionally render or adjust for meetup quests if needed */}
             {quest.goal_type !== 'squad_meetup' && (
-                <div className="w-full bg-gray-700 rounded-full h-2.5 my-2">
+                <div className="w-full bg-blue-100 rounded-full h-2.5 my-2">
                     <div 
-                        className="bg-green-500 h-2.5 rounded-full transition-all duration-500 ease-out"
+                        className="bg-blue-500 h-2.5 rounded-full transition-all duration-500 ease-out"
                         style={{ width: `${Math.min(percentage, 100)}%` }}
                     >
                     </div>
@@ -203,7 +203,7 @@ const QuestCard = ({ quest, progress, squadId }: { quest: Quest, progress?: Ques
             {additionalInfo}
 
             {progress?.updatedAt && <p className="text-xs text-gray-500 mt-2"><small>Last progress: {new Date(progress.updatedAt).toLocaleTimeString()}</small></p>}
-            {quest.status && <p className={`text-xs mt-1 font-semibold ${quest.status === 'active' ? 'text-green-400' : 'text-yellow-400'}`}>Status: {quest.status}</p>}
+            {quest.status && <p className={`text-xs mt-1 font-semibold ${quest.status === 'active' ? 'text-green-600' : 'text-yellow-600'}`}>Status: {quest.status}</p>}
             {quest.end_ts && <p className="text-xs text-gray-500"><small>Ends: {new Date(quest.end_ts).toLocaleDateString()}</small></p>}
         </div>
     );

@@ -21,6 +21,7 @@ interface CreateQuestRequestBody {
   reward_nft_id?: string;
   start_ts: string; // ISO Date string
   end_ts: string;   // ISO Date string
+  scope: 'community' | 'squad'; // Added scope to the request body interface
   // created_by will be taken from session or a default admin identifier
 }
 
@@ -103,14 +104,42 @@ export async function POST(request: Request) {
     await connectToDatabase();
 
     const newQuestData: any = {
-      ...body,
+      title: body.title,
       description: body.description_md,
+      goal_type: body.goal_type,
+      goal_target: body.goal_target,
+      scope: body.scope,
       start_ts: new Date(body.start_ts),
       end_ts: new Date(body.end_ts),
       status: 'scheduled',
       created_by: adminIdentifier,
+      rewards: [] // Initialize rewards array
     };
-    delete newQuestData.description_md;
+
+    // Construct rewards array based on body input
+    const rewardsArray = [];
+    if (body.reward_type === 'points' && typeof body.reward_points === 'number' && body.reward_points > 0) {
+        rewardsArray.push({ type: 'points', value: body.reward_points, description: `${body.reward_points} points` });
+    }
+    if (body.reward_type === 'nft' && body.reward_nft_id) {
+        rewardsArray.push({ type: 'nft', value: body.reward_nft_id, description: `NFT: ${body.reward_nft_id}` });
+    }
+    if (body.reward_type === 'points+nft') {
+        if (typeof body.reward_points === 'number' && body.reward_points > 0) {
+            rewardsArray.push({ type: 'points', value: body.reward_points, description: `${body.reward_points} points` });
+        }
+        if (body.reward_nft_id) {
+            rewardsArray.push({ type: 'nft', value: body.reward_nft_id, description: `NFT: ${body.reward_nft_id}` });
+        }
+    }
+    if (rewardsArray.length > 0) {
+        newQuestData.rewards = rewardsArray;
+    } else {
+        // If no valid rewards were constructed based on input, remove the empty rewards array 
+        // or ensure your schema allows an empty rewards array if that's intended.
+        // Mongoose typically allows empty arrays if not explicitly forbidden.
+        // Let's keep it as an empty array as the schema doesn't require it to be non-empty.
+    }
 
     // Conditionally add goal_target_metadata based on goal_type
     if (body.goal_type === 'users_at_tier' && body.goal_target_metadata?.tier_name) {

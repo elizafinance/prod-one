@@ -5,7 +5,8 @@ const goalTypeEnum = [
   'total_referrals',      // Community: Total referrals made by all participants
   'users_at_tier',        // Community: Number of unique users reaching a specific tier
   'aggregate_spend',      // Community: Total spend (e.g., SOL, USDC) by all participants
-  'total_squad_points'    // Squad: Total points accumulated by a squad
+  'total_squad_points',    // Squad: Total points accumulated by a squad
+  'squad_meetup'          // Squad: Two or more members meet up in person
 ];
 const questScopeEnum = ['community', 'squad'];
 const rewardSplitEnum = ['equal', 'leader_only', 'proportional', 'none']; // 'none' if rewards are manual or handled by a generic 'quest_succeeded' event
@@ -18,10 +19,13 @@ const communityQuestSchema = new mongoose.Schema({
   scope: { type: String, enum: questScopeEnum, default: 'community', required: true },
 
   goal_type: { type: String, enum: goalTypeEnum, required: true },
-  goal_target: { type: Number, required: true }, // e.g., 1000 referrals, 50 users, 100000 spend, 50000 squad points
+  goal_target: { type: Number, required: true }, // e.g., 1000 referrals, 50 users, 100000 spend, 50000 squad points, 2 members for meetup
   goal_target_metadata: { // Flexible field for additional goal parameters
     tier_name: { type: String }, // For 'users_at_tier'
     currency: { type: String },  // For 'aggregate_spend', e.g., 'SOL', 'USDC', 'POINTS'
+    // For 'squad_meetup'
+    proximity_meters: { type: Number }, 
+    time_window_minutes: { type: Number },
     // Add other metadata as needed for future quest types
   },
   

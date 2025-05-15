@@ -146,6 +146,31 @@ export const authOptions: AuthOptions = {
         if (token.xId) session.user.xId = token.xId as string;
         if (token.dbId) session.user.dbId = token.dbId as string;
         if (token.walletAddress) session.user.walletAddress = token.walletAddress as string;
+
+        if (token.dbId && typeof token.dbId === 'string') {
+          try {
+            const { db } = await connectToDatabase();
+            const usersCollection = db.collection<UserDocument>('users');
+            const { ObjectId } = await import('mongodb'); // Dynamically import ObjectId
+
+            if (ObjectId.isValid(token.dbId)) {
+              const userFromDb = await usersCollection.findOne({ _id: new ObjectId(token.dbId) });
+              if (userFromDb && userFromDb.role) {
+                session.user.role = userFromDb.role;
+              } else {
+                session.user.role = 'user'; // Default role if not found or no role field in DB
+              }
+            } else {
+              console.warn(`[NextAuth Session] dbId '${token.dbId}' is not a valid ObjectId. Cannot fetch role by _id.`);
+              session.user.role = 'user'; // Default role
+            }
+          } catch (error) {
+            console.error("[NextAuth Session] Error fetching user role:", error);
+            session.user.role = 'user'; // Default role on error
+          }
+        } else {
+          session.user.role = 'user'; // Default if no dbId in token or not a string
+        }
       }
       console.log("[NextAuth Session] Returning session:", session);
       return session;

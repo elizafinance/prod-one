@@ -62,6 +62,7 @@ export interface UserDocument {
   activeReferralBoosts?: ReferralBoost[];
   squadId?: string; 
   earnedBadgeIds?: string[];
+  role?: 'user' | 'admin';
   createdAt?: Date;
   updatedAt?: Date;
   current_tier_name?: string;
@@ -174,3 +175,22 @@ export interface NotificationDocument {
 // Assuming ISquadJoinRequest and its model file exist as per HEAD branch
 // If SquadJoinRequest.ts doesn't exist or is not intended, this line should be removed.
 export type { ISquadJoinRequest } from '@/models/SquadJoinRequest';
+
+// Interface for the new Meetup Check-in feature
+export interface MeetupCheckInDocument {
+  _id?: ObjectId;
+  questId: ObjectId; // Reference to the CommunityQuest _id
+  squadId: string;   // squadId from SquadDocument
+  userId: string;    // User's dbId (ObjectId as string) or walletAddress if dbId not readily available client-side
+  walletAddress: string; // User's wallet address who performed the check-in
+  latitude: number;
+  longitude: number;
+  accuracy: number;  // Accuracy of the geolocation in meters
+  clientTimestamp: Date; // Timestamp from the user's device
+  serverTimestamp: Date; // Timestamp when the server processed this check-in
+  signedMessage: string; // The full message string that was signed
+  signature: string;     // The signature from the user's wallet
+  status: 'pending_match' | 'matched' | 'processed_success' | 'expired_no_match' | 'error';
+  matchGroupId?: string; // Optional: A common ID for a group of matched check-ins
+  processingError?: string; // Optional: If status is 'error'
+}

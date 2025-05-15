@@ -4,22 +4,33 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 
-// Re-use or adapt QuestFormData from new/page.tsx
+// Consistent GOAL_TYPES with the 'new' page
+const GOAL_TYPES = [
+  { value: 'total_referrals', label: 'Total Referrals (Community)' },
+  { value: 'users_at_tier', label: 'Users at Tier (Community)' },
+  { value: 'aggregate_spend', label: 'Aggregate Spend (Community)' },
+  { value: 'total_squad_points', label: 'Total Squad Points (Squad)' },
+  { value: 'squad_meetup', label: 'Squad Meetup (Squad DePIN)' }
+];
+
 interface QuestFormData {
   title: string;
   description_md: string;
-  goal_type: 'total_referrals' | 'users_at_tier' | 'aggregate_spend';
+  goal_type: 'total_referrals' | 'users_at_tier' | 'aggregate_spend' | 'total_squad_points' | 'squad_meetup';
   goal_target: number | string;
   goal_target_metadata?: {
     tier_name?: string;
     currency?: string;
+    proximity_meters?: number | string;
+    time_window_minutes?: number | string;
   };
   reward_type: 'points' | 'nft' | 'points+nft';
   reward_points?: number | string;
   reward_nft_id?: string;
-  start_ts: string; // Will be formatted for datetime-local
-  end_ts: string;   // Will be formatted for datetime-local
-  status?: 'scheduled' | 'active' | 'succeeded' | 'failed' | 'expired'; // Allow status updates
+  start_ts: string; 
+  end_ts: string;   
+  status?: 'scheduled' | 'active' | 'succeeded' | 'failed' | 'expired'; 
+  scope?: 'community' | 'squad'; // Added scope
 }
 
 // Helper to format ISO date string to datetime-local string for input value
@@ -38,13 +49,13 @@ const formatDateTimeLocal = (isoString: string | undefined): string => {
 export default function EditQuestPage() {
   const router = useRouter();
   const params = useParams();
-  const questId = params?.questId as string; // Type assertion for questId
+  const questId = params?.questId as string;
 
-  const [formData, setFormData] = useState<Partial<QuestFormData>>({}); // Partial for initial load
+  const [formData, setFormData] = useState<Partial<QuestFormData>>({});
   const [isLoading, setIsLoading] = useState(false);
   const [isFetching, setIsFetching] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [fieldErrors, setFieldErrors] = useState<Partial<Record<keyof QuestFormData | 'tier_name' | 'currency', string>>>({});
+  const [fieldErrors, setFieldErrors] = useState<Partial<Record<keyof QuestFormData | 'tier_name' | 'currency' | 'proximity_meters' | 'time_window_minutes', string>>>({});
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const fetchQuest = useCallback(async (id: string) => {
@@ -57,13 +68,22 @@ export default function EditQuestPage() {
         throw new Error(errorData.error || `Failed to fetch quest: ${response.status}`);
       }
       const data = await response.json();
+      // Ensure goal_target_metadata is an object even if null/undefined from API
+      const metadata = data.goal_target_metadata || {}; 
       setFormData({
         ...data,
         goal_target: data.goal_target?.toString() || '',
         reward_points: data.reward_points?.toString() || '',
         start_ts: formatDateTimeLocal(data.start_ts),
         end_ts: formatDateTimeLocal(data.end_ts),
-        goal_target_metadata: data.goal_target_metadata || {},
+        // Ensure all potential metadata fields are strings for form inputs if they exist
+        goal_target_metadata: {
+            tier_name: metadata.tier_name || '',
+            currency: metadata.currency || '',
+            proximity_meters: metadata.proximity_meters?.toString() || '',
+            time_window_minutes: metadata.time_window_minutes?.toString() || '',
+        },
+        scope: data.scope || 'community', // Default to community if scope is not set
       });
     } catch (err: any) {
       console.error("Error fetching quest for edit:", err);
@@ -81,37 +101,68 @@ export default function EditQuestPage() {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    if (fieldErrors[name as keyof QuestFormData]) {
+    
+    // Clear specific field error on change
+    if (fieldErrors[name as keyof QuestFormData | 'tier_name' | 'currency' | 'proximity_meters' | 'time_window_minutes']) {
         setFieldErrors(prev => ({ ...prev, [name]: undefined }));
     }
-    if (name === 'tier_name' || name === 'currency') {
-        setFormData(prev => ({ ...prev, goal_target_metadata: { ...(prev.goal_target_metadata || {}), [name]: value } }));
-        if (fieldErrors[name as 'tier_name' | 'currency']) {
-            setFieldErrors(prev => ({ ...prev, [name]: undefined }));
-        }
+
+    if (name === 'proximity_meters' || name === 'time_window_minutes' || name === 'tier_name' || name === 'currency') {
+        setFormData(prev => ({
+            ...prev,
+            goal_target_metadata: { ...(prev.goal_target_metadata || {}), [name]: value }
+        }));
+    } else if (name === 'goal_type') {
+        setFormData(prev => ({
+            ...prev,
+            [name]: value as QuestFormData['goal_type'],
+            goal_target_metadata: { // Reset metadata when type changes
+                ...(prev.goal_target_metadata || {}),
+                tier_name: '', 
+                currency: '', 
+                proximity_meters: '', 
+                time_window_minutes: '' 
+            },
+            scope: (value === 'squad_meetup' || value === 'total_squad_points') ? 'squad' : (prev.scope || 'community')
+        }));
     } else {
         setFormData(prev => ({ ...prev, [name]: value as any }));
     }
   };
 
   const validateForm = (): boolean => {
-    const errors: Partial<Record<keyof QuestFormData | 'tier_name' | 'currency', string>> = {};
+    const errors: Partial<Record<keyof QuestFormData | 'tier_name' | 'currency' | 'proximity_meters' | 'time_window_minutes', string>> = {};
     if (!formData.title?.trim()) errors.title = 'Title is required.';
     if (!formData.description_md?.trim()) errors.description_md = 'Description is required.';
-    if (Number(formData.goal_target) <= 0) errors.goal_target = 'Goal target must be a positive number.';
+    
+    const goalTargetNum = Number(formData.goal_target);
+    if (isNaN(goalTargetNum) || goalTargetNum <= 0) errors.goal_target = 'Goal target must be a positive number.';
+
     if (!formData.start_ts) errors.start_ts = 'Start date is required.';
     if (!formData.end_ts) errors.end_ts = 'End date is required.';
     if (formData.start_ts && formData.end_ts && new Date(formData.end_ts) <= new Date(formData.start_ts)) {
       errors.end_ts = 'End date must be after start date.';
     }
-    if ((formData.reward_type === 'points' || formData.reward_type === 'points+nft') && (!formData.reward_points || Number(formData.reward_points) <= 0)) {
+    if ((formData.reward_type === 'points' || formData.reward_type === 'points+nft') && (formData.reward_points === undefined || formData.reward_points === '' || Number(formData.reward_points) <= 0)) {
       errors.reward_points = 'Valid reward points (positive number) required.';
     }
     if ((formData.reward_type === 'nft' || formData.reward_type === 'points+nft') && !formData.reward_nft_id?.trim()) {
       errors.reward_nft_id = 'Reward NFT ID/Identifier is required.';
     }
+
     if (formData.goal_type === 'users_at_tier' && !formData.goal_target_metadata?.tier_name?.trim()) {
       errors.tier_name = 'Target Tier Name is required for this goal type.';
+    }
+    if (formData.goal_type === 'squad_meetup') {
+        if (!formData.goal_target_metadata?.proximity_meters || Number(formData.goal_target_metadata.proximity_meters) <= 0) {
+            errors.proximity_meters = 'Proximity (meters) is required and must be positive.';
+        }
+        if (!formData.goal_target_metadata?.time_window_minutes || Number(formData.goal_target_metadata.time_window_minutes) <= 0) {
+            errors.time_window_minutes = 'Time window (minutes) is required and must be positive.';
+        }
+        if (goalTargetNum <= 0 && formData.goal_type === 'squad_meetup') { // goal_target is min members for meetup
+             errors.goal_target = 'Min members for meetup must be positive.';
+        }
     }
     setFieldErrors(errors);
     return Object.keys(errors).length === 0;
@@ -125,25 +176,45 @@ export default function EditQuestPage() {
     setError(null);
     setSuccessMessage(null);
 
-    const payload: Partial<QuestFormData> & { start_ts?: string; end_ts?: string } = {
-        ...formData,
-        goal_target: formData.goal_target ? Number(formData.goal_target) : undefined,
-        reward_points: formData.reward_points ? Number(formData.reward_points) : undefined,
+    const payload: Partial<QuestFormData> & { start_ts?: string; end_ts?: string; goal_target_metadata?: any } = {
+        // Only include fields that have values or are meant to be updated
     };
+
+    // Selectively add fields to the payload to avoid sending undefined for unchanged optional fields
+    // or sending empty strings where numbers are expected by API if not touched by user.
+    if (formData.title) payload.title = formData.title;
+    if (formData.description_md) payload.description_md = formData.description_md;
+    if (formData.goal_type) payload.goal_type = formData.goal_type;
+    if (formData.goal_target) payload.goal_target = Number(formData.goal_target);
+    if (formData.reward_type) payload.reward_type = formData.reward_type;
+    if (formData.reward_points) payload.reward_points = Number(formData.reward_points);
+    if (formData.reward_nft_id !== undefined) payload.reward_nft_id = formData.reward_nft_id; // Allow empty string to clear
     if (formData.start_ts) payload.start_ts = new Date(formData.start_ts).toISOString();
     if (formData.end_ts) payload.end_ts = new Date(formData.end_ts).toISOString();
-    
-    if (formData.goal_type === 'users_at_tier' && formData.goal_target_metadata?.tier_name) {
-        payload.goal_target_metadata = { tier_name: formData.goal_target_metadata.tier_name };
-    } else if (formData.goal_type === 'aggregate_spend' && formData.goal_target_metadata?.currency) {
-        payload.goal_target_metadata = { currency: formData.goal_target_metadata.currency };
-    } else {
-        // If metadata is not relevant for the goal_type or not provided, ensure it's not sent or sent as null
-        // The API PUT handler should ideally handle $unset if an empty object means remove.
-        // For now, we just don't include it if not specifically structured for the current goal_type.
-        delete payload.goal_target_metadata; 
-    }
+    if (formData.status) payload.status = formData.status;
+    if (formData.scope) payload.scope = formData.scope;
 
+    // Handle metadata carefully
+    let currentMetadata: any = {};
+    let metadataIsSet = false;
+    if (formData.goal_type === 'users_at_tier' && formData.goal_target_metadata?.tier_name) {
+        currentMetadata.tier_name = formData.goal_target_metadata.tier_name;
+        metadataIsSet = true;
+    } else if (formData.goal_type === 'aggregate_spend' && formData.goal_target_metadata?.currency) {
+        currentMetadata.currency = formData.goal_target_metadata.currency;
+        metadataIsSet = true;
+    } else if (formData.goal_type === 'squad_meetup' && formData.goal_target_metadata) {
+        if (formData.goal_target_metadata.proximity_meters) currentMetadata.proximity_meters = Number(formData.goal_target_metadata.proximity_meters);
+        if (formData.goal_target_metadata.time_window_minutes) currentMetadata.time_window_minutes = Number(formData.goal_target_metadata.time_window_minutes);
+        if (Object.keys(currentMetadata).length > 0) metadataIsSet = true;
+    }
+    if (metadataIsSet) {
+        payload.goal_target_metadata = currentMetadata;
+    } else if (formData.goal_type && formData.goal_type !== 'users_at_tier' && formData.goal_type !== 'aggregate_spend' && formData.goal_type !== 'squad_meetup') {
+        // If goal type does not use metadata, explicitly ensure it's not sent or is nulled if API supports $unset
+        payload.goal_target_metadata = {}; // Or consider not setting it if API handles partial updates well
+    }
+    
     try {
       const response = await fetch(`/api/admin/quests/${questId}`, {
         method: 'PUT',
@@ -153,12 +224,12 @@ export default function EditQuestPage() {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || `Failed to update quest: ${response.status}`);
+        throw new Error(errorData.error || `Failed to update quest: ${response.statusText} (${response.status})`);
       }
       const updatedQuest = await response.json();
       setSuccessMessage(`Quest "${updatedQuest.title}" updated successfully!`);
-      // Optionally, refetch or update form data more precisely if needed
-      // fetchQuest(questId); // To get latest, potentially with updated_ts
+      // Optionally, update form data with response to reflect any backend transformations (e.g. updated_ts)
+      // For now, we assume success means our payload was accepted.
     } catch (err: any) {
       console.error("Error updating quest:", err);
       setError(err.message || 'An unknown error occurred.');
@@ -170,7 +241,7 @@ export default function EditQuestPage() {
   if (isFetching) {
     return <div className="p-8 text-center text-gray-400">Loading quest data...</div>;
   }
-  if (error && !formData.title) { // Show full page error only if quest data couldn't be loaded
+  if (error && !formData.title) { 
     return <div className="p-8 text-center text-red-500">Error: {error} <Link href="/admin/quests" className="underline">Back to list</Link></div>;
   }
 
@@ -186,7 +257,6 @@ export default function EditQuestPage() {
         {successMessage && <p className="mb-4 p-3 bg-green-700/30 border border-green-500 text-green-300 rounded-md">{successMessage}</p>}
 
         <form onSubmit={handleSubmit} className="space-y-6 bg-gray-800 p-8 rounded-lg shadow-xl">
-          {/* Form fields are very similar to create form, ensure value bindings are correct */}
           <div>
             <label htmlFor="title" className="block text-sm font-medium text-gray-300 mb-1">Title</label>
             <input type="text" name="title" id="title" required value={formData.title || ''} onChange={handleChange} className={`w-full bg-gray-700 border-gray-600 text-white rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2.5 ${fieldErrors.title ? 'border-red-500' : ''}`} />
@@ -202,13 +272,11 @@ export default function EditQuestPage() {
             <div>
               <label htmlFor="goal_type" className="block text-sm font-medium text-gray-300 mb-1">Goal Type</label>
               <select name="goal_type" id="goal_type" required value={formData.goal_type || 'total_referrals'} onChange={handleChange} className="w-full bg-gray-700 border-gray-600 text-white rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2.5">
-                <option value="total_referrals">Total Referrals</option>
-                <option value="users_at_tier">Users at Tier</option>
-                <option value="aggregate_spend">Aggregate Spend</option>
+                {GOAL_TYPES.map(gt => <option key={gt.value} value={gt.value}>{gt.label}</option>)}
               </select>
             </div>
             <div>
-              <label htmlFor="goal_target" className="block text-sm font-medium text-gray-300 mb-1">Goal Target</label>
+              <label htmlFor="goal_target" className="block text-sm font-medium text-gray-300 mb-1">Goal Target {formData.goal_type === 'squad_meetup' ? '(Min Members)' : '(Count/Amount)'}</label>
               <input type="number" name="goal_target" id="goal_target" required min="1" value={formData.goal_target || ''} onChange={handleChange} className={`w-full bg-gray-700 border-gray-600 text-white rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2.5 ${fieldErrors.goal_target ? 'border-red-500' : ''}`} />
               {fieldErrors.goal_target && <p className="mt-1 text-xs text-red-400">{fieldErrors.goal_target}</p>}
             </div>
@@ -228,6 +296,20 @@ export default function EditQuestPage() {
               {fieldErrors.currency && <p className="mt-1 text-xs text-red-400">{fieldErrors.currency}</p>}
             </div>
           )}
+          {formData.goal_type === 'squad_meetup' && (
+            <>
+              <div>
+                <label htmlFor="proximity_meters" className="block text-sm font-medium text-gray-300 mb-1">Proximity (meters)</label>
+                <input type="number" name="proximity_meters" id="proximity_meters" required value={formData.goal_target_metadata?.proximity_meters || ''} onChange={handleChange} className={`w-full bg-gray-700 border-gray-600 text-white rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2.5 ${fieldErrors.proximity_meters ? 'border-red-500' : ''}`} placeholder="e.g., 100" />
+                {fieldErrors.proximity_meters && <p className="mt-1 text-xs text-red-400">{fieldErrors.proximity_meters}</p>}
+              </div>
+              <div>
+                <label htmlFor="time_window_minutes" className="block text-sm font-medium text-gray-300 mb-1">Time Window (minutes)</label>
+                <input type="number" name="time_window_minutes" id="time_window_minutes" required value={formData.goal_target_metadata?.time_window_minutes || ''} onChange={handleChange} className={`w-full bg-gray-700 border-gray-600 text-white rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2.5 ${fieldErrors.time_window_minutes ? 'border-red-500' : ''}`} placeholder="e.g., 10" />
+                {fieldErrors.time_window_minutes && <p className="mt-1 text-xs text-red-400">{fieldErrors.time_window_minutes}</p>}
+              </div>
+            </>
+          )}
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
              <div>
@@ -241,6 +323,24 @@ export default function EditQuestPage() {
                 </select>
             </div>
             <div>
+              <label htmlFor="scope" className="block text-sm font-medium text-gray-300 mb-1">Scope</label>
+              <select 
+                  name="scope" 
+                  id="scope" 
+                  required 
+                  value={formData.scope || 'community'} 
+                  onChange={handleChange} 
+                  className="w-full bg-gray-700 border-gray-600 text-white rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2.5"
+                  disabled={formData.goal_type === 'squad_meetup' || formData.goal_type === 'total_squad_points'}
+              >
+                <option value="community">Community</option>
+                <option value="squad">Squad</option>
+              </select>
+            </div>
+         </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
               <label htmlFor="reward_type" className="block text-sm font-medium text-gray-300 mb-1">Reward Type</label>
               <select name="reward_type" id="reward_type" required value={formData.reward_type || 'points'} onChange={handleChange} className="w-full bg-gray-700 border-gray-600 text-white rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2.5">
                 <option value="points">Points</option>
@@ -248,22 +348,21 @@ export default function EditQuestPage() {
                 <option value="points+nft">Points + NFT</option>
               </select>
             </div>
-         </div>
-
-        {(formData.reward_type === 'points' || formData.reward_type === 'points+nft') && (
-            <div className="mt-6 md:mt-0 md:col-span-1">
-                <label htmlFor="reward_points" className="block text-sm font-medium text-gray-300 mb-1">Reward Points</label>
-                <input type="number" name="reward_points" id="reward_points" min="1" value={formData.reward_points || ''} onChange={handleChange} className={`w-full bg-gray-700 border-gray-600 text-white rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2.5 ${fieldErrors.reward_points ? 'border-red-500' : ''}`} />
-                {fieldErrors.reward_points && <p className="mt-1 text-xs text-red-400">{fieldErrors.reward_points}</p>}
-            </div>
-        )}
-        {(formData.reward_type === 'nft' || formData.reward_type === 'points+nft') && (
-            <div className="mt-6 md:mt-0 md:col-span-1">
-                <label htmlFor="reward_nft_id" className="block text-sm font-medium text-gray-300 mb-1">Reward NFT ID/Identifier</label>
-                <input type="text" name="reward_nft_id" id="reward_nft_id" value={formData.reward_nft_id || ''} onChange={handleChange} className={`w-full bg-gray-700 border-gray-600 text-white rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2.5 ${fieldErrors.reward_nft_id ? 'border-red-500' : ''}`} />
-                {fieldErrors.reward_nft_id && <p className="mt-1 text-xs text-red-400">{fieldErrors.reward_nft_id}</p>}
-            </div>
-        )}
+            {(formData.reward_type === 'points' || formData.reward_type === 'points+nft') && (
+                <div className="md:col-span-1">
+                    <label htmlFor="reward_points" className="block text-sm font-medium text-gray-300 mb-1">Reward Points</label>
+                    <input type="number" name="reward_points" id="reward_points" min="1" value={formData.reward_points || ''} onChange={handleChange} className={`w-full bg-gray-700 border-gray-600 text-white rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2.5 ${fieldErrors.reward_points ? 'border-red-500' : ''}`} />
+                    {fieldErrors.reward_points && <p className="mt-1 text-xs text-red-400">{fieldErrors.reward_points}</p>}
+                </div>
+            )}
+            {(formData.reward_type === 'nft' || formData.reward_type === 'points+nft') && (
+                <div className="md:col-span-1">
+                    <label htmlFor="reward_nft_id" className="block text-sm font-medium text-gray-300 mb-1">Reward NFT ID/Identifier</label>
+                    <input type="text" name="reward_nft_id" id="reward_nft_id" value={formData.reward_nft_id || ''} onChange={handleChange} className={`w-full bg-gray-700 border-gray-600 text-white rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2.5 ${fieldErrors.reward_nft_id ? 'border-red-500' : ''}`} />
+                    {fieldErrors.reward_nft_id && <p className="mt-1 text-xs text-red-400">{fieldErrors.reward_nft_id}</p>}
+                </div>
+            )}
+          </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
             <div>

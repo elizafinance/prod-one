@@ -8,11 +8,13 @@ import { authOptions } from "@/lib/auth"; // Assuming your authOptions are here
 interface CreateQuestRequestBody {
   title: string;
   description_md: string;
-  goal_type: 'total_referrals' | 'users_at_tier' | 'aggregate_spend'; // Add more as they are supported
+  goal_type: 'total_referrals' | 'users_at_tier' | 'aggregate_spend' | 'squad_meetup'; // Added squad_meetup
   goal_target: number;
   goal_target_metadata?: {
     tier_name?: string;
     currency?: string;
+    proximity_meters?: number;    // For squad_meetup
+    time_window_minutes?: number; // For squad_meetup
   };
   reward_type: 'points' | 'nft' | 'points+nft';
   reward_points?: number;
@@ -113,6 +115,14 @@ export async function POST(request: Request) {
         newQuestData.goal_target_metadata = { tier_name: body.goal_target_metadata.tier_name };
     } else if (body.goal_type === 'aggregate_spend' && body.goal_target_metadata?.currency) {
         newQuestData.goal_target_metadata = { currency: body.goal_target_metadata.currency };
+    } else if (body.goal_type === 'squad_meetup') {
+        if (typeof body.goal_target_metadata?.proximity_meters !== 'number' || typeof body.goal_target_metadata?.time_window_minutes !== 'number') {
+            return NextResponse.json({ error: 'Proximity (meters) and Time Window (minutes) are required for Squad Meetup quests.' }, { status: 400 });
+        }
+        newQuestData.goal_target_metadata = {
+            proximity_meters: body.goal_target_metadata.proximity_meters,
+            time_window_minutes: body.goal_target_metadata.time_window_minutes
+        };
     } else {
         // If not one of these types, or metadata not provided, ensure it's not set or is set to null
         // The model has `default: null` for goal_target_metadata, so not setting it is fine.

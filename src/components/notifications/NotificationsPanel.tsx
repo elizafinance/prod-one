@@ -43,41 +43,14 @@ export default function NotificationsPanel({ isOpen, onClose, onUpdateUnreadCoun
   const panelRef = useRef<HTMLDivElement>(null); // For click outside to close
   const initialFetchDone = useRef(false); // To track if initial fetch on open has occurred
 
-  const markNotificationsAsRead = useCallback(async (notificationIds: string[]) => {
-    if (notificationIds.length === 0) return;
-    try {
-      const response = await fetch('/api/notifications/mark-read', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ notificationIds }),
-      });
-      if (response.ok) {
-        // Optimistically update UI for faster feedback before refetch
-        setNotifications(prev =>
-          prev.map(n => (notificationIds.includes(n.notificationId) ? { ...n, isRead: true } : n))
-        );
-        // Actual unread count will be updated by the subsequent fetchNotifications call
-        // Call fetchNotifications to get the latest state from the server
-        fetchNotifications(false); // false: don't try to mark as read again in this fetch
-        if (notificationIds.length === 1) {
-          toast.info("Notification marked as read.");
-        }
-      } else {
-        toast.error("Failed to mark notifications as read.");
-      }
-    } catch (err) {
-      toast.error("Error marking notifications as read.");
-      console.error("markNotificationsAsRead error:", err);
-    }
-  }, [onUpdateUnreadCount]); // Temporarily remove fetchNotifications from deps
-
-  const fetchNotifications = useCallback(async (isInitialOpenFetch = false) => {
+  // Define fetchNotifications first
+  const fetchNotifications = useCallback(async (isInitialOpenFetch = false, attemptMarkAsRead = true) => { // Added attemptMarkAsRead
     setIsLoading(true);
     setError(null);
     console.log("[Notifications] Fetching notifications...");
     try {
       console.log("[Notifications] Making API call to fetch notifications");
-      const response = await fetch('/api/notifications/my-notifications'); // Corrected API endpoint
+      const response = await fetch('/api/notifications/my-notifications');
       
       console.log("[Notifications] API response status:", response.status);
       if (!response.ok) {
@@ -98,31 +71,74 @@ export default function NotificationsPanel({ isOpen, onClose, onUpdateUnreadCoun
       setUnreadCount(data.unreadCount || 0);
       onUpdateUnreadCount(data.unreadCount || 0);
 
-      if (isInitialOpenFetch && data.notifications && data.notifications.length > 0) {
-        const unreadIds = data.notifications
-          .filter((n: NotificationDisplayData) => !n.isRead)
-          .map((n: NotificationDisplayData) => n.notificationId); // Use notificationId
-        console.log("[Notifications] Unread IDs to mark as read:", unreadIds);
-        if (unreadIds.length > 0) {
-          markNotificationsAsRead(unreadIds); // Mark them as read
-        }
-      }
+      // This part is tricky because markNotificationsAsRead is defined later
+      // We will call it from an effect or directly if needed, but not from here to avoid circular dep.
+      // For now, we assume that if attemptMarkAsRead is true, an effect will handle it.
+      // Or, the caller of fetchNotifications (like markNotificationsAsRead) will handle subsequent logic.
+
     } catch (err) {
       console.error("[Notifications] Error during fetch:", err);
       setError((err as Error).message || 'Could not load notifications.');
       onUpdateUnreadCount(0); // Reset unread count on error
     }
     setIsLoading(false);
-  }, [onUpdateUnreadCount, markNotificationsAsRead]);
+  }, [onUpdateUnreadCount]); // Removed markNotificationsAsRead from here
+
+  const markNotificationsAsRead = useCallback(async (notificationIds: string[]) => {
+    if (notificationIds.length === 0) return;
+    try {
+      const response = await fetch('/api/notifications/mark-read', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notificationIds }),
+      });
+      if (response.ok) {
+        setNotifications(prev =>
+          prev.map(n => (notificationIds.includes(n.notificationId) ? { ...n, isRead: true } : n))
+        );
+        // Call fetchNotifications to get the latest state from the server,
+        // but without triggering another mark-as-read cycle from within fetchNotifications itself.
+        fetchNotifications(false, false); // isInitialOpenFetch = false, attemptMarkAsRead = false
+        if (notificationIds.length === 1) {
+          toast.info("Notification marked as read.");
+        }
+        // The unread count will be updated by fetchNotifications
+      } else {
+        toast.error("Failed to mark notifications as read.");
+      }
+    } catch (err) {
+      toast.error("Error marking notifications as read.");
+      console.error("markNotificationsAsRead error:", err);
+    }
+  }, [fetchNotifications]); // Removed onUpdateUnreadCount, only fetchNotifications
 
   useEffect(() => {
     if (isOpen && !initialFetchDone.current) {
-      fetchNotifications(true); // true: this is the initial fetch on panel open, try to mark as read
+      fetchNotifications(true, true); // isInitialOpenFetch = true, attemptMarkAsRead = true
       initialFetchDone.current = true;
     } else if (!isOpen) {
       initialFetchDone.current = false; // Reset for next time panel opens
     }
   }, [isOpen, fetchNotifications]);
+
+  // Effect to mark unread notifications as read *after* initial fetch
+  useEffect(() => {
+    if (isOpen && initialFetchDone.current && notifications.length > 0) {
+        const unreadIds = notifications
+            .filter(n => !n.isRead)
+            .map(n => n.notificationId);
+        if (unreadIds.length > 0) {
+            // Check if markNotificationsAsRead is available to be called
+            // This check is to satisfy linters if they still think markNotificationsAsRead might not be initialized
+            // though due to JS hoisting and useCallback, it should be.
+            if (typeof markNotificationsAsRead === 'function') { 
+                 markNotificationsAsRead(unreadIds);
+            }
+        }
+    }
+  // We only want this to run when `notifications` list updates *after* an initial fetch,
+  // and `isOpen` is true. `markNotificationsAsRead` is stable due to useCallback.
+  }, [isOpen, notifications, markNotificationsAsRead]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {

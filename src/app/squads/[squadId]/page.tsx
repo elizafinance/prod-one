@@ -64,39 +64,6 @@ interface SquadDetailPageParams {
     squadId: string;
 }
 
-export default function SquadDetailPage({ params }: { params: SquadDetailPageParams | null }) { // Allow params to be null
-    const squadId = params?.squadId; // Safely access squadId
-    
-    const [activeSquadQuests, setActiveSquadQuests] = useState<Quest[]>([]); 
-    const [isLoadingQuests, setIsLoadingQuests] = useState(true);
-
-    const squadProgressMap = useSquadQuestProgressStore((state) => 
-        squadId ? state.squadQuestProgress[squadId] || {} : {}
-    );
-
-    useEffect(() => {
-        const fetchActiveSquadQuests = async () => {
-            if (!squadId) return;
-            setIsLoadingQuests(true);
-            try {
-                const response = await fetch(`/api/quests?scope=squad&status=active`);
-                if (!response.ok) throw new Error('Failed to fetch squad quests');
-                const questsData = await response.json();
-                setActiveSquadQuests(questsData.quests || questsData || []); 
-            } catch (err) {
-                console.error("Error fetching squad quests:", err);
-            }
-            setIsLoadingQuests(false);
-        };
-
-        fetchActiveSquadQuests();
-    }, [squadId]);
-    
-    if (!squadId) {
-        // This case should ideally be handled by Next.js routing if squadId is a required param
-        // or show a specific component e.g. <SquadNotFound /> or <LoadingSquad />
-        return <p>Loading squad information or Squad ID not found...</p>; 
-    }
 export default function SquadDetailsPage() {
   const params = useParams();
   const router = useRouter();
@@ -104,6 +71,35 @@ export default function SquadDetailsPage() {
   const squadId = typeof params?.squadId === 'string' ? params.squadId : null;
   const { publicKey, connected } = useWallet();
   const currentUserWalletAddress = publicKey?.toBase58();
+
+  // Quest related state and logic
+  const [activeSquadQuests, setActiveSquadQuests] = useState<Quest[]>([]);
+  const [isLoadingQuests, setIsLoadingQuests] = useState(true);
+  const squadProgressMap = useSquadQuestProgressStore((state) =>
+    squadId ? state.squadQuestProgress[squadId] || {} : {}
+  );
+
+  useEffect(() => {
+    const fetchActiveSquadQuests = async () => {
+      if (!squadId) return;
+      setIsLoadingQuests(true);
+      try {
+        const response = await fetch(`/api/quests?scope=squad&status=active`);
+        if (!response.ok) throw new Error('Failed to fetch squad quests');
+        const questsData = await response.json();
+        setActiveSquadQuests(questsData.quests || questsData || []);
+      } catch (err) {
+        console.error("Error fetching squad quests:", err);
+        setActiveSquadQuests([]); // Ensure it's an empty array on error
+      }
+      setIsLoadingQuests(false);
+    };
+
+    if (squadId) { // Ensure squadId is available before fetching
+        fetchActiveSquadQuests();
+    }
+  }, [squadId]);
+  // End of Quest related state and logic
 
   const [squadDetails, setSquadDetails] = useState<SquadDetailsData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -574,14 +570,6 @@ export default function SquadDetailsPage() {
   if (error) return <main className="flex flex-col items-center justify-center min-h-screen bg-white text-red-700"><p className="text-xl mb-4">Error: {error}</p><Link href="/squads/browse"><button className='p-2 bg-blue-500 hover:bg-blue-600 rounded text-white'>Back to Browse Squads</button></Link></main>;
   if (!squadDetails) return <main className="flex flex-col items-center justify-center min-h-screen bg-white text-gray-700"><p className="text-xl mb-4">Squad not found.</p><Link href="/squads/browse"><button className='p-2 bg-blue-500 hover:bg-blue-600 rounded text-white'>Back to Browse Squads</button></Link></main>;
 
-    return (
-        <div>
-            <h3>Active Squad Quests for Squad: {squadId}</h3>
-            {isLoadingQuests && <p>Loading quests...</p>}
-            {!isLoadingQuests && activeSquadQuests.length === 0 && <p>No active squad quests currently.</p>}
-            {activeSquadQuests.map(quest => (
-                <QuestCard key={quest._id} quest={quest} progress={squadProgressMap[quest._id]} />
-            ))}
   return (
     <main className="flex flex-col items-center min-h-screen p-4 sm:p-8 bg-white text-gray-900">
       <div className="w-full max-w-3xl mx-auto my-10 bg-white border border-gray-200 shadow-xl rounded-xl p-6 sm:p-8">
@@ -932,7 +920,6 @@ export default function SquadDetailsPage() {
             </div>
           )}
         </div>
-    );
 
         {/* 'Request to Join' button for non-members */}
         {connected && !isUserMember && squadDetails && (
@@ -954,6 +941,21 @@ export default function SquadDetailsPage() {
             )}
           </div>
         )}
+
+        {/* Quest Display Section */}
+        <div className="mb-8 border-b border-gray-200 pb-6">
+          <h3 className="text-2xl font-semibold text-gray-800 mb-4">Active Squad Quests</h3>
+          {isLoadingQuests && <div className="flex items-center justify-center text-gray-500"><div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-purple-500 mr-2"></div>Loading quests...</div>}
+          {!isLoadingQuests && activeSquadQuests.length === 0 && <p className="text-gray-500">No active squad quests currently.</p>}
+          {!isLoadingQuests && activeSquadQuests.length > 0 && (
+            <div className="space-y-4">
+              {activeSquadQuests.map(quest => (
+                <QuestCard key={quest._id} quest={quest} progress={squadProgressMap[quest._id]} />
+              ))}
+            </div>
+          )}
+        </div>
+        {/* End Quest Display Section */}
       </div>
 
       {/* Request To Join Modal */}

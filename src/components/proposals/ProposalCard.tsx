@@ -18,6 +18,7 @@ export interface ProposalCardData {
   _id: string;
   squadId: string;
   squadName: string;
+  leaderWalletAddress?: string; // Added for proposal cancellation feature
   tokenContractAddress: string;
   tokenName: string;
   reason: string;
@@ -25,7 +26,7 @@ export interface ProposalCardData {
   epochStart: string;
   epochEnd: Date; // Use Date type if it's already transformed, or string if raw from API
   broadcasted: boolean;
-  status: 'active' | 'closed_passed' | 'closed_failed' | 'closed_executed' | 'archived'; // Include all statuses
+  status: 'active' | 'closed_passed' | 'closed_failed' | 'closed_executed' | 'archived' | 'cancelled'; // Include all statuses
   tally: DetailedVoteTally;
   totalVoters: number;
   // Add these if they are part of the lean proposal object from the API
@@ -149,9 +150,11 @@ const ProposalCard: React.FC<ProposalCardProps> = ({ proposal, onVoteClick, curr
         {isClosed && (
           <div className={`mt-3 p-2 text-center rounded-md text-sm font-semibold 
             ${status === 'closed_passed' || status === 'closed_executed' ? 'bg-green-100 text-green-700' : 
-              status === 'closed_failed' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-700'}
+              status === 'closed_failed' ? 'bg-red-100 text-red-700' : 
+              status === 'cancelled' ? 'bg-orange-100 text-orange-700' : 
+              'bg-gray-100 text-gray-700'}
           `}>
-            Status: {status.replace('closed_', '').toUpperCase()}
+            Status: {status === 'cancelled' ? 'CANCELLED' : status.replace('closed_', '').toUpperCase()}
           </div>
         )}
 

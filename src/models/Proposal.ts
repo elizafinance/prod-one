@@ -11,7 +11,7 @@ interface IProposal extends Document {
   epochStart: Date;
   epochEnd: Date;
   broadcasted: boolean;
-  status: 'active' | 'closed_passed' | 'closed_failed' | 'closed_executed' | 'archived';
+  status: 'active' | 'closed_passed' | 'closed_failed' | 'closed_executed' | 'archived' | 'cancelled';
   // Fields for vote results - to be populated by the cron job
   finalUpVotesWeight?: number;
   finalDownVotesWeight?: number;
@@ -34,7 +34,7 @@ const ProposalSchema = new Schema<IProposal>({
   broadcasted: { type: Boolean, default: false },
   status: { 
     type: String, 
-    enum: ['active', 'closed_passed', 'closed_failed', 'closed_executed', 'archived'], 
+    enum: ['active', 'closed_passed', 'closed_failed', 'closed_executed', 'archived', 'cancelled'], 
     default: 'active', 
     index: true 
   },

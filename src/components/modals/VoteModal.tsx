@@ -8,6 +8,7 @@ import { ProposalCardData } from '@/components/proposals/ProposalCard'; // For t
 import { useSession } from 'next-auth/react'; // To check user points for voting eligibility message
 import { useWallet } from '@solana/wallet-adapter-react';
 import bs58 from 'bs58';
+import { useRouter } from 'next/navigation';
 
 interface VoteModalProps {
   isOpen: boolean;
@@ -25,11 +26,15 @@ interface UserVoteData {
 }
 
 const VoteModal: React.FC<VoteModalProps> = ({ isOpen, onClose, proposal, onVoteSuccess, currentUserPoints }) => {
+  const router = useRouter();
   const { data: session, status: sessionStatus } = useSession();
   const wallet = useWallet();
   const [isSubmittingVote, setIsSubmittingVote] = useState(false);
   const [currentUserVote, setCurrentUserVote] = useState<UserVoteData | null>(null);
   const [isFetchingUserVote, setIsFetchingUserVote] = useState(false);
+  const [isSquadLeader, setIsSquadLeader] = useState<boolean>(false);
+  const [voteCount, setVoteCount] = useState<number | null>(null);
+  const [isCancelling, setIsCancelling] = useState(false);
 
   const isProposalActive = proposal?.status === 'active';
 
@@ -65,6 +70,21 @@ const VoteModal: React.FC<VoteModalProps> = ({ isOpen, onClose, proposal, onVote
       setIsFetchingUserVote(false);
     }
   }, [isOpen, proposal, sessionStatus, proposal?._id]);
+
+  // Check if the user is the squad leader and if the proposal has votes
+  useEffect(() => {
+    if (isOpen && proposal && session?.user?.walletAddress) {
+      // Check if user is squad leader
+      const userIsLeader = session.user.walletAddress === proposal.leaderWalletAddress; // Add this field to your ProposalCardData interface if needed
+      setIsSquadLeader(userIsLeader);
+      
+      // If leader, also check vote count to determine if can cancel
+      if (userIsLeader) {
+        // Use the totalVoters count from proposal data
+        setVoteCount(proposal.totalVoters);
+      }
+    }
+  }, [isOpen, proposal, session?.user?.walletAddress]);
 
   const handleVoteSubmit = async (choice: 'up' | 'down' | 'abstain') => {
     console.time('[VoteModal] vote');
@@ -129,6 +149,35 @@ const VoteModal: React.FC<VoteModalProps> = ({ isOpen, onClose, proposal, onVote
     setIsSubmittingVote(false);
   };
 
+  // Function to cancel proposal
+  const handleCancelProposal = async () => {
+    if (!proposal) return;
+    setIsCancelling(true);
+    
+    try {
+      const response = await fetch(`/api/proposals/${proposal._id}/cancel`, {
+        method: 'POST',
+      });
+      
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to cancel proposal');
+      }
+      
+      toast.success('Proposal successfully cancelled');
+      onVoteSuccess(); // Refresh data
+      onClose(); // Close modal
+      
+      // Optionally redirect back to proposals page
+      router.push('/proposals');
+    } catch (err: any) {
+      console.error('[VoteModal] Error cancelling proposal:', err);
+      toast.error(err.message || 'Failed to cancel proposal');
+    } finally {
+      setIsCancelling(false);
+    }
+  };
+
   if (!proposal) return null;
 
   const canUserVoteCheck = currentUserPoints !== null && currentUserPoints >= MIN_POINTS_TO_VOTE;
@@ -191,7 +240,21 @@ const VoteModal: React.FC<VoteModalProps> = ({ isOpen, onClose, proposal, onVote
         )}
 
         <DialogFooter className="mt-4 sm:justify-between gap-2 flex-col sm:flex-row">
-          <Button variant="outline" onClick={onClose} className="w-full sm:w-auto">{hasVoted ? 'Close' : 'Cancel'}</Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={onClose} className="w-full sm:w-auto">{hasVoted ? 'Close' : 'Cancel'}</Button>
+            
+            {/* Squad Leader Cancel Button */}
+            {isProposalActive && isSquadLeader && voteCount === 0 && (
+              <Button
+                variant="destructive"
+                onClick={handleCancelProposal}
+                disabled={isCancelling}
+                className="w-full sm:w-auto"
+              >
+                {isCancelling ? 'Cancelling...' : 'Cancel Proposal'}
+              </Button>
+            )}
+          </div>
           {isProposalActive && !hasVoted && !isLoading && (
             <div className="flex gap-2 w-full sm:w-auto">
                 <Button 

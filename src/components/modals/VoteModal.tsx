@@ -241,7 +241,7 @@ const VoteModal: React.FC<VoteModalProps> = ({ isOpen, onClose, proposal, onVote
 
         <DialogFooter className="mt-4 sm:justify-between gap-2 flex-col sm:flex-row">
           <div className="flex gap-2">
-            <Button variant="outline" onClick={onClose} className="w-full sm:w-auto">{hasVoted ? 'Close' : 'Cancel'}</Button>
+          <Button variant="outline" onClick={onClose} className="w-full sm:w-auto">{hasVoted ? 'Close' : 'Cancel'}</Button>
             
             {/* Squad Leader Cancel Button */}
             {isProposalActive && isSquadLeader && voteCount === 0 && (

@@ -38,7 +38,8 @@ export async function POST(request: Request) {
   if (!session || !session.user || typeof session.user.walletAddress !== 'string') { 
     return NextResponse.json({ error: 'User not authenticated or wallet not available in session' }, { status: 401 });
   }
-  const leaderWalletAddress = session.user.walletAddress;
+  // Always use the walletAddress stored in the User document as the canonical value.
+  const sessionWalletAddress = session.user.walletAddress;
 
   try { // Moved try block to encompass body parsing and subsequent logic
     const body: CreateSquadRequestBody = await request.json();
@@ -65,7 +66,7 @@ export async function POST(request: Request) {
     const squadsCollection = db.collection<SquadDocument>('squads');
     const usersCollection = db.collection<UserDocument>('users');
 
-    const leaderUser = await usersCollection.findOne({ walletAddress: leaderWalletAddress });
+    const leaderUser = await usersCollection.findOne({ walletAddress: sessionWalletAddress });
     let userDoc = leaderUser;
     if (!userDoc) {
       // Fallback lookup by xUserId if wallet not yet linked in DB
@@ -103,8 +104,8 @@ export async function POST(request: Request) {
       squadId: newSquadId,
       name: squadName,
       description: description || '',
-      leaderWalletAddress: leaderWalletAddress,
-      memberWalletAddresses: [leaderWalletAddress],
+      leaderWalletAddress: sessionWalletAddress,
+      memberWalletAddresses: [sessionWalletAddress],
       maxMembers: maxMembers,
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -113,7 +114,7 @@ export async function POST(request: Request) {
     await squadsCollection.insertOne(newSquad);
 
     await usersCollection.updateOne(
-      { walletAddress: leaderWalletAddress },
+      { walletAddress: sessionWalletAddress },
       { 
         $set: { 
           squadId: newSquadId, 

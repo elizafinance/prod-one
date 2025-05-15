@@ -37,11 +37,11 @@ const fetchMetadataByMint = async (mint: string): Promise<CombinedMetadata | nul
         console.warn(`Failed to fetch or parse JSON metadata from URI: ${metadataAccount.uri}`, e);
       }
     }
-    
-    return {
+
+  return {
       onChain: metadataAccount,
       offChain: offChainJson,
-    };
+  };
   } catch (error) {
     console.error(`Failed to fetch metadata for mint ${mint}:`, error);
     return null;

@@ -41,7 +41,7 @@ export interface ProposalCardData {
 
 interface ProposalCardProps {
   proposal: ProposalCardData;
-  onVoteClick: (proposalId: string) => void;
+  onVoteClick: (proposalId: string) => void; 
   currentUserPoints?: number | null; // Optional points to display user weight
 }
 

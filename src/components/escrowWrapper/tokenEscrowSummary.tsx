@@ -65,7 +65,7 @@ const TokenEscrowSummary = () => {
         ) : displayImage ? (
           <img alt={displayName} src={displayImage} className="w-24 h-24 rounded-full" />
         ) : (
-          <Skeleton className="w-24 h-24 rounded-full" /> 
+          <Skeleton className="w-24 h-24 rounded-full" />
         )}
         <div>Name: {isFetching ? <Skeleton className="h-4 w-20 inline-block" /> : displayName}</div>
         <div>

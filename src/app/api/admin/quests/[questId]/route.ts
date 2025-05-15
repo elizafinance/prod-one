@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
+import { ensureMongooseConnected } from '@/lib/mongooseConnect';
 import CommunityQuestModel from '@/models/communityQuest.model';
 import mongoose, { Types } from 'mongoose'; // Import mongoose and Types
 import { getServerSession } from "next-auth/next";
@@ -53,11 +54,37 @@ export async function GET(request: Request, { params }: RouteContext) {
 
   try {
     await connectToDatabase();
+    await ensureMongooseConnected();
     const quest = await CommunityQuestModel.findById(questId).lean();
     if (!quest) {
       return NextResponse.json({ error: 'Quest not found' }, { status: 404 });
     }
-    return NextResponse.json(quest);
+
+    // Enrich quest with derived reward_type and helper fields for UI compatibility
+    const questDoc: any = quest as any;
+    if (!('reward_type' in questDoc)) {
+      if (Array.isArray(questDoc.rewards)) {
+        const hasPoints = questDoc.rewards.some((r: any) => r.type === 'points');
+        const hasNFT = questDoc.rewards.some((r: any) => r.type === 'nft');
+        let reward_type: 'points' | 'nft' | 'points+nft' | undefined;
+        if (hasPoints && hasNFT) reward_type = 'points+nft';
+        else if (hasPoints) reward_type = 'points';
+        else if (hasNFT) reward_type = 'nft';
+        if (reward_type) questDoc.reward_type = reward_type;
+
+        // Provide convenience fields
+        if (hasPoints) {
+          const pointsReward = questDoc.rewards.find((r: any) => r.type === 'points');
+          questDoc.reward_points = pointsReward?.value as number;
+        }
+        if (hasNFT) {
+          const nftReward = questDoc.rewards.find((r: any) => r.type === 'nft');
+          questDoc.reward_nft_id = nftReward?.value as string;
+        }
+      }
+    }
+
+    return NextResponse.json(questDoc);
   } catch (error) {
     console.error(`[Admin Quests GET /${questId}] Error fetching quest:`, error);
     return NextResponse.json({ error: 'Failed to fetch quest' }, { status: 500 });
@@ -183,6 +210,7 @@ export async function PUT(request: Request, { params }: RouteContext) {
     updatePayload.updated_ts = new Date();
 
     await connectToDatabase();
+    await ensureMongooseConnected();
     const updatedQuest = await CommunityQuestModel.findByIdAndUpdate(
       questId,
       { $set: updatePayload }, 
@@ -219,6 +247,7 @@ export async function DELETE(request: Request, { params }: RouteContext) {
 
   try {
     await connectToDatabase();
+    await ensureMongooseConnected();
     // Option 1: Actual Deletion (use with caution)
     // const result = await CommunityQuestModel.deleteOne({ _id: questId });
     // if (result.deletedCount === 0) {

@@ -16,6 +16,7 @@ interface AdminQuestData {
   reward_type: string;
   reward_points?: number;
   reward_nft_id?: string;
+  rewards?: any[];
   start_ts: string; // ISO date string
   end_ts: string;   // ISO date string
   status: string;
@@ -73,7 +74,22 @@ export default function AdminQuestsPage() {
         throw new Error(errorData.error || `Failed to fetch quests: ${response.status}`);
       }
       const data: AdminQuestsApiResponse = await response.json();
-      setQuests(data.quests);
+      // Ensure reward_type is present for table display
+      const enriched = data.quests.map((q) => {
+        if (q.reward_type) return q;
+        // derive from rewards array if available
+        // @ts-ignore
+        const rewardsArr = q.rewards as any[] | undefined;
+        if (!rewardsArr) return q;
+        const hasPoints = rewardsArr.some((r) => r.type === 'points');
+        const hasNFT = rewardsArr.some((r) => r.type === 'nft');
+        let reward_type: string | undefined;
+        if (hasPoints && hasNFT) reward_type = 'points+nft';
+        else if (hasPoints) reward_type = 'points';
+        else if (hasNFT) reward_type = 'nft';
+        return { ...q, reward_type } as AdminQuestData;
+      });
+      setQuests(enriched);
       setCurrentPage(data.currentPage);
       setTotalPages(data.totalPages);
     } catch (err: any) {

@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import SiteLogo from "@/assets/logos/favicon.ico"; // Adjust path if needed
 import { useSession, signIn, signOut } from "next-auth/react";
 import { useWallet } from '@solana/wallet-adapter-react';
 import dynamic from 'next/dynamic';
@@ -122,30 +121,45 @@ export default function AppHeader() {
               }}
             />
 
+            {/* X Login / Account Button */}
             {authStatus !== "authenticated" && (
               <button
                 onClick={() => signIn('twitter')}
-                className="px-3 py-1.5 bg-[#1DA1F2] hover:bg-[#1A8CD8] text-white rounded-full flex items-center space-x-1 text-sm transition-colors duration-150"
+                style={{
+                  backgroundColor: '#2B96F1',
+                  color: 'white',
+                  borderRadius: '9999px',
+                  paddingLeft: '12px',
+                  paddingRight: '12px',
+                  fontSize: '0.875rem',
+                  height: '36px'
+                }}
+                className="flex items-center space-x-1 hover:opacity-90 transition-opacity"
               >
                 <XIcon />
                 <span className="hidden sm:inline">Login</span>
               </button>
             )}
 
-            {authStatus === "authenticated" && session?.user?.xProfileImageUrl && (
-              <UserAvatar 
-                profileImageUrl={session.user.xProfileImageUrl} 
-                username={session.user.xUsername || session.user.name} 
-                size="sm"
-              />
-            )}
-
             {authStatus === "authenticated" && (
               <button
                 onClick={() => signOut()}
-                className="px-3 py-1.5 bg-muted hover:bg-muted/70 text-foreground rounded-full text-sm transition-colors duration-150"
+                style={{
+                  backgroundColor: '#2B96F1',
+                  color: 'white',
+                  borderRadius: '9999px',
+                  paddingLeft: '10px',
+                  paddingRight: '10px',
+                  fontSize: '0.75rem',
+                  height: '36px',
+                  maxWidth: '180px'
+                }}
+                className="flex items-center space-x-2 hover:opacity-90 transition-opacity overflow-hidden"
               >
-                Sign&nbsp;Out
+                {session?.user?.xProfileImageUrl && (
+                  <img src={session.user.xProfileImageUrl} alt="X avatar" className="w-6 h-6 rounded-full" />
+                )}
+                <span className="truncate">@{session?.user?.xUsername || session?.user?.name}</span>
               </button>
             )}
           </div>

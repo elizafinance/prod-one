@@ -1,5 +1,5 @@
 import Redis from 'ioredis';
-import { redisConfig } from '../config/redis.config';
+import { redisConfig } from '../config/redis.config.js';
 
 let redisClient = null;
 let connectionPromise = null;

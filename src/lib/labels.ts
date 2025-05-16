@@ -1,2 +1,2 @@
 export const TOKEN_LABEL_POINTS = "AIR";
-export const TOKEN_LABEL_AIR = "DeFAI"; 
+export const TOKEN_LABEL_AIR = "DEFAI"; 

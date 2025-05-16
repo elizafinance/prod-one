@@ -12,8 +12,8 @@ const DeFAILogo: React.FC<DeFAILogoProps> = ({ className = "" }) => {
       
       {/* Logo text */}
       <div className="relative z-10 flex flex-col items-center justify-center w-full h-full">
-        <span className="text-3xl font-bold text-white">DeFAI</span>
-        <span className="text-lg font-semibold text-white -mt-1">REWARDS</span>
+        <span className="text-3xl font-bold text-white"></span>
+        <span className="text-lg font-semibold text-white -mt-1"></span>
       </div>
     </div>
   );

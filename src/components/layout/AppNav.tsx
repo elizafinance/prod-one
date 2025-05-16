@@ -6,7 +6,6 @@ import { usePathname } from 'next/navigation';
 import { Popover, Transition } from '@headlessui/react';
 import { Bars3Icon, XMarkIcon } from '@heroicons/react/24/outline';
 import { Fragment } from 'react';
-import DeFAILogo from '@/components/DeFAILogo'; // Assuming your logo component
 
 export interface NavItem {
   href: string;
@@ -37,14 +36,7 @@ const AppNav: React.FC<AppNavProps> = ({ navItems }) => {
         <>
           <div className="max-w-7xl mx-auto px-4 sm:px-6">
             <div className="flex justify-between items-center h-16 md:h-20">
-              {/* Logo */}
-              <div className="flex-shrink-0">
-                <Link href="/" passHref>
-                  <span className="cursor-pointer">
-                    <DeFAILogo className="h-8 w-auto" />
-                  </span>
-                </Link>
-              </div>
+              {/* Logo removed */}
 
               {/* Desktop Navigation (Center) */}
               <nav className="hidden md:flex space-x-2 lg:space-x-4 items-center">
@@ -101,13 +93,7 @@ const AppNav: React.FC<AppNavProps> = ({ navItems }) => {
               <div className="rounded-lg shadow-lg ring-1 ring-black ring-opacity-5 bg-background border border-border divide-y-2 divide-border">
                 <div className="pt-5 pb-6 px-5">
                   <div className="flex items-center justify-between">
-                    <div>
-                       <Link href="/" passHref>
-                          <span onClick={() => close()} className="cursor-pointer">
-                            <DeFAILogo className="h-8 w-auto" />
-                          </span>
-                        </Link>
-                    </div>
+                    <div></div>
                     <div className="-mr-2">
                       <Popover.Button className="bg-card rounded-md p-2 inline-flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#2B96F1]">
                         <span className="sr-only">Close menu</span>

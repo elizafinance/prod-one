@@ -239,82 +239,82 @@ export default function EditQuestPage() {
   };
 
   if (isFetching) {
-    return <div className="p-8 text-center text-gray-400">Loading quest data...</div>;
+    return <div className="p-8 text-center text-muted-foreground">Loading quest data...</div>;
   }
   if (error && !formData.title) { 
-    return <div className="p-8 text-center text-red-500">Error: {error} <Link href="/admin/quests" className="underline">Back to list</Link></div>;
+    return <div className="p-8 text-center text-destructive">Error: {error} <Link href="/admin/quests" className="underline">Back to list</Link></div>;
   }
 
   return (
-    <div className="container mx-auto px-4 py-8 bg-gray-900 min-h-screen text-gray-100">
+    <div className="container mx-auto px-4 py-8 min-h-screen">
       <div className="max-w-2xl mx-auto">
         <div className="flex justify-between items-center mb-8">
-            <h1 className="text-3xl font-bold text-white">Edit Community Quest: <span className="text-blue-400">{formData.title || 'Loading...'}</span></h1>
-            <Link href="/admin/quests" className="text-blue-400 hover:text-blue-300">&larr; Back to Quests</Link>
+            <h1 className="text-3xl font-bold text-foreground">Edit Community Quest: <span className="text-[#2B96F1]">{formData.title || 'Loading...'}</span></h1>
+            <Link href="/admin/quests" className="text-[#2B96F1] hover:text-blue-600 transition-colors">&larr; Back to Quests</Link>
         </div>
 
-        {error && <p className="mb-4 p-3 bg-red-700/30 border border-red-500 text-red-300 rounded-md">Error: {error}</p>}
+        {error && <p className="mb-4 p-3 bg-destructive/30 border border-destructive text-destructive-foreground rounded-md">Error: {error}</p>}
         {successMessage && <p className="mb-4 p-3 bg-green-700/30 border border-green-500 text-green-300 rounded-md">{successMessage}</p>}
 
-        <form onSubmit={handleSubmit} className="space-y-6 bg-gray-800 p-8 rounded-lg shadow-xl">
+        <form onSubmit={handleSubmit} className="space-y-6 bg-card p-8 rounded-lg shadow-xl border">
           <div>
-            <label htmlFor="title" className="block text-sm font-medium text-gray-300 mb-1">Title</label>
-            <input type="text" name="title" id="title" required value={formData.title || ''} onChange={handleChange} className={`w-full bg-gray-700 border-gray-600 text-white rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2.5 ${fieldErrors.title ? 'border-red-500' : ''}`} />
-            {fieldErrors.title && <p className="mt-1 text-xs text-red-400">{fieldErrors.title}</p>}
+            <label htmlFor="title" className="block text-sm font-medium text-foreground mb-1">Title</label>
+            <input type="text" name="title" id="title" required value={formData.title || ''} onChange={handleChange} className={`w-full bg-background border-input text-foreground rounded-md shadow-sm focus:ring-[#2B96F1] focus:border-[#2B96F1] p-2.5 ${fieldErrors.title ? 'border-destructive' : ''}`} />
+            {fieldErrors.title && <p className="mt-1 text-xs text-destructive">{fieldErrors.title}</p>}
           </div>
           <div>
-            <label htmlFor="description_md" className="block text-sm font-medium text-gray-300 mb-1">Description (Markdown)</label>
-            <textarea name="description_md" id="description_md" rows={4} required value={formData.description_md || ''} onChange={handleChange} className={`w-full bg-gray-700 border-gray-600 text-white rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2.5 ${fieldErrors.description_md ? 'border-red-500' : ''}`} />
-            {fieldErrors.description_md && <p className="mt-1 text-xs text-red-400">{fieldErrors.description_md}</p>}
+            <label htmlFor="description_md" className="block text-sm font-medium text-foreground mb-1">Description (Markdown)</label>
+            <textarea name="description_md" id="description_md" rows={4} required value={formData.description_md || ''} onChange={handleChange} className={`w-full bg-background border-input text-foreground rounded-md shadow-sm focus:ring-[#2B96F1] focus:border-[#2B96F1] p-2.5 ${fieldErrors.description_md ? 'border-destructive' : ''}`} />
+            {fieldErrors.description_md && <p className="mt-1 text-xs text-destructive">{fieldErrors.description_md}</p>}
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <label htmlFor="goal_type" className="block text-sm font-medium text-gray-300 mb-1">Goal Type</label>
-              <select name="goal_type" id="goal_type" required value={formData.goal_type || 'total_referrals'} onChange={handleChange} className="w-full bg-gray-700 border-gray-600 text-white rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2.5">
+              <label htmlFor="goal_type" className="block text-sm font-medium text-foreground mb-1">Goal Type</label>
+              <select name="goal_type" id="goal_type" required value={formData.goal_type || 'total_referrals'} onChange={handleChange} className="w-full bg-background border-input text-foreground rounded-md shadow-sm focus:ring-[#2B96F1] focus:border-[#2B96F1] p-2.5">
                 {GOAL_TYPES.map(gt => <option key={gt.value} value={gt.value}>{gt.label}</option>)}
               </select>
             </div>
             <div>
-              <label htmlFor="goal_target" className="block text-sm font-medium text-gray-300 mb-1">Goal Target {formData.goal_type === 'squad_meetup' ? '(Min Members)' : '(Count/Amount)'}</label>
-              <input type="number" name="goal_target" id="goal_target" required min="1" value={formData.goal_target || ''} onChange={handleChange} className={`w-full bg-gray-700 border-gray-600 text-white rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2.5 ${fieldErrors.goal_target ? 'border-red-500' : ''}`} />
-              {fieldErrors.goal_target && <p className="mt-1 text-xs text-red-400">{fieldErrors.goal_target}</p>}
+              <label htmlFor="goal_target" className="block text-sm font-medium text-foreground mb-1">Goal Target {formData.goal_type === 'squad_meetup' ? '(Min Members)' : '(Count/Amount)'}</label>
+              <input type="number" name="goal_target" id="goal_target" required min="1" value={formData.goal_target || ''} onChange={handleChange} className={`w-full bg-background border-input text-foreground rounded-md shadow-sm focus:ring-[#2B96F1] focus:border-[#2B96F1] p-2.5 ${fieldErrors.goal_target ? 'border-destructive' : ''}`} />
+              {fieldErrors.goal_target && <p className="mt-1 text-xs text-destructive">{fieldErrors.goal_target}</p>}
             </div>
           </div>
 
           {formData.goal_type === 'users_at_tier' && (
             <div>
-              <label htmlFor="tier_name" className="block text-sm font-medium text-gray-300 mb-1">Target Tier Name</label>
-              <input type="text" name="tier_name" id="tier_name" value={formData.goal_target_metadata?.tier_name || ''} onChange={handleChange} className={`w-full bg-gray-700 border-gray-600 text-white rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2.5 ${fieldErrors.tier_name ? 'border-red-500' : ''}`} placeholder="e.g., Gold" />
-              {fieldErrors.tier_name && <p className="mt-1 text-xs text-red-400">{fieldErrors.tier_name}</p>}
+              <label htmlFor="tier_name" className="block text-sm font-medium text-foreground mb-1">Target Tier Name</label>
+              <input type="text" name="tier_name" id="tier_name" value={formData.goal_target_metadata?.tier_name || ''} onChange={handleChange} className={`w-full bg-background border-input text-foreground rounded-md shadow-sm focus:ring-[#2B96F1] focus:border-[#2B96F1] p-2.5 ${fieldErrors.tier_name ? 'border-destructive' : ''}`} placeholder="e.g., Gold" />
+              {fieldErrors.tier_name && <p className="mt-1 text-xs text-destructive">{fieldErrors.tier_name}</p>}
             </div>
           )}
           {formData.goal_type === 'aggregate_spend' && (
             <div>
-              <label htmlFor="currency" className="block text-sm font-medium text-gray-300 mb-1">Currency/Token (Optional)</label>
-              <input type="text" name="currency" id="currency" value={formData.goal_target_metadata?.currency || ''} onChange={handleChange} className={`w-full bg-gray-700 border-gray-600 text-white rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2.5 ${fieldErrors.currency ? 'border-red-500' : ''}`} placeholder="e.g., USD"/>
-              {fieldErrors.currency && <p className="mt-1 text-xs text-red-400">{fieldErrors.currency}</p>}
+              <label htmlFor="currency" className="block text-sm font-medium text-foreground mb-1">Currency</label>
+              <input type="text" name="currency" id="currency" value={formData.goal_target_metadata?.currency || ''} onChange={handleChange} className={`w-full bg-background border-input text-foreground rounded-md shadow-sm focus:ring-[#2B96F1] focus:border-[#2B96F1] p-2.5 ${fieldErrors.currency ? 'border-destructive' : ''}`} placeholder="e.g., USD" />
+              {fieldErrors.currency && <p className="mt-1 text-xs text-destructive">{fieldErrors.currency}</p>}
             </div>
           )}
           {formData.goal_type === 'squad_meetup' && (
             <>
               <div>
-                <label htmlFor="proximity_meters" className="block text-sm font-medium text-gray-300 mb-1">Proximity (meters)</label>
-                <input type="number" name="proximity_meters" id="proximity_meters" required value={formData.goal_target_metadata?.proximity_meters || ''} onChange={handleChange} className={`w-full bg-gray-700 border-gray-600 text-white rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2.5 ${fieldErrors.proximity_meters ? 'border-red-500' : ''}`} placeholder="e.g., 100" />
-                {fieldErrors.proximity_meters && <p className="mt-1 text-xs text-red-400">{fieldErrors.proximity_meters}</p>}
+                <label htmlFor="proximity_meters" className="block text-sm font-medium text-foreground mb-1">Proximity (meters)</label>
+                <input type="number" name="proximity_meters" id="proximity_meters" required value={formData.goal_target_metadata?.proximity_meters || ''} onChange={handleChange} className={`w-full bg-background border-input text-foreground rounded-md shadow-sm focus:ring-[#2B96F1] focus:border-[#2B96F1] p-2.5 ${fieldErrors.proximity_meters ? 'border-destructive' : ''}`} placeholder="e.g., 100" />
+                {fieldErrors.proximity_meters && <p className="mt-1 text-xs text-destructive">{fieldErrors.proximity_meters}</p>}
               </div>
               <div>
-                <label htmlFor="time_window_minutes" className="block text-sm font-medium text-gray-300 mb-1">Time Window (minutes)</label>
-                <input type="number" name="time_window_minutes" id="time_window_minutes" required value={formData.goal_target_metadata?.time_window_minutes || ''} onChange={handleChange} className={`w-full bg-gray-700 border-gray-600 text-white rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2.5 ${fieldErrors.time_window_minutes ? 'border-red-500' : ''}`} placeholder="e.g., 10" />
-                {fieldErrors.time_window_minutes && <p className="mt-1 text-xs text-red-400">{fieldErrors.time_window_minutes}</p>}
+                <label htmlFor="time_window_minutes" className="block text-sm font-medium text-foreground mb-1">Time Window (minutes)</label>
+                <input type="number" name="time_window_minutes" id="time_window_minutes" required value={formData.goal_target_metadata?.time_window_minutes || ''} onChange={handleChange} className={`w-full bg-background border-input text-foreground rounded-md shadow-sm focus:ring-[#2B96F1] focus:border-[#2B96F1] p-2.5 ${fieldErrors.time_window_minutes ? 'border-destructive' : ''}`} placeholder="e.g., 10" />
+                {fieldErrors.time_window_minutes && <p className="mt-1 text-xs text-destructive">{fieldErrors.time_window_minutes}</p>}
               </div>
             </>
           )}
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
              <div>
-                <label htmlFor="status" className="block text-sm font-medium text-gray-300 mb-1">Status</label>
-                <select name="status" id="status" value={formData.status || 'scheduled'} onChange={handleChange} className="w-full bg-gray-700 border-gray-600 text-white rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2.5">
+                <label htmlFor="status" className="block text-sm font-medium text-foreground mb-1">Status</label>
+                <select name="status" id="status" value={formData.status || 'scheduled'} onChange={handleChange} className="w-full bg-background border-input text-foreground rounded-md shadow-sm focus:ring-[#2B96F1] focus:border-[#2B96F1] p-2.5">
                     <option value="scheduled">Scheduled</option>
                     <option value="active">Active</option>
                     <option value="succeeded">Succeeded</option>
@@ -323,14 +323,14 @@ export default function EditQuestPage() {
                 </select>
             </div>
             <div>
-              <label htmlFor="scope" className="block text-sm font-medium text-gray-300 mb-1">Scope</label>
+              <label htmlFor="scope" className="block text-sm font-medium text-foreground mb-1">Scope</label>
               <select 
                   name="scope" 
                   id="scope" 
                   required 
                   value={formData.scope || 'community'} 
                   onChange={handleChange} 
-                  className="w-full bg-gray-700 border-gray-600 text-white rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2.5"
+                  className="w-full bg-background border-input text-foreground rounded-md shadow-sm focus:ring-[#2B96F1] focus:border-[#2B96F1] p-2.5"
                   disabled={formData.goal_type === 'squad_meetup' || formData.goal_type === 'total_squad_points'}
               >
                 <option value="community">Community</option>
@@ -341,8 +341,8 @@ export default function EditQuestPage() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <label htmlFor="reward_type" className="block text-sm font-medium text-gray-300 mb-1">Reward Type</label>
-              <select name="reward_type" id="reward_type" required value={formData.reward_type || 'points'} onChange={handleChange} className="w-full bg-gray-700 border-gray-600 text-white rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2.5">
+              <label htmlFor="reward_type" className="block text-sm font-medium text-foreground mb-1">Reward Type</label>
+              <select name="reward_type" id="reward_type" required value={formData.reward_type || 'points'} onChange={handleChange} className="w-full bg-background border-input text-foreground rounded-md shadow-sm focus:ring-[#2B96F1] focus:border-[#2B96F1] p-2.5">
                 <option value="points">Points</option>
                 <option value="nft">NFT</option>
                 <option value="points+nft">Points + NFT</option>
@@ -350,36 +350,36 @@ export default function EditQuestPage() {
             </div>
             {(formData.reward_type === 'points' || formData.reward_type === 'points+nft') && (
                 <div className="md:col-span-1">
-                    <label htmlFor="reward_points" className="block text-sm font-medium text-gray-300 mb-1">Reward Points</label>
-                    <input type="number" name="reward_points" id="reward_points" min="1" value={formData.reward_points || ''} onChange={handleChange} className={`w-full bg-gray-700 border-gray-600 text-white rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2.5 ${fieldErrors.reward_points ? 'border-red-500' : ''}`} />
-                    {fieldErrors.reward_points && <p className="mt-1 text-xs text-red-400">{fieldErrors.reward_points}</p>}
+                    <label htmlFor="reward_points" className="block text-sm font-medium text-foreground mb-1">Reward Points</label>
+                    <input type="number" name="reward_points" id="reward_points" min="1" value={formData.reward_points || ''} onChange={handleChange} className={`w-full bg-background border-input text-foreground rounded-md shadow-sm focus:ring-[#2B96F1] focus:border-[#2B96F1] p-2.5 ${fieldErrors.reward_points ? 'border-destructive' : ''}`} />
+                    {fieldErrors.reward_points && <p className="mt-1 text-xs text-destructive">{fieldErrors.reward_points}</p>}
                 </div>
             )}
             {(formData.reward_type === 'nft' || formData.reward_type === 'points+nft') && (
                 <div className="md:col-span-1">
-                    <label htmlFor="reward_nft_id" className="block text-sm font-medium text-gray-300 mb-1">Reward NFT ID/Identifier</label>
-                    <input type="text" name="reward_nft_id" id="reward_nft_id" value={formData.reward_nft_id || ''} onChange={handleChange} className={`w-full bg-gray-700 border-gray-600 text-white rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2.5 ${fieldErrors.reward_nft_id ? 'border-red-500' : ''}`} />
-                    {fieldErrors.reward_nft_id && <p className="mt-1 text-xs text-red-400">{fieldErrors.reward_nft_id}</p>}
+                    <label htmlFor="reward_nft_id" className="block text-sm font-medium text-foreground mb-1">Reward NFT ID/Identifier</label>
+                    <input type="text" name="reward_nft_id" id="reward_nft_id" value={formData.reward_nft_id || ''} onChange={handleChange} className={`w-full bg-background border-input text-foreground rounded-md shadow-sm focus:ring-[#2B96F1] focus:border-[#2B96F1] p-2.5 ${fieldErrors.reward_nft_id ? 'border-destructive' : ''}`} />
+                    {fieldErrors.reward_nft_id && <p className="mt-1 text-xs text-destructive">{fieldErrors.reward_nft_id}</p>}
                 </div>
             )}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
             <div>
-              <label htmlFor="start_ts" className="block text-sm font-medium text-gray-300 mb-1">Start Date & Time</label>
-              <input type="datetime-local" name="start_ts" id="start_ts" required value={formData.start_ts || ''} onChange={handleChange} className={`w-full bg-gray-700 border-gray-600 text-white rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2.5 ${fieldErrors.start_ts ? 'border-red-500' : ''}`} />
-              {fieldErrors.start_ts && <p className="mt-1 text-xs text-red-400">{fieldErrors.start_ts}</p>}
+              <label htmlFor="start_ts" className="block text-sm font-medium text-foreground mb-1">Start Date & Time</label>
+              <input type="datetime-local" name="start_ts" id="start_ts" required value={formData.start_ts || ''} onChange={handleChange} className={`w-full bg-background border-input text-foreground rounded-md shadow-sm focus:ring-[#2B96F1] focus:border-[#2B96F1] p-2.5 ${fieldErrors.start_ts ? 'border-destructive' : ''}`} />
+              {fieldErrors.start_ts && <p className="mt-1 text-xs text-destructive">{fieldErrors.start_ts}</p>}
             </div>
             <div>
-              <label htmlFor="end_ts" className="block text-sm font-medium text-gray-300 mb-1">End Date & Time</label>
-              <input type="datetime-local" name="end_ts" id="end_ts" required value={formData.end_ts || ''} onChange={handleChange} className={`w-full bg-gray-700 border-gray-600 text-white rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2.5 ${fieldErrors.end_ts ? 'border-red-500' : ''}`} />
-              {fieldErrors.end_ts && <p className="mt-1 text-xs text-red-400">{fieldErrors.end_ts}</p>}
+              <label htmlFor="end_ts" className="block text-sm font-medium text-foreground mb-1">End Date & Time</label>
+              <input type="datetime-local" name="end_ts" id="end_ts" required value={formData.end_ts || ''} onChange={handleChange} className={`w-full bg-background border-input text-foreground rounded-md shadow-sm focus:ring-[#2B96F1] focus:border-[#2B96F1] p-2.5 ${fieldErrors.end_ts ? 'border-destructive' : ''}`} />
+              {fieldErrors.end_ts && <p className="mt-1 text-xs text-destructive">{fieldErrors.end_ts}</p>}
             </div>
           </div>
 
           <div className="flex justify-end pt-4">
-            <Link href="/admin/quests" className="text-gray-400 hover:text-gray-300 px-4 py-2 rounded-md mr-3">Cancel</Link>
-            <button type="submit" disabled={isLoading || isFetching} className="bg-green-600 hover:bg-green-700 disabled:bg-green-800 text-white font-semibold py-2 px-6 rounded-md shadow-md transition-colors">
+            <Link href="/admin/quests" className="text-muted-foreground hover:text-foreground px-4 py-2 rounded-md mr-3 transition-colors">Cancel</Link>
+            <button type="submit" disabled={isLoading || isFetching} className="bg-[#2B96F1] hover:bg-blue-600 disabled:bg-blue-800 text-white font-semibold py-2 px-6 rounded-md shadow-md transition-colors">
               {isLoading ? 'Saving...' : 'Save Changes'}
             </button>
           </div>

@@ -134,62 +134,62 @@ export default function AdminQuestsPage() {
   // although API is the main security gate.
 
   if (isLoading) {
-    return <div className="p-8 text-center text-gray-400">Loading quests...</div>;
+    return <div className="p-8 text-center text-muted-foreground">Loading quests...</div>;
   }
 
   if (error) {
-    return <div className="p-8 text-center text-red-500">Error: {error}</div>;
+    return <div className="p-8 text-center text-destructive">Error: {error}</div>;
   }
 
   return (
-    <div className="container mx-auto px-4 py-8 bg-gray-900 min-h-screen text-gray-100">
+    <div className="container mx-auto px-4 py-8 min-h-screen">
       <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold text-white">Admin: Community Quests</h1>
-        <Link href="/admin/quests/new" className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-md shadow-md transition-colors">
+        <h1 className="text-3xl font-bold text-foreground">Admin: Community Quests</h1>
+        <Link href="/admin/quests/new" className="bg-[#2B96F1] hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-md shadow-md transition-colors">
           Create New Quest
         </Link>
       </div>
 
       {/* Filters and Sorting UI */}
-      <div className="mb-6 p-4 bg-gray-800 rounded-lg shadow-md flex flex-wrap gap-4 items-end">
+      <div className="mb-6 p-4 bg-card rounded-lg shadow-md border flex flex-wrap gap-4 items-end">
         <div>
-          <label htmlFor="status-filter" className="block text-sm font-medium text-gray-300 mb-1">Filter by Status:</label>
-          <select id="status-filter" name="status" value={filters.status} onChange={handleFilterChange} className="bg-gray-700 border-gray-600 text-white rounded-md shadow-sm p-2.5 text-sm focus:ring-blue-500 focus:border-blue-500">
+          <label htmlFor="status-filter" className="block text-sm font-medium text-foreground mb-1">Filter by Status:</label>
+          <select id="status-filter" name="status" value={filters.status} onChange={handleFilterChange} className="w-full bg-background border-input text-foreground rounded-md shadow-sm p-2.5 text-sm focus:ring-[#2B96F1] focus:border-[#2B96F1]">
             <option value="">All Statuses</option>
             {QUEST_STATUSES.map(s => <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
           </select>
         </div>
         <div>
-          <label htmlFor="goal_type-filter" className="block text-sm font-medium text-gray-300 mb-1">Filter by Goal Type:</label>
-          <select id="goal_type-filter" name="goal_type" value={filters.goal_type} onChange={handleFilterChange} className="bg-gray-700 border-gray-600 text-white rounded-md shadow-sm p-2.5 text-sm focus:ring-blue-500 focus:border-blue-500">
+          <label htmlFor="goal_type-filter" className="block text-sm font-medium text-foreground mb-1">Filter by Goal Type:</label>
+          <select id="goal_type-filter" name="goal_type" value={filters.goal_type} onChange={handleFilterChange} className="w-full bg-background border-input text-foreground rounded-md shadow-sm p-2.5 text-sm focus:ring-[#2B96F1] focus:border-[#2B96F1]">
             <option value="">All Goal Types</option>
             {GOAL_TYPES.map(gt => <option key={gt} value={gt}>{gt.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</option>)}
           </select>
         </div>
         <div>
-          <label htmlFor="sortBy-select" className="block text-sm font-medium text-gray-300 mb-1">Sort By:</label>
-          <select id="sortBy-select" name="sortBy" value={sortParams.sortBy} onChange={handleSortChange} className="bg-gray-700 border-gray-600 text-white rounded-md shadow-sm p-2.5 text-sm focus:ring-blue-500 focus:border-blue-500">
+          <label htmlFor="sortBy-select" className="block text-sm font-medium text-foreground mb-1">Sort By:</label>
+          <select id="sortBy-select" name="sortBy" value={sortParams.sortBy} onChange={handleSortChange} className="w-full bg-background border-input text-foreground rounded-md shadow-sm p-2.5 text-sm focus:ring-[#2B96F1] focus:border-[#2B96F1]">
             {SORTABLE_FIELDS.map(sf => <option key={sf.value} value={sf.value}>{sf.label}</option>)}
           </select>
         </div>
         <div>
-          <label htmlFor="order-select" className="block text-sm font-medium text-gray-300 mb-1">Order:</label>
-          <select id="order-select" name="order" value={sortParams.order} onChange={handleSortChange} className="bg-gray-700 border-gray-600 text-white rounded-md shadow-sm p-2.5 text-sm focus:ring-blue-500 focus:border-blue-500">
+          <label htmlFor="order-select" className="block text-sm font-medium text-foreground mb-1">Order:</label>
+          <select id="order-select" name="order" value={sortParams.order} onChange={handleSortChange} className="w-full bg-background border-input text-foreground rounded-md shadow-sm p-2.5 text-sm focus:ring-[#2B96F1] focus:border-[#2B96F1]">
             <option value="desc">Descending</option>
             <option value="asc">Ascending</option>
           </select>
         </div>
       </div>
 
-      {isLoading && <div className="p-8 text-center text-gray-400">Loading quests...</div>}
-      {error && <div className="p-8 text-center text-red-500">Error: {error}</div>}
+      {isLoading && <div className="p-8 text-center text-muted-foreground">Loading quests...</div>}
+      {error && <div className="p-8 text-center text-destructive">Error: {error}</div>}
       {!isLoading && !error && quests.length === 0 && (
-        <p className="text-gray-400 text-center py-4">No quests found matching your criteria.</p>
+        <p className="text-muted-foreground text-center py-4">No quests found matching your criteria.</p>
       )}
       {!isLoading && !error && quests.length > 0 && (
-        <div className="overflow-x-auto bg-gray-800 shadow-xl rounded-lg">
+        <div className="overflow-x-auto bg-card shadow-xl rounded-lg border">
           <table className="min-w-full table-auto text-sm text-left">
-            <thead className="bg-gray-700 text-gray-300 uppercase tracking-wider">
+            <thead className="bg-muted text-muted-foreground uppercase tracking-wider">
               <tr>
                 <th className="px-6 py-3">Title</th>
                 <th className="px-6 py-3">Status</th>
@@ -201,11 +201,11 @@ export default function AdminQuestsPage() {
                 <th className="px-6 py-3">Actions</th>
               </tr>
             </thead>
-            <tbody className="text-gray-200 divide-y divide-gray-700">
+            <tbody className="text-foreground divide-y divide-border">
               {quests.map((quest) => (
-                <tr key={quest._id} className="hover:bg-gray-700/50 transition-colors">
+                <tr key={quest._id} className="hover:bg-muted/50 transition-colors">
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <Link href={`/admin/quests/edit/${quest._id}`} className="font-medium text-blue-400 hover:text-blue-300">
+                    <Link href={`/admin/quests/edit/${quest._id}`} className="font-medium text-[#2B96F1] hover:text-blue-600 transition-colors">
                         {quest.title}
                     </Link>
                   </td>
@@ -213,8 +213,8 @@ export default function AdminQuestsPage() {
                     <span className={`px-2 py-1 text-xs font-semibold rounded-full 
                       ${quest.status === 'active' ? 'bg-green-600 text-green-100' : 
                         quest.status === 'scheduled' ? 'bg-yellow-600 text-yellow-100' : 
-                        quest.status === 'succeeded' ? 'bg-blue-600 text-blue-100' : 
-                        'bg-red-600 text-red-100'}`}>
+                        quest.status === 'succeeded' ? 'bg-[#2B96F1] text-white' : 
+                        'bg-destructive text-destructive-foreground'}`}>
                       {quest.status}
                     </span>
                   </td>
@@ -224,12 +224,12 @@ export default function AdminQuestsPage() {
                   <td className="px-6 py-4 whitespace-nowrap">{new Date(quest.start_ts).toLocaleDateString()}</td>
                   <td className="px-6 py-4 whitespace-nowrap">{new Date(quest.end_ts).toLocaleDateString()}</td>
                   <td className="px-6 py-4 whitespace-nowrap space-x-2">
-                    <Link href={`/admin/quests/edit/${quest._id}`} className="text-indigo-400 hover:text-indigo-300 font-medium">
+                    <Link href={`/admin/quests/edit/${quest._id}`} className="text-[#2B96F1] hover:text-blue-600 font-medium transition-colors">
                       Edit
                     </Link>
                     <button 
                       onClick={() => handleArchiveQuest(quest._id, quest.title)}
-                      className="text-red-400 hover:text-red-300 font-medium"
+                      className="text-destructive hover:text-destructive/80 font-medium transition-colors"
                     >
                       Archive
                     </button>
@@ -243,16 +243,16 @@ export default function AdminQuestsPage() {
       {/* Pagination Controls */}
       {totalPages > 1 && !isLoading && (
         <div className="mt-8 flex justify-center items-center space-x-2">
-          <button onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage === 1} className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-md disabled:opacity-50">Previous</button>
+          <button onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage === 1} className="px-4 py-2 bg-muted hover:bg-muted/80 text-muted-foreground rounded-md disabled:opacity-50 transition-colors">Previous</button>
           {Array.from({ length: totalPages }, (_, i) => i + 1)
             .filter(pageNumber => pageNumber === 1 || pageNumber === totalPages || (pageNumber >= currentPage - 1 && pageNumber <= currentPage + 1) || (currentPage <= 3 && pageNumber <= 3) || (currentPage >= totalPages - 2 && pageNumber >= totalPages - 2))
             .map((pageNumber, index, arr) => (
             <React.Fragment key={pageNumber}>
-                {index > 0 && arr[index-1] !== pageNumber -1 && <span className="text-gray-500 px-1">...</span>}
-                <button onClick={() => handlePageChange(pageNumber)} className={`px-4 py-2 rounded-md ${currentPage === pageNumber ? 'bg-blue-600 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-300'}`}>{pageNumber}</button>
+                {index > 0 && arr[index-1] !== pageNumber -1 && <span className="text-muted-foreground px-1">...</span>}
+                <button onClick={() => handlePageChange(pageNumber)} className={`px-4 py-2 rounded-md transition-colors ${currentPage === pageNumber ? 'bg-[#2B96F1] text-white' : 'bg-muted hover:bg-muted/80 text-muted-foreground'}`}>{pageNumber}</button>
             </React.Fragment>
           ))}
-          <button onClick={() => handlePageChange(currentPage + 1)} disabled={currentPage === totalPages} className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-md disabled:opacity-50">Next</button>
+          <button onClick={() => handlePageChange(currentPage + 1)} disabled={currentPage === totalPages} className="px-4 py-2 bg-muted hover:bg-muted/80 text-muted-foreground rounded-md disabled:opacity-50 transition-colors">Next</button>
         </div>
       )}
     </div>

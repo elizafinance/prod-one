@@ -53,8 +53,8 @@ async function handler(
   const userWalletAddress = session.user.walletAddress; // Now from manually fetched session
 
   if (req.method === 'POST') {
-    if (typeof proposalId !== 'string' || !Types.ObjectId.isValid(proposalId)) {
-      return res.status(400).json({ error: 'Valid Proposal ID is required.' });
+    if (typeof proposalId !== 'string' || proposalId.trim() === '') {
+      return res.status(400).json({ error: 'Proposal identifier is required.' });
     }
 
     if (!choice || !['up', 'down', 'abstain'].includes(choice)) {
@@ -113,8 +113,19 @@ async function handler(
       if ((voter.points || 0) < MIN_POINTS_TO_VOTE) {
         return res.status(403).json({ error: `You need at least ${MIN_POINTS_TO_VOTE} points to vote.` });
       }
-      const proposalObjectId = new Types.ObjectId(proposalId);
-      const proposal = await Proposal.findById(proposalObjectId);
+      let proposalObjectId: Types.ObjectId | null = null;
+      let proposal = null;
+
+      if (Types.ObjectId.isValid(proposalId)) {
+        proposalObjectId = new Types.ObjectId(proposalId);
+        proposal = await Proposal.findById(proposalObjectId);
+      }
+
+      if (!proposal) {
+        proposal = await Proposal.findOne({ slug: proposalId });
+        if (proposal) proposalObjectId = proposal._id as unknown as Types.ObjectId;
+      }
+
       if (!proposal) { return res.status(404).json({ error: 'Proposal not found.' }); }
       if (proposal.status !== 'active') { return res.status(403).json({ error: 'Voting is only allowed on active proposals.' });}
       const now = new Date();

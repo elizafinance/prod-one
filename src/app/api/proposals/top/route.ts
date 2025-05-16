@@ -8,6 +8,7 @@ interface Proposal {
   title: string;
   description: string;
   createdAt: Date;
+  slug?: string;
   // Add other relevant fields like votes, status, etc.
   currentVotes?: number; 
   targetVotes?: number;
@@ -33,9 +34,9 @@ export async function GET() {
     // Assuming currentVotes and targetVotes might not exist on all proposals, provide defaults
     const proposalData = {
       ...topProposal[0],
-      id: topProposal[0]._id.toString(), // ensure id is a string
+      id: topProposal[0]._id.toString(),
       currentVotes: topProposal[0].currentVotes || 0,
-      targetVotes: topProposal[0].targetVotes || 1000, // Default target if not set
+      targetVotes: topProposal[0].targetVotes || 1000,
     };
 
     return NextResponse.json(proposalData);

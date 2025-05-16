@@ -19,6 +19,7 @@ interface IProposal extends Document {
   totalFinalVoters?: number;
   finalUpVotesCount?: number;
   finalDownVotesCount?: number;
+  slug?: string; // Unique slug/hash identifier for friendly URLs
 }
 
 const ProposalSchema = new Schema<IProposal>({
@@ -45,6 +46,7 @@ const ProposalSchema = new Schema<IProposal>({
   totalFinalVoters: { type: Number, default: 0 },
   finalUpVotesCount: { type: Number, default: 0 },
   finalDownVotesCount: { type: Number, default: 0 },
+  slug: { type: String, required: false, trim: true, unique: true, sparse: true },
 });
 
 export const Proposal = mongoose.models.Proposal || mongoose.model<IProposal>('Proposal', ProposalSchema);

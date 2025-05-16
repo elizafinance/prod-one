@@ -11,6 +11,7 @@ interface ProposalData {
   createdAt: string; // Dates are often serialized as strings
   currentVotes: number;
   targetVotes: number;
+  slug?: string;
   // Add other fields from your Proposal interface if needed
 }
 
@@ -86,7 +87,7 @@ const TopProposalCard: React.FC = () => {
           Votes: {topProposal.currentVotes?.toLocaleString() || 0} / {topProposal.targetVotes?.toLocaleString() || 'N/A'}
         </p>
       </div>
-      <Link href={`/proposals/${topProposal._id}`} passHref>
+      <Link href={`/proposals/${topProposal.slug || topProposal._id}`} passHref>
         <Button size="sm" variant="outline" className="w-full text-xs">
           View Proposal
         </Button>

@@ -1,5 +1,5 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { connectToDatabase } from '@/lib/mongodb';
+import { ensureMongooseConnected } from '@/lib/mongooseConnect';
 import { Proposal, IProposal } from '@/models/Proposal';
 import { Vote, IVote } from '@/models/Vote';
 import { Types } from 'mongoose';
@@ -34,17 +34,28 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const { proposalId } = req.query;
 
   if (req.method === 'GET') {
-    if (typeof proposalId !== 'string' || !Types.ObjectId.isValid(proposalId)) {
-      return res.status(400).json({ error: 'Valid Proposal ID is required.' });
+    if (typeof proposalId !== 'string' || proposalId.trim() === '') {
+      return res.status(400).json({ error: 'Proposal identifier is required.' });
     }
 
     try {
-      // Assuming Mongoose connection is handled globally or by models themselves
-      // await connectToDatabase(); // Might be needed if direct mongoose.connect isn't used elsewhere
+      await ensureMongooseConnected();
 
-      const proposalObjectId = new Types.ObjectId(proposalId);
-      // Fetch proposal using lean() for performance if we only need to read data
-      const proposal = await Proposal.findById(proposalObjectId).lean() as IProposal | null;
+      let proposal: IProposal | null = null;
+      let proposalObjectId: Types.ObjectId | null = null;
+
+      if (Types.ObjectId.isValid(proposalId)) {
+        proposalObjectId = new Types.ObjectId(proposalId);
+        proposal = await Proposal.findById(proposalObjectId).lean() as IProposal | null;
+      }
+
+      // If not found by ObjectId, try lookup by slug/hash string
+      if (!proposal) {
+        proposal = await Proposal.findOne({ slug: proposalId }).lean() as IProposal | null;
+        if (proposal) {
+          proposalObjectId = proposal._id as unknown as Types.ObjectId;
+        }
+      }
 
       if (!proposal) {
         return res.status(404).json({ error: 'Proposal not found.' });

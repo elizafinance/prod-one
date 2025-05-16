@@ -22,6 +22,7 @@ interface LeanProposal {
   finalDownVotesWeight?: number;
   finalAbstainVotesCount?: number;
   totalFinalVoters?: number;
+  slug?: string;
   // Add any other fields that are selected by .lean()
 }
 

@@ -28,15 +28,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   const { proposalId } = req.query;
-  if (typeof proposalId !== 'string' || !Types.ObjectId.isValid(proposalId)) {
-    return res.status(400).json({ error: 'Valid proposal ID is required' });
+  if (typeof proposalId !== 'string' || proposalId.trim() === '') {
+    return res.status(400).json({ error: 'Proposal identifier is required' });
   }
 
   try {
-    const proposalObjectId = new Types.ObjectId(proposalId);
-    
+    let proposal = null;
+    let proposalObjectId: Types.ObjectId | null = null;
+
+    if (Types.ObjectId.isValid(proposalId)) {
+      proposalObjectId = new Types.ObjectId(proposalId);
+      proposal = await Proposal.findById(proposalObjectId);
+    }
+
+    if (!proposal) {
+      proposal = await Proposal.findOne({ slug: proposalId });
+      if (proposal) proposalObjectId = proposal._id as unknown as Types.ObjectId;
+    }
+
     // Find the proposal
-    const proposal = await Proposal.findById(proposalObjectId);
     if (!proposal) {
       return res.status(404).json({ error: 'Proposal not found' });
     }

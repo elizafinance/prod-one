@@ -74,13 +74,13 @@ export async function POST(request: Request) {
     }
     
     const initialSquadPoints = leaderUser.points || 0;
-    // Assuming getSquadTierInfo is available and merged from HEAD. 
-    // If not, tier and maxMembers need defaults or different logic.
-    // const { tier, maxMembers } = getSquadTierInfo(initialSquadPoints);
-    // For this conflict resolution, let's assume squad-goals explicit tier and maxMembers are used
-    // This part needs careful integration with HEAD's tier logic if it's more sophisticated.
-    const tier = 1; // Default from squad-goals logic within conflict
-    const maxMembers = parseInt(process.env.NEXT_PUBLIC_MAX_SQUAD_MEMBERS || '10'); // A sensible default or from env as in squad-goals
+    // Determine the correct tier and maxMembers based on the creator's points
+    const { tier, maxMembers } = getSquadTierInfo(initialSquadPoints);
+
+    // Basic guard – the user should always qualify for at least tier-1 to create a squad.
+    if (tier === 0) {
+      return NextResponse.json({ error: `You need at least ${TIER_1_POINTS} points to create a squad.` }, { status: 400 });
+    }
 
     if (leaderUser.squadId) {
       return NextResponse.json({ error: 'You are already in a squad. Leave your current squad to create a new one.' }, { status: 400 });
@@ -101,8 +101,8 @@ export async function POST(request: Request) {
       leaderWalletAddress: leaderWalletAddress, // Consistent variable
       memberWalletAddresses: [leaderWalletAddress], // Consistent variable
       totalSquadPoints: initialSquadPoints, // From squad-goals (CRITICAL)
-      tier: tier, // From squad-goals (or from getSquadTierInfo if integrated)
-      maxMembers: maxMembers, // From squad-goals (or from getSquadTierInfo if integrated)
+      tier,
+      maxMembers,
       createdAt: new Date(),
       updatedAt: new Date(),
       // avatarImageUrl, bannerImageUrl, settings could be added from squad-goals SquadDocument if desired here

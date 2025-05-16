@@ -79,14 +79,6 @@ export default function AppHeader() {
 
   return (
     <header className="w-full bg-background/80 backdrop-blur-md shadow-sm sticky top-0 z-40 border-b border-border">
-      {/* DEBUG INFO - REMOVE IN PRODUCTION */}
-      <div style={{ position: 'fixed', top: '64px', left: '10px', backgroundColor: 'rgba(0,0,0,0.7)', color: 'white', padding: '5px', fontSize: '10px', zIndex: 9999 }}>
-        <p>Auth: {authStatus}</p>
-        <p>Session User: {session?.user?.xId || session?.user?.name || 'No session user'}</p>
-        <p>Wallet Connected: {connected ? 'Yes' : 'No'}</p>
-        <p>Wallet PK: {publicKey?.toBase58() || 'N/A'}</p>
-        <p>Unread Count: {unreadNotificationCount}</p>
-      </div>
       {/* END DEBUG INFO */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16 md:h-20">

@@ -78,10 +78,10 @@ export const authOptions: AuthOptions = {
             const xProfileImageUrl = twitterProfile.profile_image_url_https || user.image || undefined;
             console.log("[NextAuth SignIn] New user details:", { newReferralCode, xUsername, xProfileImageUrl });
 
-            determinedWalletAddress = xUserId;
-            const newUserDocData: Omit<UserDocument, '_id'> = {
+            determinedWalletAddress = undefined;
+            const newUserDocData: Omit<UserDocument, '_id'> & { walletAddress?: string | undefined } = {
               xUserId: xUserId,
-              walletAddress: determinedWalletAddress, 
+              walletAddress: determinedWalletAddress,
               xUsername: xUsername,
               xProfileImageUrl: xProfileImageUrl,
               points: POINTS_INITIAL_CONNECTION,
@@ -90,13 +90,15 @@ export const authOptions: AuthOptions = {
               createdAt: new Date(),
               updatedAt: new Date(),
             };
+
             console.log("[NextAuth SignIn] Inserting new user document:", newUserDocData);
             const result = await usersCollection.insertOne(newUserDocData as UserDocument);
             console.log("[NextAuth SignIn] New user insert result:", result);
             
             console.log("[NextAuth SignIn] Inserting initial_connection action for xUserId:", xUserId);
+            const actionWalletAddress = determinedWalletAddress || xUserId;
             await actionsCollection.insertOne({
-                walletAddress: determinedWalletAddress, 
+                walletAddress: actionWalletAddress, 
                 actionType: 'initial_connection',
                 pointsAwarded: POINTS_INITIAL_CONNECTION,
                 timestamp: new Date(),
@@ -108,17 +110,21 @@ export const authOptions: AuthOptions = {
           } else {
             console.log("[NextAuth SignIn] User found in DB, updating for xUserId:", xUserId);
             (user as any).dbId = dbUser._id!.toHexString();
-            determinedWalletAddress = dbUser.walletAddress || dbUser.xUserId;
+            determinedWalletAddress = dbUser.walletAddress || undefined;
             (user as any).walletAddress = determinedWalletAddress;
+
             const xUsername = twitterProfile.screen_name || user.name || undefined;
             const xProfileImageUrl = twitterProfile.profile_image_url_https || user.image || undefined;
             console.log("[NextAuth SignIn] Updating user with details:", { xUsername, xProfileImageUrl });
-            await usersCollection.updateOne({ xUserId }, { $set: { 
+            
+            const updateData: Partial<UserDocument> = {
               xUsername: xUsername,
-              xProfileImageUrl: xProfileImageUrl, 
-              walletAddress: determinedWalletAddress,
-              updatedAt: new Date()
-            }});
+              xProfileImageUrl: xProfileImageUrl,
+              updatedAt: new Date(),
+              walletAddress: determinedWalletAddress
+            };
+
+            await usersCollection.updateOne({ xUserId }, { $set: updateData });
             console.log("[NextAuth SignIn] User update complete.");
           }
           console.log("[NextAuth SignIn] Sign-in successful. User object for JWT:", user);

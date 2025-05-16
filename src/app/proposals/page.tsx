@@ -156,13 +156,13 @@ export default function ProposalsPage() {
   };
 
   return (
-    <main className="flex flex-col items-center min-h-screen p-4 sm:p-8 bg-gray-50 text-gray-900">
+    <main className="flex flex-col items-center min-h-screen p-4 sm:p-8 bg-background text-foreground">
       <div className="w-full max-w-4xl mx-auto">
         <div className="text-center mb-10">
           <h1 className="text-4xl sm:text-5xl font-bold font-spacegrotesk tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600">
             Active Governance Proposals
           </h1>
-          <p className="text-gray-600 mt-3 text-lg max-w-2xl mx-auto">
+          <p className="text-muted-foreground mt-3 text-lg max-w-2xl mx-auto">
             Review proposals submitted by eligible squads. Cast your vote to help decide the future!
           </p>
           {isPolling && <p className='text-xs text-gray-500 mt-2 animate-pulse'>Checking for updates...</p>}
@@ -170,15 +170,15 @@ export default function ProposalsPage() {
 
         {isLoading && (
           <div className="text-center py-10">
-            <p className="text-xl text-gray-700">Loading proposals...</p>
+            <p className="text-xl text-foreground">Loading proposals...</p>
             {/* TODO: Add a spinner or loading animation here */}
           </div>
         )}
 
         {error && (
           <div className="text-center py-10 bg-red-50 border border-red-200 rounded-lg p-6">
-            <p className="text-xl text-red-700">Error loading proposals</p>
-            <p className="text-gray-600 mt-2">{error}</p>
+            <p className="text-xl text-foreground">Error loading proposals</p>
+            <p className="text-muted-foreground mt-2">{error}</p>
             <button 
               onClick={() => fetchProposals(currentPage)} 
               className="mt-4 py-2 px-4 bg-blue-500 hover:bg-blue-600 text-white font-semibold rounded-lg transition-colors shadow hover:shadow-md"
@@ -190,8 +190,8 @@ export default function ProposalsPage() {
 
         {!isLoading && !error && apiResponse && apiResponse.proposals.length === 0 && (
           <div className="text-center py-10">
-            <p className="text-xl text-gray-700">No active proposals at the moment.</p>
-            <p className="text-gray-600 mt-2">Check back later or encourage squads to create new ones!</p>
+            <p className="text-xl text-foreground">No active proposals at the moment.</p>
+            <p className="text-muted-foreground mt-2">Check back later or encourage squads to create new ones!</p>
           </div>
         )}
 
@@ -208,11 +208,11 @@ export default function ProposalsPage() {
                 <button 
                     onClick={handlePreviousPage} 
                     disabled={currentPage === 1 || isLoading || isPolling}
-                    className="py-2 px-5 bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium rounded-lg disabled:opacity-50 transition-colors"
+                    className="py-2 px-5 bg-muted hover:bg-muted/80 text-foreground font-medium rounded-lg disabled:opacity-50 transition-colors"
                 >
                     Previous
                 </button>
-                <span className="text-gray-700">
+                <span className="text-foreground">
                     Page {apiResponse.currentPage} of {apiResponse.totalPages}
                 </span>
                 <button 

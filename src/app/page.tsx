@@ -573,7 +573,7 @@ export default function HomePage() {
   }, [authStatus, squadInviteIdFromUrl, wallet.connected, isProcessingLinkInvite, fetchPendingInvites]);
 
   if (authStatus === "loading") {
-    return <main className="flex flex-col items-center justify-center min-h-screen p-8 bg-white text-gray-900"><p className="font-orbitron text-xl">Loading Session...</p></main>;
+    return <main className="flex flex-col items-center justify-center min-h-screen p-8 bg-background text-foreground"><p className="font-orbitron text-xl">Loading Session...</p></main>;
   }
 
   // Determine if points/actions section should be shown
@@ -582,7 +582,7 @@ export default function HomePage() {
   const showInsufficientBalanceMessage = authStatus === "authenticated" && wallet.connected && isRewardsActive && userData && hasSufficientDefai === false;
 
   return (
-    <main className="flex flex-col items-center min-h-screen p-4 sm:p-8 bg-white text-gray-900 font-sans relative">
+    <main className="flex flex-col items-center min-h-screen p-4 sm:p-8 bg-background text-foreground font-sans relative">
       {/* Main content moved up significantly */}
       <div className="w-full max-w-3xl mx-auto pt-8 flex flex-col items-center relative">
         {/* Illustration - moved here, positioned behind text */}
@@ -603,7 +603,7 @@ export default function HomePage() {
         </h2>
         
         {/* Welcome text - moved up - ensure above illustration */}
-        <p className="relative z-10 text-center text-gray-600 max-w-xl mx-auto mb-6">
+        <p className="relative z-10 text-center text-muted-foreground max-w-xl mx-auto mb-6">
           Welcome to the DeFAIRewards $AIRdrop checker. First, check if an address is eligible for the airdrop. Sign in with X and connect your wallet to activate your defAIRewards account.
         </p>
         
@@ -616,7 +616,7 @@ export default function HomePage() {
                 value={typedAddress}
                 onChange={(e) => setTypedAddress(e.target.value)}
                 placeholder="Enter any Solana address to check eligibility"
-                className="w-full p-4 pl-5 pr-32 bg-gray-50 border border-gray-200 rounded-full focus:ring-2 focus:ring-[#2B96F1] focus:border-[#2B96F1] outline-none text-gray-800"
+                className="w-full p-4 pl-5 pr-32 bg-card border border-input rounded-full focus:ring-2 focus:ring-[#2B96F1] focus:border-[#2B96F1] outline-none text-foreground"
                 disabled={isCheckingAirdrop || (authStatus === "authenticated" && isRewardsActive)}
               />
               <button
@@ -636,10 +636,10 @@ export default function HomePage() {
                         </p>
                       ) : (
                         <div>
-                          <p className="text-center text-lg text-gray-600 mb-2">
+                          <p className="text-center text-lg text-muted-foreground mb-2">
                             This address is not on the initial airdrop list.
                           </p>
-                          <p className="text-center text-sm text-gray-500 mb-4">
+                          <p className="text-center text-sm text-muted-foreground mb-4">
                             You can qualify for future rewards by earning points! <br /> Sign in with X and connect your wallet to get started.
                           </p>
                           <Link href="https://dexscreener.com/solana/3jiwexdwzxjva2yd8aherfsrn7a97qbwmdz8i4q6mh7y" target="_blank" rel="noopener noreferrer">
@@ -665,8 +665,8 @@ export default function HomePage() {
           
           {/* Other sections without duplicating login buttons */}
           {authStatus === "authenticated" && !wallet.connected && (
-            <div className="my-6 w-full text-center p-4 bg-gray-50 rounded-lg border border-gray-200">
-              <p className="text-gray-600 mb-3">
+            <div className="my-6 w-full text-center p-4 bg-card rounded-lg border border-border">
+              <p className="text-muted-foreground mb-3">
                 You are logged in with X. Connect your wallet using the button in the header to activate your DeFAI Rewards account.
               </p>
             </div>
@@ -676,7 +676,7 @@ export default function HomePage() {
           {showInsufficientBalanceMessage && (
             <div className="w-full my-6 p-5 bg-blue-50 border border-blue-200 rounded-lg text-center shadow-md">
               <h3 className="text-xl font-semibold text-blue-700 mb-3">Action Required: Hold DeFAI Tokens</h3>
-              <p className="text-gray-700 mb-4">
+              <p className="text-foreground mb-4">
                 To participate in the DeFAI Rewards points system and access all features, you need to hold at least {REQUIRED_DEFAI_AMOUNT} $DeFAI tokens in your connected wallet ({wallet.publicKey?.toBase58().substring(0,6)}...).
               </p>
               <Link href="https://dexscreener.com/solana/3jiwexdwzxjva2yd8aherfsrn7a97qbwmdz8i4q6mh7y" target="_blank" rel="noopener noreferrer" className="inline-block">
@@ -692,19 +692,19 @@ export default function HomePage() {
             <div className="w-full max-w-lg mt-2 flex flex-col items-center">
               <AirdropInfoDisplay onTotalAirdropChange={setCurrentTotalAirdropForSharing} />
 
-              <p className="text-center text-sm text-gray-600 mb-1">Wallet: <span className="font-mono">{wallet.publicKey!.toBase58().substring(0,6)}...{wallet.publicKey!.toBase58().substring(wallet.publicKey!.toBase58().length - 4)}</span></p>
+              <p className="text-center text-sm text-muted-foreground mb-1">Wallet: <span className="font-mono">{wallet.publicKey!.toBase58().substring(0,6)}...{wallet.publicKey!.toBase58().substring(wallet.publicKey!.toBase58().length - 4)}</span></p>
               {userData.referralCode && (
-                <div className="my-4 p-4 bg-gray-100 rounded-lg text-center w-full">
+                <div className="my-4 p-4 bg-card rounded-lg text-center w-full">
                   <div className="flex justify-center items-center mb-2">
-                    <p className="text-md font-semibold text-gray-800">Your Referral Link (Share & Earn!):</p>
+                    <p className="text-md font-semibold text-foreground">Your Referral Link (Share & Earn!):</p>
                     {userData.activeReferralBoosts && userData.activeReferralBoosts.length > 0 && (
                       <span className="ml-2 px-2 py-0.5 text-xs font-bold text-black bg-yellow-400 rounded-full animate-pulse">
                         BOOST ACTIVE!
                       </span>
                     )}
                   </div>
-                  <div className="flex items-center justify-center bg-gray-200 p-2 rounded">
-                    <input type="text" readOnly value={`https://squad.defairewards.net/?ref=${userData.referralCode}`} className="text-gray-700 text-sm break-all bg-transparent outline-none flex-grow p-1" />
+                  <div className="flex items-center justify-center bg-muted p-2 rounded">
+                    <input type="text" readOnly value={`https://squad.defairewards.net/?ref=${userData.referralCode}`} className="text-foreground text-sm break-all bg-transparent outline-none flex-grow p-1" />
                     <button onClick={() => handleCopyToClipboard(`https://squad.defairewards.net/?ref=${userData.referralCode}`)} className="ml-2 py-1 px-2 text-xs bg-[#2563EB] text-white rounded hover:bg-blue-700 transition-colors">
                       Copy
                     </button>
@@ -720,9 +720,9 @@ export default function HomePage() {
                   </h3>
                   <ul className="space-y-3">
                     {userData.activeReferralBoosts.map(boost => (
-                      <li key={boost.boostId} className="p-4 bg-white border border-gray-200 rounded-lg shadow-sm">
+                      <li key={boost.boostId} className="p-4 bg-card border border-border rounded-lg shadow-sm">
                         <p className="font-semibold text-indigo-700">{boost.description}</p>
-                        <p className="text-sm text-gray-600 mt-1">Remaining Uses: <span className="font-medium text-purple-700">{boost.remainingUses}</span></p>
+                        <p className="text-sm text-muted-foreground mt-1">Remaining Uses: <span className="font-medium text-[#2B96F1]">{boost.remainingUses}</span></p>
                       </li>
                     ))}
                   </ul>
@@ -732,7 +732,7 @@ export default function HomePage() {
               {/* Display Referrals Made Count */}
               {typeof userData.referralsMadeCount === 'number' && userData.referralsMadeCount > 0 && (
                 <div className="my-3 text-center">
-                  <p className="text-md text-gray-700">You have successfully referred <span className="font-bold text-green-500">{userData.referralsMadeCount}</span> user(s)! Keep it up!</p>
+                  <p className="text-md text-foreground">You have successfully referred <span className="font-bold text-success">{userData.referralsMadeCount}</span> user(s)! Keep it up!</p>
                 </div>
               )}
 
@@ -774,10 +774,10 @@ export default function HomePage() {
                             size="sm"
                           />
                           <div>
-                            <p className="text-sm text-gray-700">
+                            <p className="text-sm text-foreground">
                               You have been invited to join <strong className="text-teal-600">{invite.squadName}</strong>
                             </p>
-                            <p className="text-xs text-gray-500">
+                            <p className="text-xs text-muted-foreground">
                               Invited by: {invite.inviterInfo?.xUsername ? 
                                 `@${invite.inviterInfo.xUsername}` : 
                                 `${invite.invitedByUserWalletAddress.substring(0,6)}...`}
@@ -828,8 +828,8 @@ export default function HomePage() {
               {/* Points Earning Table */}
               {userData.points !== null && (
                 <div className="mt-2 mb-8 w-full">
-                  <h3 className="text-xl font-spacegrotesk font-semibold text-black mb-3 text-center">How to Earn More Points</h3>
-                  <div className="bg-gray-100 p-3 sm:p-4 rounded-lg shadow">
+                  <h3 className="text-xl font-spacegrotesk font-semibold text-foreground mb-3 text-center">How to Earn More Points</h3>
+                  <div className="bg-card p-3 sm:p-4 rounded-lg shadow">
                     <ul className="space-y-1.5">
                       {pointActivities.map((activity) => {
                         const isCompleted = userData.completedActions.includes(activity.id);
@@ -842,8 +842,8 @@ export default function HomePage() {
                         }
 
                         return (
-                          <li key={activity.id} className="flex justify-between items-center p-2 border-b border-gray-200 last:border-b-0">
-                            <span className={`text-sm ${isEffectivelyCompleted ? 'text-gray-400 line-through' : 'text-gray-700'}`}>
+                          <li key={activity.id} className="flex justify-between items-center p-2 border-b border-border last:border-b-0">
+                            <span className={`text-sm ${isEffectivelyCompleted ? 'text-gray-400 line-through' : 'text-foreground'}`}>
                               {isEffectivelyCompleted ? '✅ ' : '✨ '}
                               {activity.action}
                             </span>
@@ -862,7 +862,7 @@ export default function HomePage() {
           
           {/* Loading indicator for balance check */}
           {authStatus === "authenticated" && wallet.connected && isCheckingDefaiBalance && (
-             <div className="my-4 text-center text-gray-600">
+             <div className="my-4 text-center text-muted-foreground">
                 <p>Verifying DeFAI token balance...</p>
              </div>
           )}
@@ -883,11 +883,11 @@ export default function HomePage() {
             <DialogTitle className="text-2xl font-bold font-spacegrotesk text-center text-transparent bg-clip-text bg-gradient-to-r from-purple-600 via-pink-600 to-orange-600 animate-pulse">
               Squad Goals! Welcome to defAIRewards!
             </DialogTitle>
-            <DialogDescription className="text-center text-gray-700 pt-2">
+            <DialogDescription className="text-center text-foreground pt-2">
               You have successfully activated your account. Here is how to get started:
             </DialogDescription>
           </DialogHeader>
-          <div className="py-4 space-y-3 text-sm text-gray-800">
+          <div className="py-4 space-y-3 text-sm text-foreground">
             <p>✨ <span className="font-semibold">Earn Points:</span> Connect your wallet, follow us on X, join Telegram, and share your profile/airdrop results to earn DeFAI points.</p>
             <p>🚀 <span className="font-semibold">Refer Friends:</span> Share your unique referral link! You earn points when your friends connect their wallet after logging in via your link.</p>
             <p>🛡️ <span className="font-semibold">Join Squads:</span> Team up with others in Squads to boost your points potential and compete on the leaderboard.</p>

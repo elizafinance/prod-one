@@ -44,7 +44,7 @@ const getIconForNotificationType = (type: NotificationType | string) => { // All
   if (type.includes('badge')) return <FaCheckCircle className="text-yellow-400 mr-3 text-xl" />;
   if (type.includes('quest')) return <FaUsers className="text-purple-400 mr-3 text-xl" />;
   if (type.includes('squad')) return <FaUsers className="text-teal-400 mr-3 text-xl" />;
-  return <FaExclamationCircle className="text-gray-400 mr-3 text-xl" />;
+  return <FaExclamationCircle className="text-muted-foreground mr-3 text-xl" />;
 };
 
 const timeAgo = (dateString?: string) => {
@@ -137,7 +137,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({ notification, onMar
         {notification.rewardAmount && (
             <p className="text-xs text-green-400 mt-0.5">Reward: {notification.rewardAmount} {notification.rewardCurrency || ''}</p>
         )}
-        <p className="text-xs text-gray-500 mt-1">{timeAgo(notification.createdAt)}</p>
+        <p className="text-xs text-muted-foreground mt-1">{timeAgo(notification.createdAt)}</p>
 
         {notification.type === 'squad_invite_received' && (
           <div className="mt-2 flex space-x-2">

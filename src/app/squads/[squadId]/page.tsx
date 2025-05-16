@@ -152,7 +152,7 @@ const QuestCard = ({ quest, progress, squadId }: { quest: Quest, progress?: Ques
         goalDescription = `Goal: At least ${quest.goal_target} members meet up.`;
         additionalInfo = (
             <>
-                <p className="text-xs text-gray-500 mt-1">
+                <p className="text-xs text-muted-foreground mt-1">
                     Meetup Conditions: 
                     Within {quest.goal_target_metadata?.proximity_meters || 'N/A'} meters, 
                     {quest.goal_target_metadata?.time_window_minutes || 'N/A'} minutes.
@@ -179,9 +179,9 @@ const QuestCard = ({ quest, progress, squadId }: { quest: Quest, progress?: Ques
     return (
         // Using Tailwind CSS classes for styling from a similar component in the project
         <div className="bg-white border border-blue-200 rounded-xl p-5 shadow-md hover:shadow-lg transition-shadow duration-300">
-            <h4 className="text-lg font-semibold text-blue-600 mb-2">{quest.title} <span className="text-xs font-normal text-gray-500">({quest.scope === 'squad' ? 'Squad Quest' : 'Community Quest'})</span></h4>
-            <p className="text-sm text-gray-700 mb-3 h-12 overflow-y-auto">{quest.description}</p>
-            <p className="text-sm text-gray-600 font-medium">{goalDescription}</p>
+            <h4 className="text-lg font-semibold text-[#2B96F1] mb-2">{quest.title} <span className="text-xs font-normal text-muted-foreground">({quest.scope === 'squad' ? 'Squad Quest' : 'Community Quest'})</span></h4>
+            <p className="text-sm text-foreground mb-3 h-12 overflow-y-auto">{quest.description}</p>
+            <p className="text-sm text-muted-foreground font-medium">{goalDescription}</p>
             
             {/* Progress Bar - Conditionally render or adjust for meetup quests if needed */}
             {quest.goal_type !== 'squad_meetup' && (
@@ -193,7 +193,7 @@ const QuestCard = ({ quest, progress, squadId }: { quest: Quest, progress?: Ques
                     </div>
                 </div>
             )}
-            <p className="text-xs text-gray-500 mb-1">
+            <p className="text-xs text-muted-foreground mb-1">
                 {quest.goal_type !== 'squad_meetup' ? 
                     `${Math.round(percentage)}% complete (${displayProgress.toLocaleString()} / ${displayGoal.toLocaleString()})` : 
                     (progress?.currentProgress ? `Meetups recorded: ${progress.currentProgress}` : 'No meetups recorded yet.')
@@ -202,9 +202,9 @@ const QuestCard = ({ quest, progress, squadId }: { quest: Quest, progress?: Ques
             
             {additionalInfo}
 
-            {progress?.updatedAt && <p className="text-xs text-gray-500 mt-2"><small>Last progress: {new Date(progress.updatedAt).toLocaleTimeString()}</small></p>}
+            {progress?.updatedAt && <p className="text-xs text-muted-foreground mt-2"><small>Last progress: {new Date(progress.updatedAt).toLocaleTimeString()}</small></p>}
             {quest.status && <p className={`text-xs mt-1 font-semibold ${quest.status === 'active' ? 'text-green-600' : 'text-yellow-600'}`}>Status: {quest.status}</p>}
-            {quest.end_ts && <p className="text-xs text-gray-500"><small>Ends: {new Date(quest.end_ts).toLocaleDateString()}</small></p>}
+            {quest.end_ts && <p className="text-xs text-muted-foreground"><small>Ends: {new Date(quest.end_ts).toLocaleDateString()}</small></p>}
         </div>
     );
 };
@@ -715,17 +715,17 @@ export default function SquadDetailsPage() {
     setIsSubmittingJoinRequest(false);
   };
 
-  if (isLoading) return <main className="flex items-center justify-center min-h-screen bg-white text-gray-700"><div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-600"></div><p className='ml-3 text-lg'>Loading Squad Details...</p></main>;
-  if (error) return <main className="flex flex-col items-center justify-center min-h-screen bg-white text-red-700"><p className="text-xl mb-4">Error: {error}</p><Link href="/squads/browse"><button className='p-2 bg-blue-500 hover:bg-blue-600 rounded text-white'>Back to Browse Squads</button></Link></main>;
-  if (!squadDetails) return <main className="flex flex-col items-center justify-center min-h-screen bg-white text-gray-700"><p className="text-xl mb-4">Squad not found.</p><Link href="/squads/browse"><button className='p-2 bg-blue-500 hover:bg-blue-600 rounded text-white'>Back to Browse Squads</button></Link></main>;
+  if (isLoading) return <main className="flex items-center justify-center min-h-screen bg-background text-foreground"><div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#2B96F1]"></div><p className='ml-3 text-foreground'>Loading...</p></main>;
+  if (error) return <main className="flex flex-col items-center justify-center min-h-screen bg-background text-foreground"><p className="text-xl mb-4">Error: {error}</p><Link href="/squads/browse"><button className='p-2 bg-[#2B96F1] text-white rounded-md hover:bg-blue-600'>Browse Squads</button></Link></main>;
+  if (!squadDetails) return <main className="flex flex-col items-center justify-center min-h-screen bg-background text-foreground"><p className="text-xl mb-4">Squad not found.</p><Link href="/squads/browse"><button className='p-2 bg-[#2B96F1] text-white rounded-md hover:bg-blue-600'>Browse Squads</button></Link></main>;
 
   return (
-    <main className="flex flex-col items-center min-h-screen p-4 sm:p-8 bg-white text-gray-900">
-      <div className="w-full max-w-3xl mx-auto my-10 bg-white border border-gray-200 shadow-xl rounded-xl p-6 sm:p-8">
+    <main className="flex flex-col items-center min-h-screen p-4 sm:p-8 bg-background text-foreground">
+      <div className="w-full max-w-3xl mx-auto my-10 bg-card border border-border shadow-xl rounded-xl p-6 sm:p-8">
         <div className="flex justify-between items-start mb-6">
           <div>
             {!isEditingSquad ? (
-              <h1 className="text-4xl font-bold font-spacegrotesk tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-purple-500 via-pink-600 to-red-600">
+              <h1 className="text-4xl font-bold font-spacegrotesk tracking-tight text-foreground">
                 {squadDetails?.name}
               </h1>
             ) : (
@@ -733,11 +733,11 @@ export default function SquadDetailsPage() {
                 Edit Squad Info
               </h1>
             )}
-            {!isEditingSquad && squadDetails?.description && <p className="text-gray-600 mt-1 text-sm">{squadDetails.description}</p>}
+            {!isEditingSquad && squadDetails?.description && <p className="text-muted-foreground mt-1 text-sm">{squadDetails.description}</p>}
           </div>
           <div className="flex flex-col space-y-2 items-end flex-shrink-0 ml-4">
             <Link href="/squads/browse" passHref>
-              <button className="bg-gray-500 hover:bg-gray-600 text-white text-xs font-semibold py-1.5 px-3 rounded-md shadow-md hover:shadow-lg transform hover:scale-105 transition-all duration-150 ease-in-out w-full sm:w-auto">
+              <button className="bg-muted hover:bg-muted/80 text-foreground text-xs font-semibold py-1.5 px-3 rounded-md shadow-md hover:shadow-lg transform hover:scale-105 transition-all duration-150 ease-in-out w-full sm:w-auto">
                   Browse Squads
               </button>
             </Link>
@@ -748,7 +748,7 @@ export default function SquadDetailsPage() {
                   setEditableDescription(squadDetails?.description || '');
                   setIsEditingSquad(true);
                 }}
-                className="bg-yellow-400 hover:bg-yellow-500 text-black text-xs font-semibold py-1.5 px-3 rounded-md shadow-md hover:shadow-lg transform hover:scale-105 transition-all duration-150 ease-in-out w-full sm:w-auto"
+                className="bg-muted hover:bg-muted/80 text-foreground text-xs font-semibold py-1.5 px-3 rounded-md shadow-md hover:shadow-lg transform hover:scale-105 transition-all duration-150 ease-in-out w-full sm:w-auto"
               >
                 Edit Info
               </button>
@@ -757,24 +757,24 @@ export default function SquadDetailsPage() {
         </div>
 
         {isEditingSquad && (
-          <form onSubmit={handleEditSquadSubmit} className="mb-6 p-6 bg-gray-50 border border-gray-200 rounded-lg space-y-4">
+          <form onSubmit={handleEditSquadSubmit} className="mb-6 p-6 bg-muted border border-border rounded-lg space-y-4">
             <div>
-              <label htmlFor="editableSquadName" className="block text-sm font-medium text-gray-700 mb-1">Squad Name</label>
+              <label htmlFor="editableSquadName" className="block text-sm font-medium text-foreground mb-1">Squad Name</label>
               <input type="text" id="editableSquadName" value={editableSquadName} onChange={(e) => setEditableSquadName(e.target.value)} 
-                     className="w-full p-2 bg-white border border-gray-300 rounded-md text-gray-900 focus:ring-blue-500 focus:border-blue-500" maxLength={30} />
+                     className="w-full p-2 bg-background border border-input rounded-md text-foreground focus:ring-[#2B96F1] focus:border-[#2B96F1]" maxLength={30} />
             </div>
             <div>
-              <label htmlFor="editableDescription" className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+              <label htmlFor="editableDescription" className="block text-sm font-medium text-foreground mb-1">Description</label>
               <textarea id="editableDescription" value={editableDescription} onChange={(e) => setEditableDescription(e.target.value)} 
-                        rows={3} className="w-full p-2 bg-white border border-gray-300 rounded-md text-gray-900 focus:ring-blue-500 focus:border-blue-500" maxLength={150} />
+                        rows={3} className="w-full p-2 bg-background border border-input rounded-md text-foreground focus:ring-[#2B96F1] focus:border-[#2B96F1]" maxLength={150} />
             </div>
             <div className="flex justify-end space-x-3">
               <button type="button" onClick={() => setIsEditingSquad(false)} disabled={isSavingEdit}
-                      className="py-2 px-4 bg-gray-400 hover:bg-gray-500 text-white font-semibold rounded-md disabled:opacity-50">
+                      className="py-2 px-4 bg-muted hover:bg-muted/80 text-foreground font-semibold rounded-md disabled:opacity-50">
                 Cancel
               </button>
               <button type="submit" disabled={isSavingEdit}
-                      className="py-2 px-4 bg-green-500 hover:bg-green-600 text-white font-semibold rounded-md disabled:opacity-50">
+                      className="py-2 px-4 bg-muted hover:bg-muted/80 text-foreground font-semibold rounded-md disabled:opacity-50">
                 {isSavingEdit ? 'Saving...' : 'Save Changes'}
               </button>
             </div>
@@ -782,11 +782,11 @@ export default function SquadDetailsPage() {
         )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-          <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
+          <div className="p-4 bg-muted border border-border rounded-lg">
             <h2 className="text-xs font-semibold text-purple-700 uppercase tracking-wider mb-1">Leader</h2>
-            <p className="text-gray-700 font-mono text-sm truncate" title={squadDetails.leaderWalletAddress}>{squadDetails.leaderWalletAddress.substring(0,10)}...</p>
+            <p className="text-foreground font-mono text-sm truncate" title={squadDetails.leaderWalletAddress}>{squadDetails.leaderWalletAddress.substring(0,10)}...</p>
           </div>
-          <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
+          <div className="p-4 bg-muted border border-border rounded-lg">
             <h2 className="text-xs font-semibold text-purple-700 uppercase tracking-wider mb-1">Total Points</h2>
             <p className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-pink-600 to-red-600">
               {squadDetails.totalSquadPoints.toLocaleString()}
@@ -795,11 +795,11 @@ export default function SquadDetailsPage() {
         </div>
 
         <div className="mb-8">
-          <h2 className="text-xl font-semibold text-gray-800 mb-3">Members ({squadDetails.membersFullDetails?.length || squadDetails.memberWalletAddresses.length} / {squadDetails.maxMembers || process.env.NEXT_PUBLIC_MAX_SQUAD_MEMBERS || 100})</h2>
-          <ul className="space-y-2 max-h-72 overflow-y-auto bg-gray-50 border border-gray-200 p-3 rounded-lg">
+          <h2 className="text-xl font-semibold text-foreground mb-3">Members ({squadDetails.membersFullDetails?.length || squadDetails.memberWalletAddresses.length} / {squadDetails.maxMembers || process.env.NEXT_PUBLIC_MAX_SQUAD_MEMBERS})</h2>
+          <ul className="space-y-2 max-h-72 overflow-y-auto bg-muted border border-border p-3 rounded-lg">
             {squadDetails.membersFullDetails && squadDetails.membersFullDetails.length > 0 ? (
               squadDetails.membersFullDetails.map(member => (
-                <li key={member.walletAddress} className="p-3 bg-white border border-gray-200 rounded text-sm text-gray-700 flex justify-between items-center hover:bg-gray-100 transition-colors">
+                <li key={member.walletAddress} className="p-3 bg-background border border-border rounded text-sm text-foreground flex justify-between items-center hover:bg-muted transition-colors">
                   <div className="flex items-center gap-3">
                     <UserAvatar 
                       profileImageUrl={member.xProfileImageUrl}
@@ -807,7 +807,7 @@ export default function SquadDetailsPage() {
                       size="sm"
                     />
                     <div>
-                      <span className="font-mono block text-gray-800">{member.xUsername ? `@${member.xUsername}` : `${member.walletAddress.substring(0,8)}...${member.walletAddress.substring(member.walletAddress.length - 4)}`}</span>
+                      <span className="font-mono block text-foreground">{member.xUsername ? `@${member.xUsername}` : `${member.walletAddress.substring(0,8)}...${member.walletAddress.substring(member.walletAddress.length - 4)}`}</span>
                       <span className="text-xs text-purple-700">Points: {member.points?.toLocaleString() || 'N/A'}</span>
                     </div>
                   </div>
@@ -837,19 +837,19 @@ export default function SquadDetailsPage() {
                 </li>
               ))
             ) : (
-              <li className="p-2 text-sm text-gray-500">No member details available or squad is empty.</li>
+              <li className="p-2 text-sm text-muted-foreground">No member details available or squad is empty.</li>
             )}
           </ul>
         </div>
 
-        <div className="mt-8 border-t border-gray-300 pt-6">
+        <div className="mt-8 border-t border-border pt-6">
           {connected && isUserMember && !isUserLeader && (
             <div className="mb-6">
-              <h3 className="text-lg font-semibold text-gray-800 mb-2">Squad Actions</h3>
+              <h3 className="text-lg font-semibold text-foreground mb-2">Squad Actions</h3>
               <button 
                 onClick={handleLeaveSquad}
                 disabled={isLeaving}
-                className="w-full py-2.5 px-5 bg-red-500 hover:bg-red-600 disabled:bg-gray-400 text-white font-semibold rounded-lg shadow-md hover:shadow-lg transition-all duration-150 ease-in-out"
+                className="w-full py-2.5 px-5 bg-destructive hover:bg-destructive/90 disabled:bg-muted text-white font-semibold rounded-lg shadow-md hover:shadow-lg transition-all duration-150 ease-in-out"
               >
                 {isLeaving ? 'Leaving Squad...' : 'Leave Squad'}
               </button>
@@ -868,7 +868,7 @@ export default function SquadDetailsPage() {
                 {!isFetchingJoinRequests && joinRequests.length > 0 && (
                   <ul className="space-y-3 max-h-72 overflow-y-auto">
                     {joinRequests.map(req => (
-                      <li key={req.requestId} className="p-3 bg-white border border-gray-200 rounded-md shadow-sm">
+                      <li key={req.requestId} className="p-3 bg-background border border-border rounded-md shadow-sm">
                         <div className="flex items-start gap-3">
                           <UserAvatar 
                             profileImageUrl={req.requestingUserXProfileImageUrl}
@@ -876,11 +876,11 @@ export default function SquadDetailsPage() {
                             size="sm"
                           />
                           <div className="flex-grow">
-                            <p className="text-sm font-semibold text-gray-800">
+                            <p className="text-sm font-semibold text-foreground">
                               {req.requestingUserXUsername ? `@${req.requestingUserXUsername}` : `${req.requestingUserWalletAddress.substring(0,6)}...`}
                             </p>
-                            <p className="text-xs text-gray-500 font-mono" title={req.requestingUserWalletAddress}>{req.requestingUserWalletAddress}</p>
-                            {req.message && <p className="text-xs text-gray-600 mt-1 italic bg-gray-100 p-1.5 rounded">{req.message}</p>}
+                            <p className="text-xs text-muted-foreground font-mono" title={req.requestingUserWalletAddress}>{req.requestingUserWalletAddress}</p>
+                            {req.message && <p className="text-xs text-muted-foreground mt-1 italic bg-muted p-1.5 rounded">{req.message}</p>}
                           </div>
                         </div>
                         <div className="mt-3 flex space-x-2 justify-end">
@@ -905,9 +905,9 @@ export default function SquadDetailsPage() {
                 )}
               </div>
 
-              <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg mb-6">
-                <h4 className="text-md font-semibold text-gray-800 mb-2">Invite New Member:</h4>
-                <div className="flex mb-4 bg-gray-200 rounded-lg p-1 w-fit">
+              <div className="p-4 bg-muted border border-border rounded-lg mb-6">
+                <h4 className="text-md font-semibold text-foreground mb-2">Invite New Member:</h4>
+                <div className="flex mb-4 bg-muted rounded-lg p-1 w-fit">
                   <button 
                     onClick={() => setInviteType('wallet')}
                     className={`px-3 py-1.5 text-sm font-medium rounded ${
@@ -935,7 +935,7 @@ export default function SquadDetailsPage() {
                 
                 {inviteType === 'wallet' ? (
                   <div className="space-y-2">
-                    <label htmlFor="inviteeWallet" className="block text-sm font-medium text-gray-700">
+                    <label htmlFor="inviteeWallet" className="block text-sm font-medium text-foreground">
                       Wallet Address to Invite:
                     </label>
                     <div className="flex gap-2">
@@ -944,7 +944,7 @@ export default function SquadDetailsPage() {
                         id="inviteeWallet" 
                         value={inviteeWalletAddress} 
                         onChange={(e) => setInviteeWalletAddress(e.target.value)} 
-                        className="flex-grow p-2 bg-white border border-gray-300 rounded-md text-gray-900 placeholder-gray-400 focus:ring-blue-500 focus:border-blue-500"
+                        className="flex-grow p-2 bg-background border border-input rounded-md text-foreground placeholder-muted-foreground focus:ring-[#2B96F1] focus:border-[#2B96F1]"
                         placeholder="Enter wallet address"
                       />
                       <button 
@@ -959,7 +959,7 @@ export default function SquadDetailsPage() {
                 ) : (
                   <div className="space-y-4">
                     <div className="space-y-2">
-                      <label htmlFor="inviteeTwitter" className="block text-sm font-medium text-gray-700">
+                      <label htmlFor="inviteeTwitter" className="block text-sm font-medium text-foreground">
                         Twitter Handle to Invite:
                       </label>
                       <div className="flex gap-2">
@@ -968,7 +968,7 @@ export default function SquadDetailsPage() {
                           id="inviteeTwitter" 
                           value={inviteeTwitterHandle} 
                           onChange={(e) => setInviteeTwitterHandle(e.target.value)} 
-                          className="flex-grow p-2 bg-white border border-gray-300 rounded-md text-gray-900 placeholder-gray-400 focus:ring-blue-500 focus:border-blue-500"
+                          className="flex-grow p-2 bg-background border border-input rounded-md text-foreground placeholder-muted-foreground focus:ring-[#2B96F1] focus:border-[#2B96F1]"
                           placeholder="Enter Twitter handle (with or without @)"
                         />
                         <button 
@@ -1005,8 +1005,8 @@ export default function SquadDetailsPage() {
                 )}
               </div>
 
-              <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg mb-6">
-                <h4 className="text-md font-semibold text-gray-800 mb-2">Pending Invites Sent:</h4>
+              <div className="p-4 bg-muted border border-border rounded-lg mb-6">
+                <h4 className="text-md font-semibold text-foreground mb-2">Pending Invites Sent:</h4>
                 {isFetchingSentInvites && <p className="text-sm text-gray-500">Loading sent invites...</p>}
                 {!isFetchingSentInvites && sentPendingInvites.length === 0 && <p className="text-sm text-gray-500">No pending invites sent from this squad.</p>}
                 {!isFetchingSentInvites && sentPendingInvites.length > 0 && (

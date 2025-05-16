@@ -98,7 +98,7 @@ export default function LeaderboardPage() {
   };
 
   return (
-    <main className="flex flex-col items-center min-h-screen p-4 sm:p-8 bg-white text-gray-900">
+    <main className="flex flex-col items-center min-h-screen p-4 sm:p-8 bg-background text-foreground">
       <div className="w-full max-w-5xl mx-auto py-8 sm:py-12">
         <div className="flex justify-between items-center mb-10">
           <h1 className="text-4xl sm:text-5xl font-bold font-spacegrotesk tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-purple-600 via-pink-600 to-red-600">
@@ -115,28 +115,28 @@ export default function LeaderboardPage() {
 
         {isLoading && (
           <div className="text-center py-10">
-            <p className="text-xl text-gray-600">Summoning the Leaderboard...</p>
+            <p className="text-xl text-muted-foreground">Summoning the Leaderboard...</p>
             <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-600 mx-auto mt-4"></div>
           </div>
         )}
         {error && <p className="text-center text-red-700 bg-red-100 p-4 rounded-lg border border-red-300">Error: {error}</p>}
         
         {!isLoading && !error && leaderboard.length === 0 && (
-          <div className="text-center py-10 bg-gray-100 p-6 rounded-lg shadow-lg border border-gray-200">
-            <p className="text-2xl text-gray-700 mb-3">The Leaderboard Awaits Its Heroes!</p>
-            <p className="text-gray-600">Be the first to etch your name and claim the top spot.</p>
+          <div className="text-center py-10 bg-card p-6 rounded-lg shadow-lg border border-border">
+            <p className="text-2xl text-foreground mb-3">The Leaderboard Awaits Its Heroes!</p>
+            <p className="text-muted-foreground">Be the first to etch your name and claim the top spot.</p>
           </div>
         )}
 
         {!isLoading && !error && leaderboard.length > 0 && (
-          <div className="overflow-x-auto shadow-xl rounded-xl border border-gray-200 bg-white">
+          <div className="overflow-x-auto shadow-xl rounded-xl border border-border bg-card">
             <table className="min-w-full">
-              <thead className="border-b border-gray-200 bg-gray-50">
+              <thead className="border-b border-border bg-muted">
                 <tr>
-                  <th className="text-left py-4 px-4 sm:px-6 font-semibold text-gray-600 tracking-wider uppercase text-sm">Rank</th>
-                  <th className="text-left py-4 px-4 sm:px-6 font-semibold text-gray-600 tracking-wider uppercase text-sm">Contender</th>
-                  <th className="text-left py-4 px-4 sm:px-6 font-semibold text-gray-600 tracking-wider uppercase text-sm">Tier & Badges</th>
-                  <th className="text-right py-4 px-4 sm:px-6 font-semibold text-gray-600 tracking-wider uppercase text-sm">Points</th>
+                  <th className="text-left py-4 px-4 sm:px-6 font-semibold text-muted-foreground tracking-wider uppercase text-sm">Rank</th>
+                  <th className="text-left py-4 px-4 sm:px-6 font-semibold text-muted-foreground tracking-wider uppercase text-sm">Contender</th>
+                  <th className="text-left py-4 px-4 sm:px-6 font-semibold text-muted-foreground tracking-wider uppercase text-sm">Tier & Badges</th>
+                  <th className="text-right py-4 px-4 sm:px-6 font-semibold text-muted-foreground tracking-wider uppercase text-sm">Points</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
@@ -177,7 +177,7 @@ export default function LeaderboardPage() {
 
                   return (
                     <tr key={entry.walletAddress + index + rank} className={rowClasses}>
-                      <td className="py-4 px-4 sm:px-6 font-medium text-gray-700 align-middle">{rankDisplay}</td>
+                      <td className="py-4 px-4 sm:px-6 font-medium text-foreground align-middle">{rankDisplay}</td>
                       <td className="py-4 px-4 sm:px-6 align-middle">
                         <div className="flex items-center gap-3">
                           <UserAvatar 
@@ -188,11 +188,11 @@ export default function LeaderboardPage() {
                           <div>
                             {entry.xUsername ? (
                               <Link href={`/profile/${entry.walletAddress}`} passHref>
-                                <span className="text-gray-800 hover:text-blue-600 cursor-pointer hover:underline font-medium">@{entry.xUsername}</span>
+                                <span className="text-foreground hover:text-[#2B96F1] cursor-pointer hover:underline font-medium">@{entry.xUsername}</span>
                               </Link>
                             ) : (
                               <Link href={`/profile/${entry.walletAddress}`} passHref>
-                                <span className="font-mono text-sm text-gray-600 hover:text-blue-600 cursor-pointer hover:underline">{entry.walletAddress}</span>
+                                <span className="font-mono text-sm text-muted-foreground hover:text-[#2B96F1] cursor-pointer hover:underline">{entry.walletAddress}</span>
                               </Link>
                             )}
                           </div>

@@ -142,12 +142,12 @@ export default function QuestDetailPage() {
     if (quest.reward_nft_id && (quest.reward_type === 'nft' || quest.reward_type === 'points+nft')) {
       parts.push(`Special NFT (${quest.reward_nft_id})`); // Consider linking to NFT details or showing image
     }
-    if (parts.length === 0) return <p className="text-gray-400">Details about rewards will be shown here.</p>;
+    if (parts.length === 0) return <p className="text-muted-foreground">Details about rewards will be shown here.</p>;
     return <p className="text-lg text-green-400">Reward: {parts.join(' + ')}</p>;
   };
 
   if (isLoading) {
-    return <div className="container mx-auto px-4 py-8 text-center text-xl text-gray-400">Loading quest details...</div>;
+    return <div className="container mx-auto px-4 py-8 text-center text-xl text-muted-foreground">Loading quest details...</div>;
   }
 
   if (error) {
@@ -161,7 +161,7 @@ export default function QuestDetailPage() {
 
   if (!quest) {
     // This case should ideally be covered by the error state if fetch fails with 404
-    return <div className="container mx-auto px-4 py-8 text-center text-xl text-gray-400">Quest not found.</div>;
+    return <div className="container mx-auto px-4 py-8 text-center text-xl text-muted-foreground">Quest not found.</div>;
   }
 
   const renderCallToActionButton = () => {
@@ -204,8 +204,8 @@ export default function QuestDetailPage() {
   };
 
   return (
-    <div className="container mx-auto px-4 py-12 bg-gray-900 text-white">
-      <div className="max-w-3xl mx-auto bg-gray-800 shadow-2xl rounded-lg p-8 md:p-12">
+    <div className="container mx-auto px-4 py-12 bg-background text-foreground">
+      <div className="max-w-3xl mx-auto bg-card shadow-2xl rounded-lg p-8 md:p-12">
         <div className="mb-6">
           <Link href="/quests" className="text-sm text-blue-400 hover:text-blue-300">&larr; All Community Quests</Link>
         </div>
@@ -213,25 +213,25 @@ export default function QuestDetailPage() {
         <h1 className="text-4xl md:text-5xl font-bold mb-6 text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-500">{quest.title}</h1>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8 text-sm">
-            <div className="bg-gray-700/50 p-4 rounded-md">
-                <p className="text-gray-400">Status: <span className={`font-semibold ${quest.status === 'active' ? 'text-green-400' : quest.status === 'succeeded' ? 'text-blue-400' : 'text-yellow-400'}`}>{quest.status.toUpperCase()}</span></p>
+            <div className="bg-muted p-4 rounded-md">
+                <p className="text-muted-foreground">Status: <span className={`font-semibold ${quest.status === 'active' ? 'text-success' : quest.status === 'succeeded' ? 'text-[#2B96F1]' : 'text-warning'}`}>{quest.status}</span></p>
             </div>
-            <div className="bg-gray-700/50 p-4 rounded-md">
-                 <p className="text-gray-400">Time Remaining: <span className="font-semibold text-yellow-400">{calculateRemainingTime(quest.end_ts)}</span></p>
+            <div className="bg-muted p-4 rounded-md">
+                 <p className="text-muted-foreground">Time Remaining: <span className="font-semibold text-warning">{calculateRemainingTime(quest.end_ts)}</span></p>
             </div>
         </div>
 
         <div className="mb-8">
-          <h3 className="text-xl font-semibold mb-2 text-gray-300">Progress: {quest.progress.toLocaleString()} / {quest.goal.toLocaleString()} <span className="text-gray-400 text-sm">({getGoalUnit()})</span></h3>
+          <h3 className="text-xl font-semibold mb-2 text-foreground">Progress: {quest.progress.toLocaleString()} / {quest.goal.toLocaleString()} <span className="text-muted-foreground text-sm">({getGoalUnit()})</span></h3>
           <ProgressBar current={quest.progress} goal={quest.goal} size="large" />
         </div>
 
-        <div className="mb-8 prose prose-invert prose-sm md:prose-base max-w-none prose-headings:text-gray-200 prose-p:text-gray-300 prose-a:text-blue-400 hover:prose-a:text-blue-300 prose-strong:text-gray-100 prose-code:bg-gray-700 prose-code:p-1 prose-code:rounded-sm prose-blockquote:border-l-blue-500 prose-blockquote:text-gray-400">
-          <h3 className="text-xl font-semibold mb-2 text-gray-300">Description & Rules:</h3>
+        <div className="mb-8 prose prose-invert prose-sm md:prose-base max-w-none prose-headings:text-foreground prose-p:text-muted-foreground prose-a:text-[#2B96F1] hover:prose-a:text-blue-300 prose-strong:text-foreground">
+          <h3 className="text-xl font-semibold mb-2 text-foreground">Description & Rules:</h3>
           <ReactMarkdown remarkPlugins={[remarkGfm]}>{quest.description_md}</ReactMarkdown>
         </div>
 
-        <div className="mb-6 p-4 bg-gray-700/50 rounded-md">
+        <div className="mb-6 p-4 bg-muted rounded-md">
             {renderRewardInfo()}
         </div>
         

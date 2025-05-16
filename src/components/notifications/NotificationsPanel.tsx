@@ -185,10 +185,10 @@ export default function NotificationsPanel({ isOpen, onClose, onUpdateUnreadCoun
     <div className="relative" ref={panelRef}>
       <button 
         onClick={onClose} 
-        className="relative p-2 rounded-full hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 transition-colors"
+        className="relative p-2 rounded-full hover:bg-muted focus:outline-none focus:ring-2 focus:ring-[#2B96F1] focus:ring-opacity-50 transition-colors"
         aria-label="Toggle Notifications"
       >
-        <FaBell className="h-6 w-6 text-gray-300 hover:text-white" />
+        <FaBell className="h-6 w-6 text-muted-foreground hover:text-foreground" />
         {unreadCount > 0 && (
           <span className="absolute top-0 right-0 block h-2.5 w-2.5 transform -translate-y-1/2 translate-x-1/2">
             {/* Single static badge without continuous ping animation to avoid distracting blink */}
@@ -198,10 +198,10 @@ export default function NotificationsPanel({ isOpen, onClose, onUpdateUnreadCoun
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-gray-800 border border-gray-700 rounded-lg shadow-xl z-50 overflow-hidden flex flex-col" style={{ maxHeight: 'calc(100vh - 100px)' }}>
-          <div className="flex justify-between items-center p-3 border-b border-gray-700">
-            <h3 className="text-md font-semibold text-gray-100">Notifications ({unreadCount})</h3>
-            <button onClick={onClose} className="text-gray-400 hover:text-white">
+        <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-card border border-border rounded-lg shadow-xl z-50 overflow-hidden flex flex-col" style={{ maxHeight: 'calc(100vh - 100px)' }}>
+          <div className="flex justify-between items-center p-3 border-b border-border">
+            <h3 className="text-md font-semibold text-foreground">Notifications ({unreadCount})</h3>
+            <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
               <FaTimes />
             </button>
           </div>
@@ -209,7 +209,7 @@ export default function NotificationsPanel({ isOpen, onClose, onUpdateUnreadCoun
           {isLoading && (
             <div className="p-8 flex justify-center items-center">
               <div className="animate-spin h-8 w-8 border-t-2 border-b-2 border-blue-500 rounded-full"></div>
-              <p className="ml-3 text-gray-400">Loading notifications...</p>
+              <p className="ml-3 text-muted-foreground">Loading notifications...</p>
             </div>
           )}
           
@@ -221,7 +221,7 @@ export default function NotificationsPanel({ isOpen, onClose, onUpdateUnreadCoun
                 <button onClick={handleRetry} className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded-md transition-colors">
                   Retry
                 </button>
-                <button onClick={() => setShowErrorDetails(!showErrorDetails)} className="px-3 py-1.5 bg-gray-600 hover:bg-gray-700 text-white text-xs rounded-md transition-colors">
+                <button onClick={() => setShowErrorDetails(!showErrorDetails)} className="px-3 py-1.5 bg-muted hover:bg-muted/80 text-foreground text-xs rounded-md transition-colors">
                   {showErrorDetails ? 'Hide Details' : 'Show Details'}
                 </button>
               </div>
@@ -234,7 +234,7 @@ export default function NotificationsPanel({ isOpen, onClose, onUpdateUnreadCoun
           )}
           
           {!isLoading && !error && notifications.length === 0 && (
-            <p className="p-8 text-center text-gray-400">You have no notifications yet.</p>
+            <p className="p-8 text-center text-muted-foreground">You have no notifications yet.</p>
           )}
 
           {!isLoading && !error && notifications.length > 0 && (
@@ -250,7 +250,7 @@ export default function NotificationsPanel({ isOpen, onClose, onUpdateUnreadCoun
           )}
           
           {notifications.length > 0 && (
-            <div className="p-2 border-t border-gray-700 text-center">
+            <div className="p-2 border-t border-border text-center">
                 <Link href="/notifications" className="text-sm text-blue-400 hover:underline" onClick={onClose}>
                     View all notifications
                 </Link>

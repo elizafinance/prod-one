@@ -91,17 +91,17 @@ export default function UserProfilePage() {
   }, [walletAddress]);
 
   // Loading, Error, and Not Found states JSX (simplified for brevity in instruction)
-  if (isLoading) return <main className="flex flex-col items-center justify-center min-h-screen bg-white text-gray-700"><p>Loading Profile...</p></main>;
+  if (isLoading) return <main className="flex flex-col items-center justify-center min-h-screen bg-background text-foreground"><p>Loading Profile...</p></main>;
   if (error) return <main className="flex flex-col items-center justify-center min-h-screen bg-white text-red-700"><p>Error: {error}</p><button onClick={() => router.back()} className="mt-2 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">Go Back</button></main>;
-  if (!profileData) return <main className="flex flex-col items-center justify-center min-h-screen bg-white text-gray-700"><p>Profile not available.</p></main>;
+  if (!profileData) return <main className="flex flex-col items-center justify-center min-h-screen bg-background text-foreground"><p>Profile not available.</p></main>;
 
   const tierStyleKey = profileData.highestAirdropTierLabel ? profileData.highestAirdropTierLabel.toLowerCase() : 'default';
   const currentTierStyle = tierStyles[tierStyleKey] || tierStyles.default;
   const isOwnProfile = loggedInUserWalletAddress === walletAddress;
   
   return (
-    <main className="flex flex-col items-center min-h-screen p-4 sm:p-8 bg-white text-gray-900">
-      <div className="w-full max-w-2xl mx-auto my-10 bg-white border border-gray-200 shadow-xl rounded-xl p-6 sm:p-10">
+    <main className="flex flex-col items-center min-h-screen p-4 sm:p-8 bg-background text-foreground">
+      <div className="w-full max-w-2xl mx-auto my-10 bg-card border border-border shadow-xl rounded-xl p-6 sm:p-10">
         
         <div className="flex flex-col items-center text-center mb-8">
           <UserAvatar 
@@ -113,8 +113,8 @@ export default function UserProfilePage() {
           <h1 className="text-4xl font-bold font-spacegrotesk tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-purple-500 via-pink-600 to-red-600 mb-2">
             User Showcase
           </h1>
-          <p className="text-lg text-gray-700 font-mono break-all">{profileData.maskedWalletAddress}</p>
-          {profileData.xUsername && <p className="text-md text-gray-500">@{profileData.xUsername}</p>}
+          <p className="text-lg text-foreground font-mono break-all">{profileData.maskedWalletAddress}</p>
+          {profileData.xUsername && <p className="text-md text-muted-foreground">@{profileData.xUsername}</p>}
         </div>
 
         {/* Airdrop Info Display for Own Profile */}
@@ -126,7 +126,7 @@ export default function UserProfilePage() {
 
         <div className="space-y-6">
           {/* Total Points */}
-          <div className="p-6 bg-gray-50 border border-gray-200 rounded-lg shadow-md">
+          <div className="p-6 bg-muted border border-border rounded-lg shadow-md">
             <h2 className="text-sm font-semibold text-purple-700 uppercase tracking-wider mb-1">Total Points</h2>
             <p className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-pink-500 to-red-600">
               {profileData.points.toLocaleString()}
@@ -134,7 +134,7 @@ export default function UserProfilePage() {
           </div>
           {/* Airdrop Tier */}
           {profileData.highestAirdropTierLabel && (
-            <div className="p-6 bg-gray-50 border border-gray-200 rounded-lg shadow-md">
+            <div className="p-6 bg-muted border border-border rounded-lg shadow-md">
               <h2 className="text-sm font-semibold text-purple-700 uppercase tracking-wider mb-2">Airdrop Tier</h2>
               <span className={`px-4 py-2 text-lg font-bold rounded-full ${currentTierStyle}`}>
                 {profileData.highestAirdropTierLabel}
@@ -143,7 +143,7 @@ export default function UserProfilePage() {
           )}
           {/* Squad Info */}
            {profileData.squadInfo && (
-            <div className="p-6 bg-gray-50 border border-gray-200 rounded-lg shadow-md">
+            <div className="p-6 bg-muted border border-border rounded-lg shadow-md">
               <h2 className="text-sm font-semibold text-purple-700 uppercase tracking-wider mb-1">Squad Affiliation</h2>
               <Link href={`/squads/${profileData.squadInfo.squadId}`} passHref>
                 <span className="text-xl font-bold text-indigo-600 hover:text-indigo-800 cursor-pointer hover:underline">
@@ -154,7 +154,7 @@ export default function UserProfilePage() {
           )}
           {/* Badges */}
           {profileData.earnedBadgeIds && profileData.earnedBadgeIds.length > 0 && (
-            <div className="p-6 bg-gray-50 border border-gray-200 rounded-lg shadow-md">
+            <div className="p-6 bg-muted border border-border rounded-lg shadow-md">
               <h2 className="text-sm font-semibold text-purple-700 uppercase tracking-wider mb-2">Achievements</h2>
               <div className="flex flex-wrap gap-2">
                 {profileData.earnedBadgeIds.map(badgeId => {
@@ -175,7 +175,7 @@ export default function UserProfilePage() {
                       </span>
                     )
                   ) : (
-                    <span key={badgeId} className="px-3 py-1 text-xs font-semibold rounded-full bg-gray-200 text-gray-700">
+                    <span key={badgeId} className="px-3 py-1 text-xs font-semibold rounded-full bg-muted text-foreground">
                       {badgeId.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())} 
                     </span>
                   );
@@ -184,15 +184,15 @@ export default function UserProfilePage() {
             </div>
           )}
           {/* Referrals Made */}
-          <div className="p-6 bg-gray-50 border border-gray-200 rounded-lg shadow-md">
+          <div className="p-6 bg-muted border border-border rounded-lg shadow-md">
             <h2 className="text-sm font-semibold text-purple-700 uppercase tracking-wider mb-1">Referrals Made</h2>
-            <p className="text-3xl font-bold text-gray-800">
+            <p className="text-3xl font-bold text-foreground">
               {profileData.referralsMadeCount?.toLocaleString() || 0}
             </p>
           </div>
           {/* Referred By Info */}
           {profileData.referredBy && (
-            <div className="p-6 bg-gray-50 border border-gray-200 rounded-lg shadow-md">
+            <div className="p-6 bg-muted border border-border rounded-lg shadow-md">
               <h2 className="text-sm font-semibold text-purple-700 uppercase tracking-wider mb-2">Referred By</h2>
               <div className="flex items-center gap-3">
                 <UserAvatar 
@@ -202,9 +202,9 @@ export default function UserProfilePage() {
                 />
                 <div>
                   {profileData.referredBy.xUsername ? (
-                    <span className="text-md text-gray-800">@{profileData.referredBy.xUsername}</span>
+                    <span className="text-md text-foreground">@{profileData.referredBy.xUsername}</span>
                   ) : (
-                    <span className="text-md text-gray-800 font-mono">{profileData.referredBy.walletAddress}</span>
+                    <span className="text-md text-foreground font-mono">{profileData.referredBy.walletAddress}</span>
                   )}
                 </div>
               </div>
@@ -222,7 +222,7 @@ export default function UserProfilePage() {
               airdropTier={profileData.highestAirdropTierLabel}
             />
             <Link href="/leaderboard" passHref>
-              <button className="bg-gray-500 hover:bg-gray-600 text-white font-semibold py-3 px-8 rounded-lg shadow-md hover:shadow-lg transform hover:scale-105 transition-all duration-150 ease-in-out text-lg">
+              <button className="bg-[#2B96F1] hover:bg-blue-600 text-white font-semibold py-3 px-8 rounded-lg shadow-md hover:shadow-lg transform hover:scale-105 transition-all duration-150 ease-in-out text-lg">
                 View Leaderboard
               </button>
             </Link>

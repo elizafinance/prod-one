@@ -96,14 +96,14 @@ export default function NotificationsHistoryPage() {
     return (
         <div className="container mx-auto px-4 py-8 text-center">
             <h1 className="text-3xl font-bold text-white mb-6">Notifications</h1>
-            <p className="text-xl text-gray-400">Please connect your wallet to view your notifications.</p>
+            <p className="text-xl text-muted-foreground">Please connect your wallet to view your notifications.</p>
             {/* Optionally, add a wallet connect button here if you have a global one */} 
         </div>
     );
   }
 
   if (isLoading && notifications.length === 0) { // Show full page loader only if no data yet
-    return <div className="container mx-auto px-4 py-8 text-center text-xl text-gray-400">Loading notifications...</div>;
+    return <div className="container mx-auto px-4 py-8 text-center text-xl text-muted-foreground">Loading notifications...</div>;
   }
 
   if (error) {
@@ -111,9 +111,9 @@ export default function NotificationsHistoryPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8 bg-gray-900 min-h-screen text-gray-100">
+    <div className="container mx-auto px-4 py-8 bg-background min-h-screen text-foreground">
       <div className="max-w-2xl mx-auto">
-        <div className="flex justify-between items-center mb-6 pb-4 border-b border-gray-700">
+        <div className="flex justify-between items-center mb-6 pb-4 border-b border-border">
           <h1 className="text-3xl font-bold text-white">All Notifications</h1>
           {unreadCount > 0 && (
              <button 
@@ -128,14 +128,14 @@ export default function NotificationsHistoryPage() {
 
         {notifications.length === 0 && !isLoading ? (
           <div className="text-center py-10">
-            <p className="text-gray-400 text-lg">You have no notifications.</p>
+            <p className="text-muted-foreground text-lg">You have no notifications.</p>
             <Link href="/quests" className="mt-4 inline-block text-blue-400 hover:underline">
               Explore Quests
             </Link>
           </div>
         ) : (
           <>
-            <div className="space-y-px bg-gray-800 rounded-lg shadow">
+            <div className="space-y-px bg-card rounded-lg shadow">
               {notifications.map(notif => (
                 <NotificationItem 
                   key={notif.notificationId} 
@@ -149,7 +149,7 @@ export default function NotificationsHistoryPage() {
                 <button 
                   onClick={() => handlePageChange(currentPage - 1)} 
                   disabled={currentPage === 1 || isLoading}
-                  className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-4 py-2 bg-muted hover:bg-muted/80 text-foreground rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Previous
                 </button>
@@ -160,11 +160,11 @@ export default function NotificationsHistoryPage() {
                     (currentPage >= totalPages - 2 && pageNumber >= totalPages -2)
                 ).map((pageNumber, index, arr) => (
                     <React.Fragment key={pageNumber}>
-                        {index > 0 && arr[index-1] !== pageNumber -1 && <span className="text-gray-500 px-1">...</span>}
+                        {index > 0 && arr[index-1] !== pageNumber -1 && <span className="text-muted-foreground px-1">...</span>}
                         <button 
                             onClick={() => handlePageChange(pageNumber)} 
                             disabled={isLoading}
-                            className={`px-4 py-2 rounded-md disabled:opacity-50 disabled:cursor-not-allowed ${currentPage === pageNumber ? 'bg-blue-600 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-300'}`}
+                            className={`px-4 py-2 bg-muted hover:bg-muted/80 text-foreground rounded-md disabled:opacity-50 disabled:cursor-not-allowed ${currentPage === pageNumber ? 'bg-blue-600 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-300'}`}
                         >
                             {pageNumber}
                         </button>
@@ -173,7 +173,7 @@ export default function NotificationsHistoryPage() {
                 <button 
                   onClick={() => handlePageChange(currentPage + 1)} 
                   disabled={currentPage === totalPages || isLoading}
-                  className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-4 py-2 bg-muted hover:bg-muted/80 text-foreground rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Next
                 </button>

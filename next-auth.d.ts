@@ -1,34 +1,33 @@
-import 'next-auth';
-import 'next-auth/jwt';
+import NextAuth, { DefaultSession, DefaultUser } from "next-auth";
+import { JWT, DefaultJWT } from "next-auth/jwt";
 
-declare module 'next-auth' {
+declare module "next-auth" {
   /**
    * Returned by `useSession`, `getSession` and received as a prop on the `SessionProvider` React Context
    */
   interface Session {
     user: {
-      /** The user's X ID. */
+      /** The user's xId. */
       xId?: string | null;
       /** The user's database ID. */
       dbId?: string | null;
-      /** The user's wallet address, after linking. */
-      walletAddress?: string | null;
-    } & DefaultSession['user']; // Keep existing DefaultSession user properties like name, email, image
+      /** The user's role. */
+      role?: string | null;
+    } & DefaultSession["user"]; // Keep existing properties like name, email, image
   }
 
-  /** Passed as a parameter to the `signIn` callback. */
-  interface User {
+  interface User extends DefaultUser {
     xId?: string | null;
     dbId?: string | null;
-    walletAddress?: string | null;
+    role?: string | null;
   }
 }
 
-declare module 'next-auth/jwt' {
-  /** Returned by the `jwt` callback and sent to the `session` callback. */
-  interface JWT {
+declare module "next-auth/jwt" {
+  /** Returned by the `jwt` callback and `getToken`, when using JWT sessions */
+  interface JWT extends DefaultJWT {
     xId?: string | null;
     dbId?: string | null;
-    walletAddress?: string | null;
+    role?: string | null;
   }
 } 

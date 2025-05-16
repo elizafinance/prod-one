@@ -45,14 +45,23 @@ export async function POST(request: Request) {
     const usersCollection = db.collection<UserDocument>('users');
 
     // 1. Ensure user record exists and is not already in a squad
-    const currentUserDoc = await usersCollection.findOne({ walletAddress: currentUserWalletAddress });
+    let currentUserDoc = await usersCollection.findOne({ walletAddress: currentUserWalletAddress });
+    // Auto-create minimal user profile if not found
     if (!currentUserDoc) {
-      return NextResponse.json(
-        { error: 'Current user not found in database.' },
-        { status: 404 }
-      );
+      const newUser: UserDocument = {
+        walletAddress: currentUserWalletAddress,
+        xUserId: (session.user as any).id || (session.user as any).sub || currentUserWalletAddress,
+        xUsername: (session.user as any).xUsername || '',
+        xProfileImageUrl: (session.user as any).xProfileImageUrl || '',
+        points: 0,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      } as any;
+      const insertRes = await usersCollection.insertOne(newUser);
+      currentUserDoc = { ...newUser, _id: insertRes.insertedId } as any;
+      console.log(`[Process Invite Link] Auto-created minimal user profile for ${currentUserWalletAddress}`);
     }
-    if (currentUserDoc.squadId) {
+    if (currentUserDoc && currentUserDoc.squadId) {
       return NextResponse.json(
         { error: 'You are already in a squad.' },
         { status: 400 }

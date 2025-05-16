@@ -191,7 +191,7 @@ export default function NotificationsPanel({ isOpen, onClose, onUpdateUnreadCoun
         <FaBell className="h-6 w-6 text-gray-300 hover:text-white" />
         {unreadCount > 0 && (
           <span className="absolute top-0 right-0 block h-2.5 w-2.5 transform -translate-y-1/2 translate-x-1/2">
-            <span className="absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75 animate-ping"></span>
+            {/* Single static badge without continuous ping animation to avoid distracting blink */}
             <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-600"></span>
           </span>
         )}

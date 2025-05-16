@@ -41,11 +41,24 @@ export default async function handler(
     const squadsCollection = db.collection<SquadDocument>('squads');
     const squadJoinRequestsCollection = db.collection<ISquadJoinRequest>('squadjoinrequests');
 
-    const currentUser = await usersCollection.findOne({ walletAddress: userWalletAddress });
+    let currentUser = await usersCollection.findOne({ walletAddress: userWalletAddress });
+    // Auto-create a minimal user profile if none exists (prevents race condition on first ever action)
     if (!currentUser) {
-      return res.status(404).json({ error: 'User profile not found.' });
+      const newUser: UserDocument = {
+        walletAddress: userWalletAddress,
+        xUserId: session.user.id || session.user.sub || userWalletAddress, // fallback to wallet address if xId unavailable
+        xUsername: session.user.xUsername || '',
+        xProfileImageUrl: session.user.xProfileImageUrl || '',
+        points: 0,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      } as any;
+
+      const insertRes = await usersCollection.insertOne(newUser);
+      currentUser = { ...newUser, _id: insertRes.insertedId } as any;
+      console.log(`[Request Join] Auto-created minimal user profile for ${userWalletAddress}`);
     }
-    if (currentUser.squadId) {
+    if (currentUser && currentUser.squadId) {
       return res.status(400).json({ error: 'You are already in a squad. Leave your current squad to request to join another.' });
     }
 

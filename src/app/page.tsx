@@ -656,7 +656,7 @@ export default function HomePage() {
               <div className="flex flex-col space-y-6 animate-fadeUp">
                 {/* Hero Headlines */}
                 <div className="relative text-center lg:text-left">
-                  <div className="flex items-center justify-center gap-3">
+                  <div className="flex items-center align-left gap-3">
                     <div className="relative">
                       <div className="text-center">
                         <h1 className="font-spacegrotesk text-5xl sm:text-6xl font-bold text-[#2B96F1]">

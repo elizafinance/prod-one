@@ -1,47 +1,86 @@
 import { NextResponse } from 'next/server';
 import clientPromise from '@/lib/mongodb';
 
-// Define a simple interface for a Proposal document
-// Adjust this based on your actual Proposal schema in MongoDB
-interface Proposal {
-  _id: string;
-  title: string;
-  description: string;
-  createdAt: Date;
-  slug?: string;
-  // Add other relevant fields like votes, status, etc.
-  currentVotes?: number; 
-  targetVotes?: number;
-}
+const PASS_NET_WEIGHT_TARGET = parseInt(process.env.NEXT_PUBLIC_PROPOSAL_PASS_NET_WEIGHT_TARGET || '1000', 10);
 
 export async function GET() {
   try {
     const client = await clientPromise;
-    const db = client.db(); // Use your default DB or specify one
+    const db = client.db();
 
-    // Fetch the most recent proposal. 
-    // You might want to filter by active proposals or sort by votes in a real scenario.
-    const topProposal = await db.collection<Proposal>('proposals')
-      .find()
-      .sort({ createdAt: -1 }) // Sort by creation date, newest first
+    // Fetch the newest ACTIVE proposal (fallback to newest overall)
+    let proposalDoc = await db.collection('proposals')
+      .find({ status: 'active' })
+      .sort({ createdAt: -1 })
       .limit(1)
-      .toArray();
+      .next();
 
-    if (topProposal.length === 0) {
+    if (!proposalDoc) {
+      proposalDoc = await db.collection('proposals')
+        .find()
+        .sort({ createdAt: -1 })
+        .limit(1)
+        .next();
+    }
+
+    if (!proposalDoc) {
       return NextResponse.json({ error: 'No proposals found' }, { status: 404 });
     }
 
-    // Assuming currentVotes and targetVotes might not exist on all proposals, provide defaults
-    const proposalData = {
-      ...topProposal[0],
-      id: topProposal[0]._id.toString(),
-      currentVotes: topProposal[0].currentVotes || 0,
-      targetVotes: topProposal[0].targetVotes || 1000,
+    // Aggregate votes to build a quick tally
+    const votesAgg = await db.collection('votes').aggregate([
+      { $match: { proposalId: proposalDoc._id } },
+      {
+        $group: {
+          _id: '$choice',
+          totalWeight: { $sum: '$voterPointsAtCast' },
+          count: { $sum: 1 },
+        },
+      },
+    ]).toArray();
+
+    let upVotesWeight = 0;
+    let downVotesWeight = 0;
+    let abstainVotesCount = 0;
+    let upVotesCount = 0;
+    let downVotesCount = 0;
+
+    votesAgg.forEach((row) => {
+      if (row._id === 'up') {
+        upVotesWeight = row.totalWeight;
+        upVotesCount = row.count;
+      } else if (row._id === 'down') {
+        downVotesWeight = row.totalWeight;
+        downVotesCount = row.count;
+      } else if (row._id === 'abstain') {
+        abstainVotesCount = row.count;
+      }
+    });
+
+    const netVoteWeight = upVotesWeight - downVotesWeight;
+    const totalEngagedWeight = upVotesWeight + downVotesWeight;
+
+    const responseBody = {
+      _id: proposalDoc._id.toString(),
+      slug: proposalDoc.slug || null,
+      tokenName: proposalDoc.tokenName,
+      reason: proposalDoc.reason,
+      createdAt: proposalDoc.createdAt,
+      tally: {
+        upVotesWeight,
+        downVotesWeight,
+        netVoteWeight,
+        totalEngagedWeight,
+        upVotesCount,
+        downVotesCount,
+        abstainVotesCount,
+      },
+      targetVotes: PASS_NET_WEIGHT_TARGET,
     };
 
-    return NextResponse.json(proposalData);
+    return NextResponse.json(responseBody);
   } catch (error) {
-    console.error("Failed to fetch top proposal:", error);
+    console.error('Failed to fetch top proposal:', error);
     return NextResponse.json({ error: 'Failed to fetch top proposal' }, { status: 500 });
   }
 } 

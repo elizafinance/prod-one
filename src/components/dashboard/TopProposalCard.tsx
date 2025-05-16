@@ -6,13 +6,14 @@ import { Button } from '@/components/ui/button';
 
 interface ProposalData {
   _id: string;
-  title: string;
-  description: string;
-  createdAt: string; // Dates are often serialized as strings
-  currentVotes: number;
+  tokenName: string;
+  reason: string;
+  createdAt: string;
+  tally: {
+    totalEngagedWeight: number;
+  };
   targetVotes: number;
   slug?: string;
-  // Add other fields from your Proposal interface if needed
 }
 
 const TopProposalCard: React.FC = () => {
@@ -82,9 +83,10 @@ const TopProposalCard: React.FC = () => {
     <div className="p-4 bg-white/60 backdrop-blur-md shadow-lg rounded-xl border border-gray-200/50">
       <h3 className="text-md font-semibold text-foreground mb-2">Top Proposal</h3>
       <div className="mb-3">
-        <p className="text-sm text-foreground font-medium truncate" title={topProposal.title}>{topProposal.title}</p>
+        <p className="text-sm text-foreground font-medium truncate" title={topProposal.tokenName}>{topProposal.tokenName}</p>
+        <p className="text-xs text-muted-foreground line-clamp-2 mb-1" title={topProposal.reason}>{topProposal.reason}</p>
         <p className="text-xs text-muted-foreground">
-          Votes: {topProposal.currentVotes?.toLocaleString() || 0} / {topProposal.targetVotes?.toLocaleString() || 'N/A'}
+          Weight: {topProposal.tally.totalEngagedWeight.toLocaleString()} / {topProposal.targetVotes.toLocaleString()}
         </p>
       </div>
       <Link href={`/proposals/${topProposal.slug || topProposal._id}`} passHref>

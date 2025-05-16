@@ -122,6 +122,16 @@ export default function AppHeader() {
               }}
             />
 
+            {authStatus !== "authenticated" && (
+              <button
+                onClick={() => signIn('twitter')}
+                className="px-3 py-1.5 bg-[#1DA1F2] hover:bg-[#1A8CD8] text-white rounded-full flex items-center space-x-1 text-sm transition-colors duration-150"
+              >
+                <XIcon />
+                <span className="hidden sm:inline">Login</span>
+              </button>
+            )}
+
             {authStatus === "authenticated" && session?.user?.xProfileImageUrl && (
               <UserAvatar 
                 profileImageUrl={session.user.xProfileImageUrl} 

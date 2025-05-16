@@ -337,7 +337,32 @@ export default function MySquadPage() {
                 </div>
               </div>
               
-              {/* Proposal Creation Button */} 
+              {/* Proposal Creation Button or Message */}
+              {isUserLeader && !canCreateProposal && (
+                <div className="mt-4 pt-4 border-t border-gray-200">
+                  <h4 className="text-md font-semibold text-blue-600 mb-2">Squad Governance</h4>
+                  <p className="text-xs text-gray-500 mb-3">
+                    You must have at least {PROPOSAL_CREATION_MIN_SQUAD_POINTS.toLocaleString()} squad points to create a token proposal.<br />
+                    Your squad currently has <span className="font-bold text-green-600">{mySquadData.totalSquadPoints.toLocaleString()}</span> points.<br />
+                    <span className="text-indigo-700 font-medium block mt-2">
+                      Need more points? Earn more by completing quests, inviting friends, or buy more DeFAI below.
+                    </span>
+                    <a
+                      href="https://dexscreener.com/solana/3jiwexdwzxjva2yd8aherfsrn7a97qbwmdz8i4q6mh7y"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-block mt-2"
+                    >
+                      <Button className="bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg shadow-md transition-all">
+                        Buy DeFAI
+                      </Button>
+                    </a>
+                  </p>
+                  <Button disabled className="w-full py-2.5 bg-gray-300 text-gray-500 font-semibold rounded-lg shadow-none cursor-not-allowed">
+                    Create Token Proposal (Locked)
+                  </Button>
+                </div>
+              )}
               {canCreateProposal && (
                 <div className="mt-4 pt-4 border-t border-gray-200">
                   <h4 className="text-md font-semibold text-blue-600 mb-2">Squad Governance</h4>

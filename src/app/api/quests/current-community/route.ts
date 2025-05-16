@@ -28,19 +28,37 @@ export async function GET() {
 
     const now = new Date();
 
-    const questDoc = await db.collection('communityQuests')
-      .find({
-        scope: 'community',
-        status: { $in: ['active', 'scheduled'] },
-        start_ts: { $lte: now },
-        end_ts: { $gte: now },
-      })
+    let questDoc = await db.collection('communityQuests')
+      .find({ status: 'active' })
       .sort({ end_ts: 1 })
       .limit(1)
       .next();
 
+    // Fallback: active by date
     if (!questDoc) {
-      return NextResponse.json({ error: 'No active community quests found' }, { status: 404 });
+      questDoc = await db.collection('communityQuests')
+        .find({
+          scope: 'community',
+          status: { $in: ['active', 'scheduled'] },
+          start_ts: { $lte: now },
+          end_ts: { $gte: now },
+        })
+        .sort({ end_ts: 1 })
+        .limit(1)
+        .next();
+    }
+
+    // Final fallback: latest quest regardless of status
+    if (!questDoc) {
+      questDoc = await db.collection('communityQuests')
+        .find()
+        .sort({ created_ts: -1 })
+        .limit(1)
+        .next();
+    }
+
+    if (!questDoc) {
+      return NextResponse.json({ error: 'No quests found' }, { status: 404 });
     }
 
     // get progress from redis if exists

@@ -35,7 +35,9 @@ export async function GET(request: Request) {
           },
           calculatedMemberCount: {
             $size: '$memberWalletAddresses' // Count members based on the wallet addresses array
-          }
+          },
+          maxMembers: '$maxMembers',
+          tier: '$tier'
         }
       },
       // Stage 3: Sort by the calculated total points
@@ -55,7 +57,9 @@ export async function GET(request: Request) {
           description: 1,
           leaderWalletAddress: 1,
           totalSquadPoints: '$calculatedTotalSquadPoints', // Rename for client consistency
-          memberCount: '$calculatedMemberCount' // Rename for client consistency
+          memberCount: '$calculatedMemberCount', // Rename for client consistency
+          maxMembers: '$maxMembers',
+          tier: '$tier'
           // Note: memberDetails array is not projected to keep payload smaller
         }
       }

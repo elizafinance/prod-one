@@ -25,6 +25,8 @@ import AirdropSnapshotHorizontal from "@/components/dashboard/AirdropSnapshotHor
 import DashboardActionRow from "@/components/layout/DashboardActionRow";
 import MiniSquadCard from "@/components/dashboard/MiniSquadCard";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import TopProposalCard from "@/components/dashboard/TopProposalCard";
+import SquadGoalQuestCard from "@/components/dashboard/SquadGoalQuestCard";
 
 // Dynamically import WalletMultiButton
 const WalletMultiButtonDynamic = dynamic(
@@ -741,6 +743,12 @@ export default function HomePage() {
                   isLeader={mySquadData?.leaderWalletAddress === wallet.publicKey?.toBase58()}
                   isLoading={isFetchingSquad}
                 />
+                {isRewardsActive && mySquadData && (
+                  <>
+                    <TopProposalCard />
+                    <SquadGoalQuestCard />
+                  </>
+                )}
                 
                 {isRewardsActive && userData?.referralCode && (
                   <div className="p-4 bg-white/60 backdrop-blur-md shadow-lg rounded-xl border border-gray-200/50">
@@ -879,6 +887,12 @@ export default function HomePage() {
                   isLeader={mySquadData?.leaderWalletAddress === wallet.publicKey?.toBase58()}
                   isLoading={isFetchingSquad}
                 />
+                {isRewardsActive && mySquadData && (
+                  <div className="w-full space-y-4 mt-4">
+                    <TopProposalCard />
+                    <SquadGoalQuestCard />
+                  </div>
+                )}
                 {/* Other mobile sections like referral, invites can be added here if needed, or kept simpler */}
                  {userData.referralCode && (
                   <div className="my-3 p-3 bg-card rounded-lg text-center w-full border border-border">

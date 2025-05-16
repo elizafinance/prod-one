@@ -53,16 +53,14 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${inter.variable} ${orbitron.variable} ${spaceGrotesk.variable}`}>
-      <body className={"flex flex-col min-h-screen font-sans"}>
+      <body className={"flex flex-col min-h-screen font-sans bg-background text-foreground"}>
         <SessionProviderWrapper>
           <WalletAdapterProvider>
             <UmiProvider>
               <ThemeProviderWrapper>
                 <AppHeader />
-                <main className="flex-grow bg-background">
-                  <div className="pt-16 bg-white">
-                    {children}
-                  </div>
+                <main className="flex-grow">
+                  {children}
                 </main>
                 <ShadcnToaster />
                 <SonnerToaster richColors position="bottom-right" />

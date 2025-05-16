@@ -10,6 +10,8 @@ import { BellIcon } from '@heroicons/react/24/outline'; // Ensure this is instal
 import useUiStateStore from '@/store/useUiStateStore'; // Import the new UI state store
 import NotificationsPanel from '@/components/notifications/NotificationsPanel'; // Adjust path
 import { toast } from 'sonner'; // Correct import for toast
+import AppNav, { NavItem } from './AppNav'; // Import the new AppNav and NavItem type
+import UserAvatar from "@/components/UserAvatar"; // Assuming you have this for profile
 
 // Dynamically import WalletMultiButton (if used in header)
 const WalletMultiButtonDynamic = dynamic(
@@ -18,6 +20,16 @@ const WalletMultiButtonDynamic = dynamic(
 );
 
 const XIcon = () => <span>✖️</span>; // Placeholder, replace with actual Icon if available
+
+const navItems: NavItem[] = [
+  { href: "/", label: "Dashboard", exact: true },
+  { href: "/leaderboard", label: "Leaderboard" },
+  { href: "/squads/my", label: "My Squad" },
+  { href: "/squads/browse", label: "Squads Browse" },
+  { href: "/proposals", label: "Proposals" },
+  // The Airdrop Checker is part of the Dashboard page, so no separate nav item usually needed
+  // If it were a distinct page: { href: "/airdrop-checker", label: "Airdrop Checker" },
+];
 
 export default function AppHeader() {
   const { data: session, status: authStatus } = useSession();
@@ -66,7 +78,7 @@ export default function AppHeader() {
   };
 
   return (
-    <header className="w-full bg-white backdrop-blur-md shadow-sm sticky top-0 z-30">
+    <header className="w-full bg-background/80 backdrop-blur-md shadow-sm sticky top-0 z-40 border-b border-border">
       {/* DEBUG INFO - REMOVE IN PRODUCTION */}
       <div style={{ position: 'fixed', top: '64px', left: '10px', backgroundColor: 'rgba(0,0,0,0.7)', color: 'white', padding: '5px', fontSize: '10px', zIndex: 9999 }}>
         <p>Auth: {authStatus}</p>
@@ -77,66 +89,44 @@ export default function AppHeader() {
       </div>
       {/* END DEBUG INFO */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
-          {/* Logo */}
-          <div className="flex-shrink-0">
-            <Link href="/" passHref>
-              <div className="text-[#2B96F1] font-semibold text-3xl cursor-pointer">
-                defAI.
-              </div>
-            </Link>
+        <div className="flex justify-between items-center h-16 md:h-20">
+          <div className="flex-1 min-w-0">
+            <AppNav navItems={navItems} />
           </div>
-
-          {/* Right side: Notification Bell, Wallet Button, Auth Button */}
-          <div className="flex items-center space-x-3 sm:space-x-4">
+          <div className="flex items-center space-x-2 sm:space-x-3 ml-auto">
             {authStatus === "authenticated" && connected && (
               <button 
                 onClick={handleOpenNotifications} 
-                className="relative p-2 rounded-full text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-100 dark:focus:ring-offset-gray-800 focus:ring-indigo-500 transition-colors"
+                className="relative p-2 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted focus:outline-none transition-colors"
                 aria-label="View notifications"
               >
-                <BellIcon className="h-6 w-6" />
+                <BellIcon className="h-5 w-5 sm:h-6 sm:w-6" />
                 {unreadNotificationCount > 0 && (
-                  <span className="absolute top-0 right-0 block h-4 w-4 transform -translate-y-1/2 translate-x-1/2 rounded-full bg-red-500 text-white text-xs flex items-center justify-center shadow-solid">
+                  <span className="absolute top-0.5 right-0.5 block h-3 w-3 sm:h-4 sm:w-4 transform -translate-y-1/2 translate-x-1/2 rounded-full bg-red-500 text-white text-[8px] sm:text-xs flex items-center justify-center shadow-solid">
                     {unreadNotificationCount > 9 ? '9+' : unreadNotificationCount}
                   </span>
                 )}
               </button>
             )}
 
-            {/* Revert to using style prop for better control */}
-            {/* <WalletMultiButtonDynamic className="bg-[#2B96F1] hover:bg-blue-700 text-white font-medium py-1.5 px-4 rounded-full text-sm transition-colors" /> */}
             <WalletMultiButtonDynamic 
               style={{
                 backgroundColor: '#2B96F1', 
                 color: 'white', 
-                borderRadius: '9999px', // Fully rounded
-                paddingLeft: '16px', // px-4
-                paddingRight: '16px', // px-4
-                fontSize: '0.875rem', // text-sm
-                lineHeight: '1.25rem',
-                fontWeight: 500, // font-medium
-                height: '36px' // Explicit height h-9
+                borderRadius: '9999px', 
+                paddingLeft: '12px', 
+                paddingRight: '12px', 
+                fontSize: '0.875rem', 
+                height: '36px'
               }}
             />
 
-            {authStatus === "authenticated" && session?.user ? (
-              <div className="flex items-center gap-2 sm:gap-3">
-                <span className="hidden sm:inline text-sm text-gray-700 dark:text-gray-300">Hi, {session.user.name || session.user.xUsername || session.user.xId}</span>
-                <button 
-                  onClick={() => signOut()} 
-                  className="py-1.5 px-3 text-xs sm:text-sm bg-red-500 hover:bg-red-600 text-white font-semibold rounded-md transition-colors h-9" // Added h-9
-                >
-                  Sign Out
-                </button>
-              </div>
-            ) : (
-              <button 
-                onClick={() => signIn('twitter')} 
-                className="bg-[#2B96F1] hover:bg-blue-700 text-white font-medium px-4 rounded-full text-sm transition-colors flex items-center gap-2 h-9" // Added h-9, removed py-1.5 (height handles vertical) 
-              >
-                <XIcon /> Log in with X
-              </button>
+            {authStatus === "authenticated" && session?.user?.xProfileImageUrl && (
+              <UserAvatar 
+                profileImageUrl={session.user.xProfileImageUrl} 
+                username={session.user.xUsername || session.user.name} 
+                size="sm"
+              />
             )}
           </div>
         </div>

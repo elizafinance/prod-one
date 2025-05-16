@@ -9,9 +9,18 @@ const config: Config = {
   theme: {
   	extend: {
   		fontFamily: {
-  			sans: ['var(--font-inter)', 'sans-serif'],
-  			orbitron: ['var(--font-orbitron)', 'sans-serif'],
-  			spacegrotesk: ['var(--font-space-grotesk)', 'sans-serif'],
+  			sans: [
+  				'var(--font-inter)',
+  				'sans-serif'
+  			],
+  			orbitron: [
+  				'var(--font-orbitron)',
+  				'sans-serif'
+  			],
+  			spacegrotesk: [
+  				'var(--font-space-grotesk)',
+  				'sans-serif'
+  			]
   		},
   		backgroundImage: {
   			'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
@@ -62,11 +71,31 @@ const config: Config = {
   				'3': 'hsl(var(--chart-3))',
   				'4': 'hsl(var(--chart-4))',
   				'5': 'hsl(var(--chart-5))'
-  			},
+  			}
   		},
   		animation: {
-  			"pulse-slow": "pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite",
+  			'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+  			'accordion-down': 'accordion-down 0.2s ease-out',
+  			'accordion-up': 'accordion-up 0.2s ease-out'
   		},
+  		keyframes: {
+  			'accordion-down': {
+  				from: {
+  					height: '0'
+  				},
+  				to: {
+  					height: 'var(--radix-accordion-content-height)'
+  				}
+  			},
+  			'accordion-up': {
+  				from: {
+  					height: 'var(--radix-accordion-content-height)'
+  				},
+  				to: {
+  					height: '0'
+  				}
+  			}
+  		}
   	}
   },
   plugins: [require("tailwindcss-animate")],

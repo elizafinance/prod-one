@@ -2,198 +2,111 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { io, Socket } from 'socket.io-client';
-import { useCommunityQuestProgressStore, useSquadQuestProgressStore, QuestProgressData } from '@/store/useQuestProgressStore'; // Adjust path if needed
+import { Button } from '@/components/ui/button'; // Assuming you use this
 
-// Define the structure of the quest data we expect from the API
-interface QuestDisplayData {
+// Interface for individual quest data - adjust based on your actual data structure
+interface Quest {
   _id: string;
   title: string;
-  description_md: string; // Assuming markdown, will need a parser component later
-  goal_type: string;
-  goal_target: number; // The original goal target from DB
-  reward_type: string;
-  reward_points?: number;
-  reward_nft_id?: string;
-  start_ts: string; // ISO date string
-  end_ts: string;   // ISO date string
-  status: string;
-  // Fields added by the API endpoint, resolved from Redis or quest data
-  progress: number; 
-  goal: number; // This is the `goal_target` value used for display, might be same as quest.goal_target
+  description?: string;
+  status?: string;
+  goal_target?: number; // Or whatever your target field is called
+  progress?: number;    // Current progress
+  reward_description?: string; // Or reward field
+  start_ts?: string;    // Dates are often strings from API
+  end_ts?: string;
+  // Add any other fields you expect from the /api/quests/all endpoint
 }
 
-// Structure of the progress update event from WebSocket
-interface QuestProgressUpdateEvent {
-  questId: string;
-  currentProgress: number;
-  goalTarget: number; // This might be redundant if `goal` in QuestDisplayData is always up-to-date
-  // Include other fields if the event sends more, e.g., lastContributorWalletAddress, updatedAt
-}
-
-// Helper to calculate remaining time (simplified)
-function calculateRemainingTime(endDateString: string): string {
-  const now = new Date();
-  const endDate = new Date(endDateString);
-  const diff = endDate.getTime() - now.getTime();
-
-  if (diff <= 0) {
-    return 'Ended';
-  }
-
-  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-  const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
-  const minutes = Math.floor((diff / (1000 * 60)) % 60);
-
-  if (days > 0) return `${days}d ${hours}h left`;
-  if (hours > 0) return `${hours}h ${minutes}m left`;
-  if (minutes > 0) return `${minutes}m left`;
-  return 'Ending soon';
-}
-
-// Simple Progress Bar Component
-const ProgressBar: React.FC<{ current: number; goal: number }> = ({ current, goal }) => {
-  const percentage = goal > 0 ? Math.min((current / goal) * 100, 100) : 0;
-  return (
-    <div className="w-full bg-gray-700 rounded-full h-2.5 dark:bg-gray-600 my-2">
-      <div 
-        className="bg-blue-600 h-2.5 rounded-full dark:bg-blue-500 transition-all duration-500 ease-out"
-        style={{ width: `${percentage}%` }}
-      ></div>
-    </div>
-  );
-};
-
-export default function QuestsPage() {
-  const [quests, setQuests] = useState<QuestDisplayData[]>([]);
+const QuestsPage = () => {
+  const [quests, setQuests] = useState<Quest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    async function fetchQuests() {
+    const fetchQuests = async () => {
+      setIsLoading(true);
+      setError(null);
       try {
-        setIsLoading(true);
-        const response = await fetch('/api/quests');
+        // IMPORTANT: Use the correct path for your renamed "all quests" API route
+        const response = await fetch('/api/quests/all'); 
         if (!response.ok) {
           const errorData = await response.json();
-          throw new Error(errorData.error || `Failed to fetch quests: ${response.status}`);
+          throw new Error(errorData.error || `Failed to fetch quests: ${response.statusText}`);
         }
-        const data: QuestDisplayData[] = await response.json();
+        const data: Quest[] = await response.json();
         setQuests(data);
       } catch (err: any) {
         console.error("Error fetching quests:", err);
-        setError(err.message || 'An unknown error occurred');
+        setError(err.message || "Could not load quests.");
+        setQuests([]);
       } finally {
         setIsLoading(false);
       }
-    }
+    };
+
     fetchQuests();
   }, []);
 
-  useEffect(() => {
-    // Initialize stores or fetch initial data if needed
-    const { setCommunityQuestProgress } = useCommunityQuestProgressStore.getState();
-    const { setSquadQuestProgress } = useSquadQuestProgressStore.getState();
-
-    const WEBSOCKET_SERVER_URL = process.env.NEXT_PUBLIC_WEBSOCKET_URL || 'http://localhost:3001';
-    console.log(`[QuestsPage/WS] Connecting to WebSocket server: ${WEBSOCKET_SERVER_URL}`);
-
-    const socket: Socket = io(WEBSOCKET_SERVER_URL, {
-        // transports: ['websocket'], // Optional: force websocket only
-        // reconnectionAttempts: 5,
-    });
-
-    socket.on('connect', () => {
-        console.log('[QuestsPage/WS] Connected to WebSocket server:', socket.id);
-    });
-
-    socket.on('disconnect', (reason) => {
-        console.log('[QuestsPage/WS] Disconnected from WebSocket server:', reason);
-    });
-
-    socket.on('connect_error', (error) => {
-        console.error('[QuestsPage/WS] Connection Error:', error);
-    });
-
-    // Listener for quest progress updates
-    socket.on('quest_progress_update', (data: QuestProgressData) => {
-        console.log('[QuestsPage/WS] Received quest_progress_update:', data);
-        if (data.scope === 'squad' && data.squadId) {
-            setSquadQuestProgress(data);
-        } else if (data.scope === 'community') {
-            setCommunityQuestProgress(data);
-        } else {
-            console.warn('[QuestsPage/WS] Received progress update with unknown scope or missing squadId for squad scope:', data);
-        }
-    });
-
-    return () => {
-        console.log('[QuestsPage/WS] Disconnecting WebSocket...');
-        socket.disconnect();
-    };
-}, []); // Ensure correct dependencies if any external setters are used directly in effect
-
   if (isLoading) {
     return (
-      <div className="container mx-auto px-4 py-8 text-center">
-        <p className="text-xl text-gray-400">Loading community quests...</p>
-        {/* You can add a spinner or skeleton loader here */}
-      </div>
+      <main className="container mx-auto px-4 py-8">
+        <h1 className="text-3xl font-bold mb-6 text-center">Community Quests</h1>
+        <p className="text-center text-muted-foreground">Loading quests...</p>
+      </main>
     );
   }
 
   if (error) {
     return (
-      <div className="container mx-auto px-4 py-8 text-center">
-        <p className="text-xl text-red-500">Error loading quests: {error}</p>
-      </div>
-    );
-  }
-
-  if (quests.length === 0) {
-    return (
-      <div className="container mx-auto px-4 py-8 text-center">
-        <h1 className="text-4xl font-bold mb-8 text-white">Community Quests</h1>
-        <p className="text-xl text-gray-400">No active community quests at the moment. Check back soon!</p>
-      </div>
+      <main className="container mx-auto px-4 py-8">
+        <h1 className="text-3xl font-bold mb-6 text-center">Community Quests</h1>
+        <p className="text-center text-red-500">Error: {error}</p>
+      </main>
     );
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <h1 className="text-4xl font-bold mb-12 text-center text-white">Community Quests</h1>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-        {quests.map((quest) => (
-          <Link href={`/quests/${quest._id}`} key={quest._id} className="block group">
-            <div className="bg-gray-800 border border-gray-700 rounded-lg p-6 shadow-lg hover:shadow-blue-500/30 transition-all duration-300 h-full flex flex-col">
-              <h2 className="text-2xl font-semibold mb-3 text-blue-400 group-hover:text-blue-300">{quest.title}</h2>
-              {/* For Markdown, you'd use a library like react-markdown */}
-              <p className="text-gray-400 mb-4 text-sm leading-relaxed flex-grow min-h-[60px]">
-                {quest.description_md.substring(0, 150)}{quest.description_md.length > 150 ? '...' : ''}
-              </p>
+    <main className="container mx-auto px-4 py-8">
+      <h1 className="text-3xl font-bold mb-8 text-center">Community Quests</h1>
+      {quests.length === 0 ? (
+        <p className="text-center text-muted-foreground">No quests available at the moment. Check back soon!</p>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {quests.map((quest) => (
+            <div key={quest._id} className="bg-card p-6 rounded-lg shadow-lg border border-border">
+              <h2 className="text-xl font-semibold text-foreground mb-2 truncate" title={quest.title}>{quest.title}</h2>
+              {quest.description && <p className="text-sm text-muted-foreground mb-3 min-h-[40px]">{quest.description.substring(0,100)}{quest.description.length > 100 ? '...':''}</p>}
               
-              <div className="mt-auto">
-                <div className="mb-2">
-                  <span className="text-sm font-medium text-gray-300">
-                    Progress: {quest.progress.toLocaleString()} / {quest.goal.toLocaleString()} 
-                    ({quest.goal_type === 'users_at_tier' ? 'Users' : quest.goal_type === 'total_referrals' ? 'Referrals' : 'Units'})
-                  </span>
-                  <ProgressBar current={quest.progress} goal={quest.goal} />
+              {quest.status && (
+                <p className="text-xs mb-1">
+                  Status: <span className={`font-medium ${quest.status === 'active' ? 'text-green-500' : 'text-gray-500'}`}>{quest.status}</span>
+                </p>
+              )}
+              {quest.goal_target !== undefined && (
+                <p className="text-xs mb-1">Goal: {quest.goal_target.toLocaleString()}</p>
+              )}
+              {quest.progress !== undefined && (
+                 <div className="w-full bg-muted rounded-full h-2 my-2">
+                    <div 
+                        className="bg-blue-600 h-2 rounded-full"
+                        style={{ width: `${quest.goal_target && quest.goal_target > 0 ? (quest.progress / quest.goal_target) * 100 : 0}%` }}
+                    ></div>
                 </div>
-                
-                <div className="text-xs text-gray-500 mb-1">
-                  <span>Ends: {new Date(quest.end_ts).toLocaleDateString()}</span>
-                </div>
-                <div className="text-sm font-bold text-yellow-400">
-                  {calculateRemainingTime(quest.end_ts)}
-                </div>
-                {/* TODO: Add reward display logic */}
-                {/* <p className="text-xs text-green-400 mt-2">Reward: {quest.reward_points} points</p> */}
-              </div>
+              )}
+              {quest.reward_description && <p className="text-xs text-amber-500 mb-3">Reward: {quest.reward_description}</p>}
+              
+              <Link href={`/quests/${quest._id}`} passHref>
+                <Button variant="outline" className="w-full mt-auto">
+                  View Details
+                </Button>
+              </Link>
             </div>
-          </Link>
-        ))}
-      </div>
-    </div>
+          ))}
+        </div>
+      )}
+    </main>
   );
-} 
+};
+
+export default QuestsPage; 

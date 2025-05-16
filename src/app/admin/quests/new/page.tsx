@@ -164,17 +164,22 @@ export default function CreateQuestPage() {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8 min-h-screen">
+    <div className="container mx-auto px-4 py-8 min-h-screen bg-background">
       <div className="max-w-2xl mx-auto">
         <div className="flex justify-between items-center mb-8">
             <h1 className="text-3xl font-bold text-foreground">Create New Community Quest</h1>
-            <Link href="/admin/quests" className="text-[#2B96F1] hover:text-blue-600 transition-colors">&larr; Back to Quests</Link>
+            <Link href="/admin/quests" className="text-[#2B96F1] hover:text-blue-600 transition-colors flex items-center gap-2">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" />
+              </svg>
+              Back to Quests
+            </Link>
         </div>
 
         {error && <p className="mb-4 p-3 bg-destructive/30 border border-destructive text-destructive-foreground rounded-md">Error: {error}</p>}
         {successMessage && <p className="mb-4 p-3 bg-green-700/30 border border-green-500 text-green-300 rounded-md">{successMessage}</p>}
 
-        <form onSubmit={handleSubmit} className="space-y-6 bg-card p-8 rounded-lg shadow-xl border">
+        <form onSubmit={handleSubmit} className="space-y-6 bg-card p-8 rounded-lg shadow-xl border border-border">
           <div>
             <label htmlFor="title" className="block text-sm font-medium text-foreground mb-1">Title</label>
             <input type="text" name="title" id="title" required value={formData.title} onChange={handleChange} className={`w-full bg-background border-input text-foreground rounded-md shadow-sm focus:ring-[#2B96F1] focus:border-[#2B96F1] p-2.5 ${fieldErrors.title ? 'border-destructive' : ''}`} />
@@ -293,8 +298,23 @@ export default function CreateQuestPage() {
 
           <div className="flex justify-end pt-4">
             <Link href="/admin/quests" className="text-muted-foreground hover:text-foreground px-4 py-2 rounded-md mr-3 transition-colors">Cancel</Link>
-            <button type="submit" disabled={isLoading} className="bg-[#2B96F1] hover:bg-blue-600 disabled:bg-blue-800 text-white font-semibold py-2 px-6 rounded-md shadow-md transition-colors">
-              {isLoading ? 'Creating...' : 'Create Quest'}
+            <button type="submit" disabled={isLoading} className="bg-[#2B96F1] hover:bg-blue-600 disabled:bg-blue-800 text-white font-semibold py-2 px-6 rounded-md shadow-md transition-colors flex items-center gap-2">
+              {isLoading ? (
+                <>
+                  <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Creating...
+                </>
+              ) : (
+                <>
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-8.707l-3-3a1 1 0 00-1.414 0l-3 3a1 1 0 001.414 1.414L9 9.414V13a1 1 0 102 0V9.414l1.293 1.293a1 1 0 001.414-1.414z" clipRule="evenodd" />
+                  </svg>
+                  Create Quest
+                </>
+              )}
             </button>
           </div>
         </form>

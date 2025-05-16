@@ -657,13 +657,17 @@ export default function HomePage() {
                 {/* Hero Headlines */}
                 <div className="relative text-center lg:text-left">
                   <div className="flex items-center justify-center gap-3">
-                    <h1 className="font-spacegrotesk text-5xl sm:text-6xl font-bold text-[#2B96F1]">
-                      Banking AI Agents
-                    </h1>
+                    <div className="relative">
+                      <div className="text-center">
+                        <h1 className="font-spacegrotesk text-5xl sm:text-6xl font-bold text-[#2B96F1]">
+                          Banking AI Agents
+                        </h1>
+                        <h2 className="font-spacegrotesk text-5xl sm:text-6xl font-bold text-black">
+                          Rewarding Humans
+                        </h2>
+                      </div>
+                    </div>
                   </div>
-                  <h2 className="font-spacegrotesk text-5xl sm:text-6xl font-bold text-black">
-                    Rewarding Humans
-                  </h2>
                   <p className="mt-3 text-muted-foreground max-w-xl mx-auto lg:mx-0">
                     Welcome to DeFAIRewards. Check eligibility, activate your account, complete actions to earn {TOKEN_LABEL_POINTS}, and climb the leaderboard!
                   </p>
@@ -814,14 +818,14 @@ export default function HomePage() {
           <div className="w-full max-w-3xl mx-auto px-4 pt-2 pb-8 flex flex-col items-center">
             {/* Illustration and Headlines for Mobile (can be simpler or same as desktop) */}
             <div className="relative text-center mt-4 mb-6">
-              <div className="flex items-center justify-center gap-2 mb-2">
+              <div className="text-center mb-6 mt-4">
                 <h1 className="relative z-10 font-spacegrotesk text-4xl font-bold text-[#2B96F1]">
                   Banking AI Agents
                 </h1>
+                <h2 className="relative z-10 font-spacegrotesk text-4xl font-bold text-black">
+                  Rewarding Humans
+                </h2>
               </div>
-              <h2 className="relative z-10 font-spacegrotesk text-4xl font-bold text-black">
-                Rewarding Humans
-              </h2>
               <p className="relative z-10 mt-3 text-sm text-muted-foreground max-w-md mx-auto">
                 Welcome to DeFAIRewards. Check eligibility, activate your account, complete actions to earn {TOKEN_LABEL_POINTS}, and climb the leaderboard!
               </p>

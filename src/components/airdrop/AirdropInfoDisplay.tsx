@@ -32,7 +32,6 @@ const AirdropInfoDisplay: React.FC<AirdropInfoDisplayProps> = ({ onNotConnected,
   const tokenDecimals = parseInt(process.env.NEXT_PUBLIC_DEFAI_TOKEN_DECIMALS || '9', 10);
   const snapshotDateString = process.env.NEXT_PUBLIC_AIRDROP_SNAPSHOT_DATE_STRING || "May 20th";
   const airdropPoolSize = parseInt(process.env.NEXT_PUBLIC_AIRDROP_POINTS_POOL_SIZE || '1000000000', 10);
-  const airdropTokenSymbol = process.env.NEXT_PUBLIC_AIRDROP_TOKEN_SYMBOL || "AIR";
 
   // useEffect for onTotalAirdropChange: Moved to top, depends on constituent states.
   useEffect(() => {
@@ -223,7 +222,7 @@ const AirdropInfoDisplay: React.FC<AirdropInfoDisplayProps> = ({ onNotConnected,
         <div className="flex items-center justify-center mb-6">
           <GiftIcon className={`w-10 h-10 mr-3 ${accentTextColor}`} />
           <h2 className={`text-3xl font-bold font-orbitron ${headlineColor}`}>
-            Your {airdropTokenSymbol} Airdrop Snapshot
+            Your {TOKEN_LABEL_AIR} Airdrop Snapshot
           </h2>
         </div>
       )}
@@ -235,7 +234,7 @@ const AirdropInfoDisplay: React.FC<AirdropInfoDisplayProps> = ({ onNotConnected,
             <span className={`${textColor} text-lg`}>Initial {TOKEN_LABEL_AIR} Allocation:</span>
           </div>
           <span className={`text-xl font-semibold ${accentTextColor} text-transparent bg-clip-text bg-gradient-to-r from-teal-400 via-cyan-400 to-sky-400`}>
-            {initialAirdropAllocation !== null ? initialAirdropAllocation.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0}) : 'N/A'} {airdropTokenSymbol}
+            {initialAirdropAllocation !== null ? initialAirdropAllocation.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0}) : 'N/A'} {TOKEN_LABEL_AIR}
           </span>
         </div>
 
@@ -265,14 +264,14 @@ const AirdropInfoDisplay: React.FC<AirdropInfoDisplayProps> = ({ onNotConnected,
             <span>Snapshot on: <strong className={`${accentTextColor}`}>{snapshotDateString}</strong></span>
           </div>
           <p className={`${textColor} text-sm leading-relaxed`}>
-            If you hold DeFAI during the snapshot, you will receive <strong className={`${accentTextColor} text-transparent bg-clip-text bg-gradient-to-r from-green-400 via-teal-400 to-emerald-400`}>{defaiBalance !== null ? defaiBalance.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2}) : 'your current'} {airdropTokenSymbol}</strong> tokens (1:1 with your DeFAI balance) <strong className={`${accentTextColor}`}>PLUS</strong> a share of the <strong className={`${accentTextColor} text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 via-amber-400 to-orange-400`}>{(airdropPoolSize || 0).toLocaleString()} {airdropTokenSymbol}</strong> community pool based on your points!
+            If you hold DeFAI during the snapshot, you will receive <strong className={`${accentTextColor} text-transparent bg-clip-text bg-gradient-to-r from-green-400 via-teal-400 to-emerald-400`}>{defaiBalance !== null ? defaiBalance.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2}) : 'your current'} {TOKEN_LABEL_AIR}</strong> tokens (1:1 with your DeFAI balance) <strong className={`${accentTextColor}`}>PLUS</strong> a share of the <strong className={`${accentTextColor} text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 via-amber-400 to-orange-400`}>{(airdropPoolSize || 0).toLocaleString()} {TOKEN_LABEL_AIR}</strong> community pool based on your points!
           </p>
         </div>
 
         <div className={`p-5 ${backgroundColor} rounded-lg ${borderColor} border shadow-md`}>
-          <h3 className={`text-lg font-semibold text-center ${headlineColor} mb-2`}>Estimated Points-Based Airdrop:</h3>
+          <h3 className={`text-lg font-semibold text-center ${headlineColor} mb-2`}>Estimated {TOKEN_LABEL_POINTS}-Based Airdrop:</h3>
           <p className={`text-3xl font-bold text-center ${accentTextColor} text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 via-amber-400 to-orange-500 mb-1`}>
-            {pointsShare.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})} {airdropTokenSymbol}
+            {pointsShare.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})} {TOKEN_LABEL_AIR}
           </p>
           {totalCommunityPoints === null && userPoints !== null && userPoints > 0 && (
             <p className={`text-xs text-center ${textColor} opacity-75`}>(Finalizing estimate based on total community points...)</p>
@@ -281,7 +280,7 @@ const AirdropInfoDisplay: React.FC<AirdropInfoDisplayProps> = ({ onNotConnected,
         </div>
 
         <div className="pt-3 text-center">
-          <p className={`${textColor} text-lg mb-1`}>Total Estimated <span className={`font-bold ${accentTextColor} text-transparent bg-clip-text bg-gradient-to-r from-sky-400 via-cyan-400 to-blue-400`}>{airdropTokenSymbol}</span> Airdrop:</p>
+          <p className={`${textColor} text-lg mb-1`}>Total Estimated <span className={`font-bold ${accentTextColor} text-transparent bg-clip-text bg-gradient-to-r from-sky-400 via-cyan-400 to-blue-400`}>{TOKEN_LABEL_AIR}</span> Airdrop:</p>
           <p className={`text-5xl font-extrabold font-orbitron ${accentTextColor} text-transparent bg-clip-text bg-gradient-to-tr from-blue-400 via-sky-300 to-cyan-400 animate-pulse`}>
             {totalEstimatedAirdrop.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})}
           </p>

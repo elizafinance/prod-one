@@ -8,6 +8,7 @@ import { SquadDocument } from '@/lib/mongodb';
 import { toast } from 'sonner';
 import CreateProposalModal from '@/components/modals/CreateProposalModal';
 import { Button } from "@/components/ui/button";
+import { TOKEN_LABEL_POINTS } from '@/lib/labels';
 
 interface MySquadData extends SquadDocument {
   totalSquadPoints: number;
@@ -324,8 +325,8 @@ export default function MySquadPage() {
               <div className="p-4 bg-white/80 rounded-lg border border-gray-200">
                 <p className="text-lg font-semibold text-gray-800">Name: <span className="text-indigo-600 font-bold">{mySquadData.name}</span></p>
                 {mySquadData.description && <p className="text-sm text-gray-600 mt-1 italic">&quot;{mySquadData.description}&quot;</p>}
-                <p className="text-sm text-gray-600 mt-2">Points: <span className="font-bold text-green-600">{mySquadData.totalSquadPoints.toLocaleString()}</span></p>
-                <p className="text-sm text-gray-600">Members: <span className="font-semibold">{mySquadData.memberWalletAddresses.length} / {mySquadData.maxMembers || process.env.NEXT_PUBLIC_MAX_SQUAD_MEMBERS || 10}</span></p>
+                <p className="text-sm text-gray-600 mt-2">{TOKEN_LABEL_POINTS}: <span className="font-bold text-green-600">{mySquadData.totalSquadPoints.toLocaleString()}</span></p>
+                <p className="text-sm text-gray-600">Max Members: <span className="font-bold">{getMaxMembersForPoints(mySquadData.totalSquadPoints)}</span></p>
                 
                 <div className="mt-3 text-xs bg-indigo-100 p-2 rounded border border-indigo-200">
                   {isUserLeader ? (
@@ -402,8 +403,8 @@ export default function MySquadPage() {
                     ) : (
                       <div className="mb-4 p-3 bg-gray-100 rounded-lg border border-gray-300">
                         <p className="text-gray-600">
-                          You need at least {minRequiredPoints.toLocaleString()} points to create a squad.<br/>
-                          Your current points: <span className="font-semibold">{userPoints?.toLocaleString() || '0'}</span>
+                          You need at least {minRequiredPoints.toLocaleString()} DeFAI {TOKEN_LABEL_POINTS} to create a new squad.<br/>
+                          Your current {TOKEN_LABEL_POINTS}: <span className="font-semibold">{userPoints?.toLocaleString() || '0'}</span>
                         </p>
                       </div>
                     )}

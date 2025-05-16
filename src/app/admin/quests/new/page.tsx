@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { TOKEN_LABEL_POINTS } from '@/lib/labels';
 
 const GOAL_TYPES = [
   { value: 'total_referrals', label: 'Total Referrals (Community)' },
@@ -88,7 +89,7 @@ export default function CreateQuestPage() {
       errors.end_ts = 'End date must be after start date.';
     }
     if ((formData.reward_type === 'points' || formData.reward_type === 'points+nft') && (!formData.reward_points || Number(formData.reward_points) <= 0)) {
-      errors.reward_points = 'Valid reward points (positive number) required.';
+      errors.reward_points = `Valid reward ${TOKEN_LABEL_POINTS} (positive number) required.`;
     }
     if ((formData.reward_type === 'nft' || formData.reward_type === 'points+nft') && !formData.reward_nft_id?.trim()) {
       errors.reward_nft_id = 'Reward NFT ID/Identifier is required.';
@@ -269,7 +270,7 @@ export default function CreateQuestPage() {
             </div>
             {(formData.reward_type === 'points' || formData.reward_type === 'points+nft') && (
                 <div>
-                    <label htmlFor="reward_points" className="block text-sm font-medium text-foreground mb-1">Reward Points</label>
+                    <label htmlFor="reward_points" className="block text-sm font-medium text-foreground mb-1">Reward {TOKEN_LABEL_POINTS}</label>
                     <input type="number" name="reward_points" id="reward_points" min="1" value={formData.reward_points} onChange={handleChange} className={`w-full bg-background border-input text-foreground rounded-md shadow-sm focus:ring-[#2B96F1] focus:border-[#2B96F1] p-2.5 ${fieldErrors.reward_points ? 'border-destructive' : ''}`} />
                     {fieldErrors.reward_points && <p className="mt-1 text-xs text-destructive">{fieldErrors.reward_points}</p>}
                 </div>

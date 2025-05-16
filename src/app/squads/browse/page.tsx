@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 import { SquadDocument, ISquadJoinRequest } from '@/lib/mongodb'; // Added ISquadJoinRequest
 import RequestToJoinModal from '@/components/modals/RequestToJoinModal'; // Import the new modal
+import { TOKEN_LABEL_POINTS } from '@/lib/labels';
 
 interface SquadBrowseEntry extends SquadDocument {
   memberCount: number; // Added from leaderboard API projection
@@ -172,7 +173,7 @@ export default function BrowseSquadsPage() {
                     {squad.description && <p className="text-sm text-gray-600 mb-3 line-clamp-3">{squad.description}</p>}
                     <p className="text-sm text-gray-500">Leader: <span className="font-mono text-xs">{squad.leaderWalletAddress.substring(0,6)}...</span></p>
                     <p className="text-sm text-gray-500">Members: {squad.memberCount} / {squad.maxMembers || process.env.NEXT_PUBLIC_MAX_SQUAD_MEMBERS || 50}</p>
-                    <p className="text-lg font-semibold text-transparent bg-clip-text bg-gradient-to-r from-green-500 to-teal-500 mt-1">Points: {squad.totalSquadPoints.toLocaleString()}</p>
+                    <p className="text-lg font-semibold text-transparent bg-clip-text bg-gradient-to-r from-green-500 to-teal-500 mt-1">{TOKEN_LABEL_POINTS}: {squad.totalSquadPoints.toLocaleString()}</p>
                   </div>
                   <div className="mt-4 space-y-2">
                     {(!connected || !publicKey) ? (

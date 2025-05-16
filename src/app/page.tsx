@@ -20,6 +20,7 @@ import DeFAILogo from '@/components/DeFAILogo';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import AirdropInfoDisplay from "@/components/airdrop/AirdropInfoDisplay";
+import { TOKEN_LABEL_AIR, TOKEN_LABEL_POINTS } from '@/lib/labels';
 
 // Dynamically import WalletMultiButton
 const WalletMultiButtonDynamic = dynamic(
@@ -40,18 +41,18 @@ const ShareIcon = () => <span>🔗</span>; // For Share on X specific button
 const pointActivities = [
   { action: "Log in with X (First time)", points: 100, id: 'initial_connection' },
   { action: "Connect Wallet (First time)", points: 100, id: 'wallet_connected_first_time' }, // Assuming you have this from previous step
-  { action: "Share Your Profile on X (Earns Referral Boost!)", points: "🚀 Boost", id: 'shared_milestone_profile_on_x' },
-  { action: "Share Airdrop Result on X", points: 50, id: 'shared_on_x' },
-  { action: "Follow @DeFAIRewards on X", points: 30, id: 'followed_on_x' },
-  { action: "Join DeFAIRewards Telegram", points: 25, id: 'joined_telegram' },
-  { action: "Refer a Friend (they connect wallet after X login)", points: 20, id: 'referral_bonus' },
-  { action: "Airdrop Tier: Bronze (>10k $AIR)", points: 50, id: 'airdrop_tier_bronze' },
-  { action: "Airdrop Tier: Silver (>100k $AIR)", points: 150, id: 'airdrop_tier_silver' },
-  { action: "Airdrop Tier: Gold (>1M $AIR)", points: 300, id: 'airdrop_tier_gold' },
-  { action: "Airdrop Tier: Diamond (>10M $AIR)", points: 500, id: 'airdrop_tier_diamond' },
-  { action: "Airdrop Tier: Master (>100M $AIR)", points: 1000, id: 'airdrop_tier_master' },
-  { action: "Airdrop Tier: Grandmaster (>500M $AIR)", points: 5000, id: 'airdrop_tier_grandmaster' },
-  { action: "Airdrop Tier: Legend (1B $AIR)", points: 10000, id: 'airdrop_tier_legend' },
+  { action: `Share Your Profile on X (Earns Referral Boost!)`, points: "🚀 Boost", id: 'shared_milestone_profile_on_x' },
+  { action: `Share Airdrop Result on X`, points: 50, id: 'shared_on_x' },
+  { action: `Follow @DeFAIRewards on X`, points: 30, id: 'followed_on_x' },
+  { action: `Join DeFAIRewards Telegram`, points: 25, id: 'joined_telegram' },
+  { action: `Refer a Friend (they connect wallet after X login)`, points: 20, id: 'referral_bonus' },
+  { action: `Airdrop Tier: Bronze (>10k ${TOKEN_LABEL_AIR})`, points: 50, id: 'airdrop_tier_bronze' },
+  { action: `Airdrop Tier: Silver (>100k ${TOKEN_LABEL_AIR})`, points: 150, id: 'airdrop_tier_silver' },
+  { action: `Airdrop Tier: Gold (>1M ${TOKEN_LABEL_AIR})`, points: 300, id: 'airdrop_tier_gold' },
+  { action: `Airdrop Tier: Diamond (>10M ${TOKEN_LABEL_AIR})`, points: 500, id: 'airdrop_tier_diamond' },
+  { action: `Airdrop Tier: Master (>100M ${TOKEN_LABEL_AIR})`, points: 1000, id: 'airdrop_tier_master' },
+  { action: `Airdrop Tier: Grandmaster (>500M ${TOKEN_LABEL_AIR})`, points: 5000, id: 'airdrop_tier_grandmaster' },
+  { action: `Airdrop Tier: Legend (1B ${TOKEN_LABEL_AIR})`, points: 10000, id: 'airdrop_tier_legend' },
   // Add more activities here as you define them
 ];
 
@@ -888,7 +889,7 @@ export default function HomePage() {
             </DialogDescription>
           </DialogHeader>
           <div className="py-4 space-y-3 text-sm text-foreground">
-            <p>✨ <span className="font-semibold">Earn Points:</span> Connect your wallet, follow us on X, join Telegram, and share your profile/airdrop results to earn DeFAI points.</p>
+            <p>✨ <span className="font-semibold">Earn {TOKEN_LABEL_POINTS}:</span> Connect your wallet, follow us on X, join Telegram, and share your profile/airdrop results to earn DeFAI {TOKEN_LABEL_POINTS}.</p>
             <p>🚀 <span className="font-semibold">Refer Friends:</span> Share your unique referral link! You earn points when your friends connect their wallet after logging in via your link.</p>
             <p>🛡️ <span className="font-semibold">Join Squads:</span> Team up with others in Squads to boost your points potential and compete on the leaderboard.</p>
             <p>💰 <span className="font-semibold">Check Airdrop:</span> Use the checker to see if your wallet is eligible for the $AIR token airdrop.</p>

@@ -9,6 +9,7 @@ import { useSession } from 'next-auth/react'; // To check user points for voting
 import { useWallet } from '@solana/wallet-adapter-react';
 import bs58 from 'bs58';
 import { useRouter } from 'next/navigation';
+import { TOKEN_LABEL_POINTS } from '@/lib/labels';
 
 interface VoteModalProps {
   isOpen: boolean;
@@ -18,7 +19,7 @@ interface VoteModalProps {
   currentUserPoints: number | null;
 }
 
-const MIN_POINTS_TO_VOTE = parseInt(process.env.NEXT_PUBLIC_MIN_POINTS_TO_VOTE || "500", 10);
+const MIN_POINTS_TO_VOTE = 100; // Example: User needs 100 DeFAI Points to vote
 
 interface UserVoteData {
   choice: 'up' | 'down' | 'abstain';
@@ -204,7 +205,7 @@ const VoteModal: React.FC<VoteModalProps> = ({ isOpen, onClose, proposal, onVote
           <p><strong>Votes:</strong> Up: {proposal.tally.upVotesCount}, Down: {proposal.tally.downVotesCount}, Abstain: {proposal.tally.abstainVotesCount} ({proposal.totalVoters} total)</p>
           {proposal.broadcasted && <p className="font-semibold text-green-600">This proposal has been broadcasted!</p>}
           {currentUserPoints != null && (
-            <p><strong>Your voting weight:</strong> {currentUserPoints.toLocaleString()} pts</p>
+            <p><strong>Your voting weight:</strong> {currentUserPoints.toLocaleString()} {TOKEN_LABEL_POINTS}</p>
           )}
         </div>
 
@@ -223,7 +224,7 @@ const VoteModal: React.FC<VoteModalProps> = ({ isOpen, onClose, proposal, onVote
 
         {!isLoading && !hasVoted && !canUserVoteCheck && currentUserPoints !== null && (
             <div className="my-3 p-3 bg-yellow-50 border border-yellow-200 rounded-md text-yellow-700 text-sm">
-                You need at least {MIN_POINTS_TO_VOTE.toLocaleString()} DeFAI points to vote. Your current points: {currentUserPoints.toLocaleString()}.
+                You need at least {MIN_POINTS_TO_VOTE.toLocaleString()} {TOKEN_LABEL_POINTS} to vote. Your current {TOKEN_LABEL_POINTS}: {currentUserPoints.toLocaleString()}.
             </div>
         )}
         {/* Show if not loading, user hasn't voted, and points couldn't be determined */}
@@ -259,24 +260,48 @@ const VoteModal: React.FC<VoteModalProps> = ({ isOpen, onClose, proposal, onVote
             <div className="flex gap-2 w-full sm:w-auto">
                 <Button 
                     onClick={() => handleVoteSubmit('up')} 
-                    disabled={isSubmittingVote || !canUserVoteCheck}
+                    disabled={isSubmittingVote || (currentUserPoints !== null && currentUserPoints < MIN_POINTS_TO_VOTE)}
                     className="flex-1 bg-green-500 hover:bg-green-600 text-white disabled:opacity-70"
                 >
-                    {isSubmittingVote ? 'Voting...' : '👍 Upvote'}
+                    {isSubmittingVote ? (
+                        <>
+                            <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            Submitting Vote...
+                        </>
+                    ) : '👍 Upvote'}
                 </Button>
                 <Button 
                     onClick={() => handleVoteSubmit('down')} 
-                    disabled={isSubmittingVote || !canUserVoteCheck}
+                    disabled={isSubmittingVote || (currentUserPoints !== null && currentUserPoints < MIN_POINTS_TO_VOTE)}
                     className="flex-1 bg-red-500 hover:bg-red-600 text-white disabled:opacity-70"
                 >
-                    {isSubmittingVote ? 'Voting...' : '👎 Downvote'}
+                    {isSubmittingVote ? (
+                        <>
+                            <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            Submitting Vote...
+                        </>
+                    ) : '👎 Downvote'}
                 </Button>
                 <Button 
                     onClick={() => handleVoteSubmit('abstain')} 
-                    disabled={isSubmittingVote || !canUserVoteCheck}
+                    disabled={isSubmittingVote || (currentUserPoints !== null && currentUserPoints < MIN_POINTS_TO_VOTE)}
                     className="flex-1 bg-gray-500 hover:bg-gray-600 text-white disabled:opacity-70"
                 >
-                    {isSubmittingVote ? 'Voting...' : '👐 Abstain'}
+                    {isSubmittingVote ? (
+                        <>
+                            <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            Submitting Vote...
+                        </>
+                    ) : '👐 Abstain'}
                 </Button>
             </div>
           )}

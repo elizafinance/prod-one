@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useWallet } from '@solana/wallet-adapter-react'; // To ensure user has a wallet connected
 import { toast } from 'sonner';
 import Link from 'next/link';
+import { TOKEN_LABEL_POINTS } from '@/lib/labels';
 
 export default function CreateSquadPage() {
   const router = useRouter();
@@ -147,22 +148,22 @@ export default function CreateSquadPage() {
         {!pointsLoading && !canCreate && (
           <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-center my-4">
             <p className="text-red-700">
-              You need at least <b>{tierRequirements?.minRequiredPoints?.toLocaleString() || '1,000'} DeFAI Points</b> to create a squad.<br />
+              You need at least <b>{tierRequirements?.minRequiredPoints?.toLocaleString() || '1,000'} DeFAI {TOKEN_LABEL_POINTS}</b> to create a squad.<br />
               <br />
               <b className="text-red-800">Squad Tiers:</b><br />
               {tierRequirements?.tiers.map(tier => (
                 <span key={tier.tier} className="text-sm text-muted-foreground">
-                  {tier.minPoints.toLocaleString()} Points: Up to {tier.maxMembers} members<br />
+                  {tier.minPoints.toLocaleString()} {TOKEN_LABEL_POINTS}: Up to {tier.maxMembers} members<br />
                 </span>
               )) || (
                 <span className="text-sm text-muted-foreground">
-                  1,000 Points: Up to 10 members<br />
-                  5,000 Points: Up to 50 members<br />
-                  10,000 Points: Up to 100 members<br />
+                  1,000 {TOKEN_LABEL_POINTS}: Up to 10 members<br />
+                  5,000 {TOKEN_LABEL_POINTS}: Up to 50 members<br />
+                  10,000 {TOKEN_LABEL_POINTS}: Up to 100 members<br />
                 </span>
               )}
               <br />
-              <span className="text-orange-600 font-medium">Your current points: {userPoints !== null ? userPoints.toLocaleString() : 'Loading...'}</span>
+              <span className="text-orange-600 font-medium">Your current {TOKEN_LABEL_POINTS}: {userPoints !== null ? userPoints.toLocaleString() : 'Loading...'}</span>
             </p>
           </div>
         )}

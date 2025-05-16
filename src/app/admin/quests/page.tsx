@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 // import { useRouter } from 'next/navigation'; // Not used directly now
+import { TOKEN_LABEL_POINTS } from '@/lib/labels';
 
 // Define the structure of the quest data from the admin API
 // This should align with the CommunityQuest model + any lean() modifications
@@ -234,9 +235,9 @@ export default function AdminQuestsPage() {
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Reward:</span>
                   <span className="text-foreground font-medium">
-                    {quest.reward_type === 'points' ? `${quest.reward_points} Points` :
+                    {quest.reward_type === 'points' ? `${quest.reward_points} ${TOKEN_LABEL_POINTS}` :
                      quest.reward_type === 'nft' ? 'NFT' :
-                     `${quest.reward_points} Points + NFT`}
+                     `${quest.reward_points} ${TOKEN_LABEL_POINTS} + NFT`}
                   </span>
                 </div>
                 <div className="flex justify-between">

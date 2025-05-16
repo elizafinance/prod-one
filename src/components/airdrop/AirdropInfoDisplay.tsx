@@ -8,6 +8,7 @@ import { getAssociatedTokenAddress, getAccount } from '@solana/spl-token';
 import { toast } from 'sonner';
 import { SparklesIcon, CurrencyDollarIcon, GiftIcon, CalendarDaysIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 import { useSession } from 'next-auth/react';
+import { TOKEN_LABEL_AIR, TOKEN_LABEL_POINTS } from '@/lib/labels';
 
 interface AirdropInfoDisplayProps {
   onNotConnected?: () => React.ReactNode;
@@ -199,6 +200,23 @@ const AirdropInfoDisplay: React.FC<AirdropInfoDisplayProps> = ({ onNotConnected,
   const itemBorderColor = "border-gray-300";
   const accentTextColor = "text-[#2A97F1]"; // For shiny numbers, use the headline color or a specific shiny one
 
+  const tierDisplayName = (tierKey: string) => {
+    const name = tierKey
+      .replace(/^airdrop_tier_/, '')
+      .split('_')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+    // Replace $AIR with the dynamic token label
+    if (tierKey.includes('bronze')) return name.replace('Bronze', `Bronze (>10k ${TOKEN_LABEL_AIR})`);
+    if (tierKey.includes('silver')) return name.replace('Silver', `Silver (>100k ${TOKEN_LABEL_AIR})`);
+    if (tierKey.includes('gold')) return name.replace('Gold', `Gold (>1M ${TOKEN_LABEL_AIR})`);
+    if (tierKey.includes('diamond')) return name.replace('Diamond', `Diamond (>10M ${TOKEN_LABEL_AIR})`);
+    if (tierKey.includes('master')) return name.replace('Master', `Master (>100M ${TOKEN_LABEL_AIR})`);
+    if (tierKey.includes('grandmaster')) return name.replace('Grandmaster', `Grandmaster (>500M ${TOKEN_LABEL_AIR})`);
+    if (tierKey.includes('legend')) return name.replace('Legend', `Legend (1B ${TOKEN_LABEL_AIR})`);
+    return name;
+  };
+
   return (
     <div className={`w-full max-w-lg p-6 md:p-8 my-8 mx-auto ${backgroundColor} ${borderColor} rounded-2xl shadow-xl font-sans`}>
       {showTitle && (
@@ -214,7 +232,7 @@ const AirdropInfoDisplay: React.FC<AirdropInfoDisplayProps> = ({ onNotConnected,
         <div className={`p-4 ${itemBackgroundColor} rounded-lg ${itemBorderColor} border flex items-center justify-between shadow-sm`}>
           <div className="flex items-center">
             <GiftIcon className={`w-7 h-7 mr-3 ${accentTextColor}`} />
-            <span className={`${textColor} text-lg`}>Initial $AIR Allocation:</span>
+            <span className={`${textColor} text-lg`}>Initial {TOKEN_LABEL_AIR} Allocation:</span>
           </div>
           <span className={`text-xl font-semibold ${accentTextColor} text-transparent bg-clip-text bg-gradient-to-r from-teal-400 via-cyan-400 to-sky-400`}>
             {initialAirdropAllocation !== null ? initialAirdropAllocation.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0}) : 'N/A'} {airdropTokenSymbol}
@@ -234,7 +252,7 @@ const AirdropInfoDisplay: React.FC<AirdropInfoDisplayProps> = ({ onNotConnected,
         <div className={`p-4 ${itemBackgroundColor} rounded-lg ${itemBorderColor} border flex items-center justify-between shadow-sm`}>
           <div className="flex items-center">
             <SparklesIcon className={`w-7 h-7 mr-3 ${accentTextColor}`} />
-            <span className={`${textColor} text-lg`}>Your Current Points:</span>
+            <span className={`${textColor} text-lg`}>Your Current {TOKEN_LABEL_POINTS}:</span>
           </div>
           <span className={`text-xl font-semibold ${accentTextColor} text-transparent bg-clip-text bg-gradient-to-r from-purple-400 via-pink-400 to-red-400`}>
             {userPoints !== null ? userPoints.toLocaleString() : 'N/A'}

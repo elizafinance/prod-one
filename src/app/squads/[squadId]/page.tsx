@@ -10,6 +10,7 @@ import UserAvatar from "@/components/UserAvatar";
 import { QuestProgressData, useSquadQuestProgressStore } from '@/store/useQuestProgressStore'; // Adjust path
 // import CommunityQuest from '@/models/communityQuest.model'; // This is the Mongoose model
 import RequestToJoinModal from '@/components/modals/RequestToJoinModal';
+import { TOKEN_LABEL_POINTS } from '@/lib/labels';
 
 // Updated interface to match the enriched data from the new API
 interface EnrichedSquadMember {
@@ -807,8 +808,10 @@ export default function SquadDetailsPage() {
                       size="sm"
                     />
                     <div>
-                      <span className="font-mono block text-foreground">{member.xUsername ? `@${member.xUsername}` : `${member.walletAddress.substring(0,8)}...${member.walletAddress.substring(member.walletAddress.length - 4)}`}</span>
-                      <span className="text-xs text-purple-700">Points: {member.points?.toLocaleString() || 'N/A'}</span>
+                      <p className="text-xs text-muted-foreground">
+                        {member.xUsername ? `@${member.xUsername}` : 'X: N/A'} - 
+                        <span className="text-xs text-purple-700">{TOKEN_LABEL_POINTS}: {member.points?.toLocaleString() || 'N/A'}</span>
+                      </p>
                     </div>
                   </div>
                   <div className="flex items-center space-x-2">

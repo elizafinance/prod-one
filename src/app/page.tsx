@@ -660,7 +660,6 @@ export default function HomePage() {
                     <h1 className="font-spacegrotesk text-5xl sm:text-6xl font-bold text-[#2B96F1]">
                       Banking AI Agents
                     </h1>
-                    <img src={Illustration.src} alt="illustration" className="w-10 h-auto inline-block align-middle" />
                   </div>
                   <h2 className="font-spacegrotesk text-5xl sm:text-6xl font-bold text-black">
                     Rewarding Humans
@@ -819,7 +818,6 @@ export default function HomePage() {
                 <h1 className="relative z-10 font-spacegrotesk text-4xl font-bold text-[#2B96F1]">
                   Banking AI Agents
                 </h1>
-                <img src={Illustration.src} alt="illustration" className="w-10 h-auto inline-block align-middle" />
               </div>
               <h2 className="relative z-10 font-spacegrotesk text-4xl font-bold text-black">
                 Rewarding Humans

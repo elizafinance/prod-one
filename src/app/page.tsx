@@ -665,6 +665,10 @@ export default function HomePage() {
                   <p className="mt-3 text-muted-foreground max-w-xl mx-auto lg:mx-0">
                     Welcome to DeFAIRewards. Check eligibility, activate your account, complete actions to earn {TOKEN_LABEL_POINTS}, and climb the leaderboard!
                   </p>
+                  {/* Floating illustration on desktop */}
+                  <div className="hidden lg:block absolute -right-40 -top-12 pointer-events-none select-none animate-float">
+                    <img src={Illustration.src} alt="illustration" className="w-72 h-auto opacity-80" />
+                  </div>
                 </div>
 
                 {/* Action Buttons Row */}

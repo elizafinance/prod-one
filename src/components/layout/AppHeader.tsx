@@ -139,6 +139,15 @@ export default function AppHeader() {
                 size="sm"
               />
             )}
+
+            {authStatus === "authenticated" && (
+              <button
+                onClick={() => signOut()}
+                className="px-3 py-1.5 bg-muted hover:bg-muted/70 text-foreground rounded-full text-sm transition-colors duration-150"
+              >
+                Sign&nbsp;Out
+              </button>
+            )}
           </div>
         </div>
       </div>

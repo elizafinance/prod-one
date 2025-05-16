@@ -73,7 +73,7 @@ export default function CommunityQuestsBanner({ maxQuestsToShow = 2 }: Community
     async function fetchActiveQuests() {
       try {
         setIsLoading(true);
-        const response = await fetch('/api/quests'); // Fetches all active quests
+        const response = await fetch('/api/quests/all'); // Fetches all active quests
         if (!response.ok) {
           throw new Error('Failed to fetch quests for banner');
         }

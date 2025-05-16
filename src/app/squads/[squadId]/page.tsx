@@ -234,7 +234,7 @@ export default function SquadDetailsPage() {
       if (!squadId) return;
       setIsLoadingQuests(true);
       try {
-        const response = await fetch(`/api/quests?scope=squad&status=active`);
+        const response = await fetch(`/api/quests/all?scope=squad&status=active`);
         if (!response.ok) throw new Error('Failed to fetch squad quests');
         const questsData = await response.json();
         setActiveSquadQuests(questsData.quests || questsData || []);

@@ -656,9 +656,12 @@ export default function HomePage() {
               <div className="flex flex-col space-y-6 animate-fadeUp">
                 {/* Hero Headlines */}
                 <div className="relative text-center lg:text-left">
-                  <h1 className="font-spacegrotesk text-5xl sm:text-6xl font-bold text-[#2B96F1]">
-                    Banking AI Agents
-                  </h1>
+                  <div className="flex items-center justify-center gap-3">
+                    <h1 className="font-spacegrotesk text-5xl sm:text-6xl font-bold text-[#2B96F1]">
+                      Banking AI Agents
+                    </h1>
+                    <img src={Illustration.src} alt="illustration" className="w-10 h-auto inline-block align-middle" />
+                  </div>
                   <h2 className="font-spacegrotesk text-5xl sm:text-6xl font-bold text-black">
                     Rewarding Humans
                   </h2>
@@ -812,12 +815,12 @@ export default function HomePage() {
           <div className="w-full max-w-3xl mx-auto px-4 pt-2 pb-8 flex flex-col items-center">
             {/* Illustration and Headlines for Mobile (can be simpler or same as desktop) */}
             <div className="relative text-center mt-4 mb-6">
-              <div className="absolute top-[-60px] left-1/2 transform -translate-x-1/2 z-0 opacity-30 pointer-events-none">
-                <img src={Illustration.src} alt="" className="w-[300px] h-auto"/>
+              <div className="flex items-center justify-center gap-2 mb-2">
+                <h1 className="relative z-10 font-spacegrotesk text-4xl font-bold text-[#2B96F1]">
+                  Banking AI Agents
+                </h1>
+                <img src={Illustration.src} alt="illustration" className="w-10 h-auto inline-block align-middle" />
               </div>
-              <h1 className="relative z-10 font-spacegrotesk text-4xl font-bold text-[#2B96F1]">
-                Banking AI Agents
-              </h1>
               <h2 className="relative z-10 font-spacegrotesk text-4xl font-bold text-black">
                 Rewarding Humans
               </h2>

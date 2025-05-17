@@ -1,12 +1,14 @@
 // @ts-nocheck
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
+import { useEffect, useRef } from 'react';
+import { useHomePageLogic } from '@/hooks/useHomePageLogic';
 import SiteLogo from "@/assets/logos/favicon.ico"; // Using favicon as the main small logo
 import Illustration from "@/assets/images/tits.png"; // The illustration
 import Link from 'next/link'; // Already imported, but confirming it's here
 import { toast } from 'sonner'; // Import sonner toast
 import { useWallet } from '@solana/wallet-adapter-react'; // Import useWallet
+import { useWalletModal } from '@solana/wallet-adapter-react-ui';
 import dynamic from 'next/dynamic'; // Import dynamic
 import { useSession, signIn, signOut } from "next-auth/react"; // NextAuth hooks
 import { ReferralBoost, SquadDocument, SquadInvitationDocument } from '@/lib/mongodb'; // Import the ReferralBoost interface and SquadDocument
@@ -97,294 +99,59 @@ if (isNaN(REQUIRED_DEFAI_AMOUNT)) {
 export default function HomePage() {
   console.log("[HomePage] Component Rendering/Re-rendering");
 
-  const { data: session, status: authStatus, update: updateSession } = useSession();
-  const wallet = useWallet();
-  const { connection } = useConnection();
-  const router = useRouter();
+  const {
+    // Auth & Wallet
+    session,
+    authStatus,
+    wallet,
+    connection,
 
-  // State for airdrop check (now independent of wallet connection initially)
-  const [typedAddress, setTypedAddress] = useState('');
-  const [airdropCheckResult, setAirdropCheckResult] = useState<string | number | null>(null);
-  const [isCheckingAirdrop, setIsCheckingAirdrop] = useState(false);
-  
-  // State for rewards system (activated after X login AND wallet connection)
-  const [isRewardsActive, setIsRewardsActive] = useState(false);
-  const [isActivatingRewards, setIsActivatingRewards] = useState(false);
-  const [userData, setUserData] = useState<UserData | null>(null);
-  const [mySquadData, setMySquadData] = useState<MySquadData | null>(null);
-  const [isFetchingSquad, setIsFetchingSquad] = useState(false);
-  const [userCheckedNoSquad, setUserCheckedNoSquad] = useState(false);
-  const [initialReferrer, setInitialReferrer] = useState<string | null>(null);
-  const [pendingInvites, setPendingInvites] = useState<EnrichedSquadInvitation[]>([]);
-  const [isFetchingInvites, setIsFetchingInvites] = useState(false);
-  const [isProcessingInvite, setIsProcessingInvite] = useState<string | null>(null); // invitationId being processed
+    // State
+    typedAddress,
+    setTypedAddress,
+    airdropCheckResult,
+    setAirdropCheckResult,
+    isCheckingAirdrop,
+    setIsCheckingAirdrop,
+    isRewardsActive,
+    isActivatingRewards,
+    userData,
+    setUserData,
+    mySquadData,
+    isFetchingSquad,
+    userCheckedNoSquad,
+    initialReferrer,
+    pendingInvites,
+    isFetchingInvites,
+    isProcessingInvite,
+    setIsProcessingInvite,
+    squadInviteIdFromUrl,
+    currentTotalAirdropForSharing,
+    setCurrentTotalAirdropForSharing,
+    isCheckingDefaiBalance,
+    hasSufficientDefai,
+    showWelcomeModal,
+    setShowWelcomeModal,
+    isProcessingLinkInvite,
+    setIsProcessingLinkInvite,
+    activationAttempted,
+    isDesktop,
+    setIsDesktop,
+    totalCommunityPoints,
+    defaiBalance,
+    setDefaiBalance,
 
-  // ---> Add state for squad invite ID from URL
-  const [squadInviteIdFromUrl, setSquadInviteIdFromUrl] = useState<string | null>(null);
-  const [currentTotalAirdropForSharing, setCurrentTotalAirdropForSharing] = useState<number>(0);
+    // Callbacks
+    handleWalletConnectSuccess,
+    fetchMySquadData,
+    fetchPendingInvites,
+    checkDefaiBalance,
+    activateRewardsAndFetchData,
+  } = useHomePageLogic();
 
-  // State for DeFAI balance check
-  const [isCheckingDefaiBalance, setIsCheckingDefaiBalance] = useState(false);
-  const [hasSufficientDefai, setHasSufficientDefai] = useState<boolean | null>(null); // null = not checked, false = insufficient, true = sufficient
-
-  // State for Welcome Modal
-  const [showWelcomeModal, setShowWelcomeModal] = useState(false);
-
-  // State for processing squad invite link (allows invite creation before wallet connect)
-  const [isProcessingLinkInvite, setIsProcessingLinkInvite] = useState(false);
-  // Track whether an activation attempt has already been made for the currently connected wallet
-  const [activationAttempted, setActivationAttempted] = useState(false);
-
-  // Track previous wallet address to detect actual wallet changes (avoid resetting on object identity changes)
-  const [prevWalletAddress, setPrevWalletAddress] = useState<string | null>(null);
-
-  // New state for desktop layout
-  const [isDesktop, setIsDesktop] = useState(false);
-
-  // Added missing state
-  const [totalCommunityPoints, setTotalCommunityPoints] = useState<number | null>(null);
-  const [defaiBalance, setDefaiBalance] = useState<number | null>(null);
-
-  // Callback to link wallet and update session
-  const handleWalletConnectSuccess = useCallback(async () => {
-    console.log("[HomePage] handleWalletConnectSuccess called");
-    if (!wallet.publicKey || !session?.user?.xId) {
-      console.log("[HomePage] handleWalletConnectSuccess: Aborting - no publicKey or session.user.xId", { hasPublicKey: !!wallet.publicKey, hasXId: !!session?.user?.xId });
-      return;
-    }
-    console.log("[HomePage] handleWalletConnectSuccess: Proceeding to link wallet");
-    toast.info("Linking your wallet to your X account...");
-    try {
-      const response = await fetch('/api/users/link-wallet', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ walletAddress: wallet.publicKey.toBase58() }),
-      });
-      const data = await response.json();
-      if (response.ok) {
-        console.log("[HomePage] handleWalletConnectSuccess: Wallet linked successfully via API, updating session.");
-        toast.success(data.message || "Wallet linked successfully!");
-        await updateSession(); 
-      } else {
-        console.error("[HomePage] handleWalletConnectSuccess: API error linking wallet", data);
-        toast.error(data.error || "Failed to link wallet.");
-      }
-    } catch (error) {
-      console.error("[HomePage] handleWalletConnectSuccess: Exception linking wallet", error);
-      toast.error("An error occurred while linking your wallet.");
-    }
-  }, [wallet.publicKey, session, updateSession]); // More specific dependencies
-
-  // This useEffect now also handles calling handleWalletConnectSuccess
-  // if X is authed, wallet is connected, but session doesn't yet have walletAddress.
-  useEffect(() => {
-    console.log("[HomePage] Main Effect Triggered", { authStatus, sessionExists: !!session, walletConnected: wallet.connected, walletAddressInSession: !!session?.user?.walletAddress, isActivatingRewards, isRewardsActive, activationAttempted, isFetchingInvites });
-
-    if (authStatus === "authenticated" && session?.user?.xId && wallet.connected && wallet.publicKey && !session?.user?.walletAddress && !isActivatingRewards) {
-      console.log("[HomePage] Main Effect: Condition for handleWalletConnectSuccess met");
-      handleWalletConnectSuccess();
-    } else if (authStatus === "authenticated" && session?.user?.xId && session?.user?.walletAddress && wallet.connected && wallet.publicKey && !isRewardsActive && !isActivatingRewards && !activationAttempted) {
-      console.log("[HomePage] Main Effect: Condition for activateRewardsAndFetchData met");
-      activateRewardsAndFetchData(wallet.publicKey.toBase58(), session.user.xId, session.user.dbId as string | undefined);
-    } else if (authStatus === "authenticated" && wallet.connected && wallet.publicKey && session?.user?.walletAddress && isRewardsActive && hasSufficientDefai === null && !isCheckingDefaiBalance) {
-      console.log("[HomePage] Main Effect: Condition for checking DeFAI balance met");
-      checkDefaiBalance(wallet.publicKey, connection);
-    } else if (authStatus === "authenticated" && wallet.connected && session?.user?.walletAddress && isRewardsActive && !isFetchingInvites) {
-      console.log("[HomePage] Main Effect: Condition for fetching pending invites met");
-      fetchPendingInvites();
-    }
-
-    if (authStatus === "authenticated" && !wallet.connected && isRewardsActive) {
-      console.log("[HomePage] Main Effect: Wallet disconnected while rewards active, resetting.");
-      setIsRewardsActive(false);
-      setUserData(null);
-      setMySquadData(null);
-      setUserCheckedNoSquad(false);
-      setHasSufficientDefai(null);
-      // No need to clear session.user.walletAddress, as that's tied to DB linkage.
-      // User would need to disconnect from X or link a different wallet.
-    }
-  }, [
-      authStatus, 
-      session, // Consider more granular session properties if session object identity changes frequently
-      wallet.connected, 
-      wallet.publicKey, 
-      isRewardsActive, 
-      isActivatingRewards, 
-      activationAttempted,
-      handleWalletConnectSuccess, 
-      activateRewardsAndFetchData,
-      fetchPendingInvites, // fetchPendingInvites is called directly, its stability is handled by its own useCallback
-      checkDefaiBalance, 
-      hasSufficientDefai, 
-      isCheckingDefaiBalance, 
-      isFetchingInvites,
-      connection,
-    ]);
-
-  // Check required environment variables on component mount
-  useEffect(() => {
-    checkRequiredEnvVars();
-  }, []);
-
-  useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const refCode = urlParams.get('ref');
-    if (refCode) {
-       localStorage.setItem('referralCode', refCode); // Persist ref code
-       setInitialReferrer(refCode);
-    } else {
-       const savedRefCode = localStorage.getItem('referralCode');
-       if (savedRefCode) setInitialReferrer(savedRefCode);
-    }
-
-    // ---> Read squadInvite parameter
-    const squadInviteParam = urlParams.get('squadInvite');
-    if (squadInviteParam) {
-      // Optionally persist this too, or just keep in state
-      setSquadInviteIdFromUrl(squadInviteParam);
-      console.log("[HomePage] Squad Invite ID from URL:", squadInviteParam);
-    }
-
-  }, []);
-
-  // Fetch squad data for the user
-  const fetchMySquadData = useCallback(async (userWalletAddress: string) => {
-    if (!userWalletAddress || isFetchingSquad || userCheckedNoSquad) return;
-    console.log("[HomePage] Fetching squad data for:", userWalletAddress);
-    setIsFetchingSquad(true);
-    try {
-      const response = await fetch(`/api/squads/my-squad?userWalletAddress=${encodeURIComponent(userWalletAddress)}`);
-      if (response.ok) {
-        const data = await response.json();
-        if (data.squad) {
-          console.log("[HomePage] Squad data received:", data.squad);
-          setMySquadData(data.squad as MySquadData);
-          setUserCheckedNoSquad(false);
-        } else {
-          console.log("[HomePage] User not in a squad or no squad data.");
-          setMySquadData(null);
-          setUserCheckedNoSquad(true);
-        }
-      } else {
-        const errorData = await response.json();
-        console.error("[HomePage] Failed to fetch squad data:", errorData.error || response.statusText);
-        setMySquadData(null);
-        if (response.status === 404) {
-          setUserCheckedNoSquad(true);
-        }
-      }
-    } catch (error) {
-      console.error("[HomePage] Error fetching squad data:", error);
-      setMySquadData(null);
-    }
-    setIsFetchingSquad(false);
-  }, [isFetchingSquad, userCheckedNoSquad]);
-
-  const fetchPendingInvites = useCallback(async () => {
-    console.log("[HomePage] fetchPendingInvites called");
-    if (!wallet.connected || !session || !session.user?.xId) {
-        console.log("[HomePage] fetchPendingInvites: Aborting - wallet not connected or no session/xId.");
-        return;
-    }
-    if(isFetchingInvites) {
-        console.log("[HomePage] fetchPendingInvites: Aborting - already fetching.");
-        return;
-    }
-    setIsFetchingInvites(true);
-    console.log("[HomePage] fetchPendingInvites: Fetching...");
-    try {
-      const response = await fetch('/api/squads/invitations/my-pending');
-      if (response.ok) {
-        const data = await response.json();
-        setPendingInvites(data.invitations || []);
-        console.log("[HomePage] fetchPendingInvites: Success", data);
-      } else {
-        console.error("[HomePage] fetchPendingInvites: API error", await response.text());
-        setPendingInvites([]);
-      }
-    } catch (error) {
-      console.error("[HomePage] fetchPendingInvites: Exception", error);
-      setPendingInvites([]);
-    }
-    setIsFetchingInvites(false);
-  }, [wallet.connected, session, isFetchingInvites]); // Added isFetchingInvites to prevent re-entry if already true
-
-  const checkDefaiBalance = useCallback(async (userPublicKey: PublicKey | null, conn: any) => {
-    if (!userPublicKey || !conn) {
-        console.log("[HomePage] checkDefaiBalance: Aborting - no publicKey or connection");
-        return;
-    }
-    console.log("[HomePage] checkDefaiBalance called with", userPublicKey.toBase58());
-    setIsCheckingDefaiBalance(true);
-    // ... actual implementation to check balance ...
-    // setHasSufficientDefai(...);
-    setIsCheckingDefaiBalance(false);
-  }, []); // Add dependencies if conn or other external vars are used meaningfully
-
-  const activateRewardsAndFetchData = useCallback(async (connectedWalletAddress: string, xUserId: string, userDbId: string | undefined) => {
-    console.log("[HomePage] activateRewardsAndFetchData called", { connectedWalletAddress, xUserId, userDbId, initialReferrer, squadInviteIdFromUrl });
-    setActivationAttempted(true);
-    setIsActivatingRewards(true);
-    toast.info("Activating your DeFAI Rewards account...");
-    try {
-      const response = await fetch('/api/users/activate-rewards', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          walletAddress: connectedWalletAddress, 
-          xUserId: xUserId, 
-          userDbId: userDbId, 
-          referrerCodeFromQuery: initialReferrer, 
-          squadInviteIdFromUrl: squadInviteIdFromUrl 
-        }),
-      });
-      const data = await response.json();
-      if (response.ok) {
-        console.log("[HomePage] activateRewardsAndFetchData: Success", data);
-        setUserData(data); // Assuming data is UserData
-        setIsRewardsActive(true);
-        // After successfully activating rewards, fetch related data
-        if (connectedWalletAddress) {
-          fetchMySquadData(connectedWalletAddress); // Assuming fetchMySquadData is stable or memoized
-          fetchPendingInvites(); // Refresh invites
-        }
-        if (wallet.publicKey && connection) {
-          checkDefaiBalance(wallet.publicKey, connection);
-        }
-      } else {
-        console.error("[HomePage] activateRewardsAndFetchData: API error", data);
-        setIsRewardsActive(false);
-        setUserData(null);
-      }
-    } catch (error) {
-      console.error("[HomePage] activateRewardsAndFetchData: Exception", error);
-      setIsRewardsActive(false);
-      setUserData(null);
-    }
-    setIsActivatingRewards(false);
-  }, [initialReferrer, squadInviteIdFromUrl, fetchPendingInvites, checkDefaiBalance, wallet.publicKey, connection]); // Added dependencies
-
-  useEffect(() => {
-    const currentAddress = wallet.publicKey ? wallet.publicKey.toBase58() : null;
-
-    if (!wallet.connected) {
-      setPrevWalletAddress(null);
-      setActivationAttempted(false); 
-      return;
-    }
-
-    if (currentAddress && currentAddress !== prevWalletAddress) {
-      setPrevWalletAddress(currentAddress);
-      setUserCheckedNoSquad(false); 
-      setActivationAttempted(false); 
-      setIsRewardsActive(false);
-      setUserData(null);
-      setMySquadData(null);
-      setHasSufficientDefai(null); 
-      setPendingInvites([]);
-    }
-  }, [wallet.connected, wallet.publicKey, prevWalletAddress]);
+  // Access the wallet modal controller so we can open it programmatically
+  const { setVisible: setWalletModalVisible } = useWalletModal();
+  const walletPromptedRef = useRef(false);
 
   const handleInitialAirdropCheck = async () => {
     const addressToCheck = typedAddress.trim();
@@ -396,7 +163,16 @@ export default function HomePage() {
     setAirdropCheckResult(null); 
     try {
       const response = await fetch(`/api/check-airdrop?address=${encodeURIComponent(addressToCheck)}`);
-      const data = await response.json();
+      // Attempt to parse JSON only when the response content-type is JSON.
+      let data: any;
+      const contentType = response.headers.get("content-type");
+      if (contentType && contentType.includes("application/json")) {
+        data = await response.json();
+      } else {
+        // Fallback to plain text so we can surface a meaningful error message
+        const text = await response.text();
+        data = { error: text };
+      }
       if (response.ok) {
         setAirdropCheckResult(data.AIRDROP);
         if (typeof data.AIRDROP === 'number') {
@@ -555,14 +331,22 @@ export default function HomePage() {
     processInvite();
   }, [authStatus, squadInviteIdFromUrl, wallet.connected, isProcessingLinkInvite, fetchPendingInvites]);
 
+  // Automatically prompt wallet connect modal right after X login
   useEffect(() => {
-    const checkDesktop = () => {
-      setIsDesktop(window.innerWidth >= 1024); // lg breakpoint
-    };
-    checkDesktop();
-    window.addEventListener('resize', checkDesktop);
-    return () => window.removeEventListener('resize', checkDesktop);
-  }, []);
+    if (
+      authStatus === "authenticated" &&
+      !wallet.connected &&
+      !wallet.connecting &&
+      !walletPromptedRef.current
+    ) {
+      walletPromptedRef.current = true;
+      // Slight delay ensures modal provider is mounted
+      setTimeout(() => setWalletModalVisible(true), 100);
+    }
+    if (wallet.connected) {
+      walletPromptedRef.current = false; // reset for future logouts/logins
+    }
+  }, [authStatus, wallet.connected, wallet.connecting, setWalletModalVisible]);
 
   const airdropTokenSymbol = process.env.NEXT_PUBLIC_AIRDROP_TOKEN_SYMBOL || "AIR"; // Keep for one direct use or pass TOKEN_LABEL_AIR
   const snapshotDateString = process.env.NEXT_PUBLIC_AIRDROP_SNAPSHOT_DATE_STRING || "May 20th";
@@ -571,7 +355,16 @@ export default function HomePage() {
   // Fetch totalCommunityPoints (example, adjust to your actual API)
   useEffect(() => {
     fetch('/api/stats/total-points')
-      .then(res => res.json())
+      .then(async (res) => {
+        const contentType = res.headers.get('content-type') || '';
+        if (!contentType.includes('application/json')) {
+          // If the backend unexpectedly returned non-JSON (e.g. an HTML error page),
+          // surface a clear error so we don't blow up on JSON parsing.
+          const text = await res.text();
+          throw new Error(`Expected JSON – received: ${text.substring(0, 100)}...`);
+        }
+        return res.json();
+      })
       .then(data => {
         if (data.totalCommunityPoints > 0) {
           setTotalCommunityPoints(data.totalCommunityPoints);
@@ -610,11 +403,26 @@ export default function HomePage() {
   if (authStatus !== "authenticated") {
     console.log("[HomePage] Rendering: Not Authenticated state");
     return (
-      <main className="flex flex-col items-center justify-center min-h-screen p-8 bg-background text-foreground text-center">
-        <DeFAILogo className="h-20 w-20 mb-6" />
-        <h1 className="text-3xl font-bold text-primary mb-4 font-orbitron">Welcome to DeFAI Rewards</h1>
-        <p className="text-lg mb-6">Please log in with your X account to continue.</p>
-        <p className="text-sm text-muted-foreground">The Login with X button is in the header.</p>
+      <main className="flex flex-col lg:flex-row min-h-screen w-full">
+        {/* Left hero image */}
+        <div className="relative lg:w-1/2 w-full h-64 lg:h-auto overflow-hidden">
+          <img src={Illustration.src} alt="Futuristic AI illustration" className="object-cover w-full h-full animate-float" />
+        </div>
+
+        {/* Right login panel */}
+        <div className="flex flex-col justify-center items-center lg:w-1/2 w-full bg-gradient-to-b from-black to-[#111] text-white px-8 py-12 space-y-8">
+          <DeFAILogo className="h-16 w-16" />
+          <h1 className="text-4xl md:text-5xl font-orbitron font-bold text-center">Welcome to DEFAI Rewards</h1>
+          <p className="text-base md:text-lg text-center max-w-sm">Sign in with X to start earning rewards.</p>
+          <div className="flex gap-4 w-full max-w-xs">
+            <button
+              onClick={() => signIn('twitter')}
+              className="flex-1 bg-[#2563EB] hover:bg-[#1e54c7] text-white py-3 rounded-full font-medium transition-colors"
+            >
+              Login with X
+            </button>
+          </div>
+        </div>
       </main>
     );
   }
@@ -625,7 +433,7 @@ export default function HomePage() {
       <main className="flex flex-col items-center justify-center min-h-screen p-8 bg-background text-foreground text-center">
         <DeFAILogo className="h-20 w-20 mb-6" />
         <h1 className="text-3xl font-bold text-primary mb-4 font-orbitron">Almost There!</h1>
-        <p className="text-lg mb-6">Your X account is authenticated. Now, please connect your wallet to activate your DeFAI Rewards account.</p>
+        <p className="text-lg mb-6">Your X account is authenticated. Now, please connect your wallet to activate your DEFAI Rewards account.</p>
         <p className="text-sm text-muted-foreground">The Connect Wallet button is in the header.</p>
         {wallet.connecting && <p className="text-primary mt-4">Connecting to wallet...</p>}
       </main>
@@ -655,21 +463,21 @@ export default function HomePage() {
                   <div className="flex items-center align-left gap-3">
                     <div className="relative">
                       <div className="text-center">
-                        <h1 className="font-spacegrotesk text-5xl sm:text-6xl font-bold text-[#2B96F1]">
+                        <h1 className="font-orbitron text-5xl sm:text-6xl font-bold text-[#2563EB]">
                           Banking AI Agents
                         </h1>
-                        <h2 className="font-spacegrotesk text-5xl sm:text-6xl font-bold text-black">
+                        <h2 className="font-orbitron text-5xl sm:text-6xl font-bold text-black">
                           Rewarding Humans
                         </h2>
                       </div>
                     </div>
                   </div>
-                  <p className="mt-3 text-muted-foreground max-w-xl mx-auto lg:mx-0">
-                    Welcome to DeFAIRewards. Check eligibility, activate your account, complete actions to earn {TOKEN_LABEL_POINTS}, and climb the leaderboard!
+                  <p className="mt-3 text-muted-foreground max-w-xl mx-auto lg:mx-0 font-sans">
+                    Welcome to DEFAI Rewards. Check eligibility, activate your account, complete actions to earn {TOKEN_LABEL_POINTS}, and climb the leaderboard!
                   </p>
                   {/* Floating illustration on desktop */}
                   <div className="hidden lg:block absolute -right-40 -top-12 pointer-events-none select-none animate-float">
-                    <img src={Illustration.src} alt="illustration" className="w-72 h-auto opacity-80" />
+                    <img src="/public/ai-image.jpeg" alt="AI Hero" className="w-[400px] h-auto rounded-xl shadow-lg animate-float" />
                   </div>
                 </div>
 
@@ -697,7 +505,7 @@ export default function HomePage() {
                   <div className="p-6 bg-white/60 backdrop-blur-md shadow-lg rounded-xl border border-gray-200/50 text-center">
                     <h3 className="text-xl font-semibold mb-2">Activate Your Account</h3>
                     <p className="text-sm text-muted-foreground mb-4">
-                      Connect your X account and wallet, and ensure you hold enough DeFAI to see your full airdrop snapshot and earn {TOKEN_LABEL_POINTS}.
+                      Connect your X account and wallet, and ensure you hold enough DEFAI to see your full airdrop snapshot and earn {TOKEN_LABEL_POINTS}.
                     </p>
                     {/* Consider adding a primary CTA button here if appropriate */}
                   </div>
@@ -815,15 +623,15 @@ export default function HomePage() {
             {/* Illustration and Headlines for Mobile (can be simpler or same as desktop) */}
             <div className="relative text-center mt-4 mb-6">
               <div className="text-center mb-6 mt-4">
-                <h1 className="relative z-10 font-spacegrotesk text-4xl font-bold text-[#2B96F1]">
+                <h1 className="relative z-10 font-orbitron text-4xl font-bold text-[#2563EB]">
                   Banking AI Agents
                 </h1>
-                <h2 className="relative z-10 font-spacegrotesk text-4xl font-bold text-black">
+                <h2 className="relative z-10 font-orbitron text-4xl font-bold text-black">
                   Rewarding Humans
                 </h2>
               </div>
-              <p className="relative z-10 mt-3 text-sm text-muted-foreground max-w-md mx-auto">
-                Welcome to DeFAIRewards. Check eligibility, activate your account, complete actions to earn {TOKEN_LABEL_POINTS}, and climb the leaderboard!
+              <p className="relative z-10 mt-3 text-sm text-muted-foreground max-w-md mx-auto font-sans">
+                Welcome to DEFAI Rewards. Check eligibility, activate your account, complete actions to earn {TOKEN_LABEL_POINTS}, and climb the leaderboard!
               </p>
             </div>
             

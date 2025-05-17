@@ -1,13 +1,13 @@
 import { ThemeProviderWrapper } from "@/providers/themeProvider";
 import { WalletAdapterProvider } from "@/providers/walletAdapterProvider";
 import type { Metadata } from "next";
-import { Inter, Orbitron, Space_Grotesk } from "next/font/google";
+import { Inter, Orbitron } from "next/font/google";
 import "./globals.css";
 import { UmiProvider } from "@/providers/umiProvider";
 import { Toaster as ShadcnToaster } from "@/components/ui/toaster";
 import { Toaster as SonnerToaster } from "sonner";
 import SessionProviderWrapper from "@/providers/sessionProviderWrapper";
-import AppHeader from "@/components/layout/AppHeader";
+import ConditionalAppHeader from "@/components/layout/ConditionalAppHeader";
 
 const inter = Inter({ subsets: ["latin"], variable: '--font-inter' });
 const orbitron = Orbitron({ 
@@ -15,34 +15,28 @@ const orbitron = Orbitron({
   weight: ['400', '600', '700'],
   variable: '--font-orbitron'
 });
-const spaceGrotesk = Space_Grotesk({
-  subsets: ["latin"],
-  weight: ['400', '700'],
-  variable: '--font-space-grotesk'
-});
 
 export const metadata: Metadata = {
-  metadataBase: new URL('http://localhost:3000'),
-  title: "DeFAIRewards - Check Your $AIR Airdrop & Explore Decentralized Rewards!",
-  description: "Discover your $AIR token airdrop eligibility with the DeFAIRewards checker. Stay tuned for more on our platform dedicated to decentralized finance rewards.",
+  title: "DeFAI Rewards - Banking AI Agents. Rewarding Humans",
+  description: "DeFAI Rewards is a futuristic AI-powered rewards platform, where banking AI agents reward humans.",
   openGraph: {
-    title: "DeFAIRewards - Check Your $AIR Airdrop & Explore Decentralized Rewards!",
-    description: "Discover your $AIR token airdrop eligibility with the DeFAIRewards checker. Stay tuned for more on our platform dedicated to decentralized finance rewards.",
+    title: "DeFAI Rewards - Banking AI Agents. Rewarding Humans",
+    description: "DeFAI Rewards is a futuristic AI-powered rewards platform, where banking AI agents reward humans.",
     images: [
       {
-        url: '/logo.png',
+        url: '/ai-image.jpeg',
         width: 800,
         height: 600,
-        alt: 'DeFAIRewards Logo',
+        alt: 'DeFAI Rewards Hero',
       },
     ],
     type: 'website',
   },
   twitter: {
     card: 'summary_large_image',
-    title: "DeFAIRewards - Check Your $AIR Airdrop & Explore Decentralized Rewards!",
-    description: "Discover your $AIR token airdrop eligibility with the DeFAIRewards checker. Stay tuned for more on our platform dedicated to decentralized finance rewards.",
-    images: ['/logo.png'],
+    title: "DeFAI Rewards - Banking AI Agents. Rewarding Humans",
+    description: "DeFAI Rewards is a futuristic AI-powered rewards platform, where banking AI agents reward humans.",
+    images: ['/ai-image.jpeg'],
   },
 };
 
@@ -52,14 +46,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${inter.variable} ${orbitron.variable} ${spaceGrotesk.variable}`}>
-      <body className={"flex flex-col min-h-screen font-sans bg-background text-foreground"}>
+    <html lang="en" className={`${inter.variable} ${orbitron.variable}`}>
+      <body className="flex flex-col min-h-screen font-sans bg-white text-black">
         <SessionProviderWrapper>
           <WalletAdapterProvider>
             <UmiProvider>
               <ThemeProviderWrapper>
-                <AppHeader />
-                <main className="flex-grow">
+                <ConditionalAppHeader />
+                <main className="flex-grow bg-white">
                   {children}
                 </main>
                 <ShadcnToaster />

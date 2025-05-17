@@ -1,0 +1,41 @@
+import { NextResponse } from 'next/server'
+import type { NextRequest } from 'next/server'
+import { getToken } from 'next-auth/jwt'
+
+export async function middleware(request: NextRequest) {
+  const token = await getToken({ req: request })
+  const { pathname } = request.nextUrl
+
+  // Public paths
+  const publicPaths = [
+    '/leaderboard',
+  ]
+
+  // Allow public routes and Next.js internals
+  if (
+    publicPaths.includes(pathname) ||
+    pathname.startsWith('/_next') ||
+    pathname.startsWith('/api/auth') ||
+    pathname.includes('.') // static files
+  ) {
+    return NextResponse.next()
+  }
+
+  // Allow unauthenticated access to root so login page can render
+  if (pathname === '/') {
+    return NextResponse.next()
+  }
+
+  // Require authentication for all other routes
+  if (!token) {
+    const url = new URL('/', request.url)
+    return NextResponse.redirect(url)
+  }
+
+  return NextResponse.next()
+}
+
+// Configure which paths the middleware should run on
+export const config = {
+  matcher: '/((?!api/auth|_next/static|_next/image|favicon.ico).*)',
+} 

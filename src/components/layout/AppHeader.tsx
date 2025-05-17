@@ -97,38 +97,51 @@ export default function AppHeader() {
     : null;
 
   return (
-    <header className="w-full bg-background/80 backdrop-blur-md shadow-sm sticky top-0 z-40 border-b border-border">
+    <header className="w-full bg-white/80 backdrop-blur-md shadow-sm sticky top-0 z-40 border-b border-border">
       {/* END DEBUG INFO */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16 md:h-20">
-          <div className="flex items-center">
-            <Link href="/" className="flex items-center text-decoration-none">
-              <span 
-                style={{ color: '#2A97F1', fontSize: '1.5rem', fontWeight: 'bold' }} 
-              >
-                DEFAI
-              </span>
+          {/* Logo */}
+          <div className="flex-shrink-0">
+            <Link href="/" passHref>
+              <div className="text-[#2563EB] font-orbitron font-semibold text-3xl cursor-pointer hover:scale-105 transition-all">
+                DeFAI Rewards
+              </div>
             </Link>
           </div>
           <div className="flex-1 min-w-0 ml-6">
             <AppNav navItems={navItems} />
           </div>
-          <div className="flex items-center space-x-2 sm:space-x-3 ml-auto">
-            {/* WalletMultiButton: Show only if X is authenticated AND WALLET NOT CONNECTED YET, and on client */}
-            {isClient && authStatus === "authenticated" && !connected && (
-              <WalletMultiButtonDynamic 
-                className="ml-2"
-                style={{
-                  backgroundColor: '#2B96F1', 
-                  color: 'white', 
-                  borderRadius: '9999px', 
-                  paddingLeft: '12px', 
-                  paddingRight: '12px', 
-                  fontSize: '0.875rem', 
-                  height: '36px'
-                }}
-              />
+          <div className="flex items-center space-x-3 sm:space-x-4">
+            {authStatus === "authenticated" && connected && (
+              <button 
+                onClick={handleOpenNotifications} 
+                className="relative p-2 rounded-full text-[#2563EB] hover:bg-[#2563EB]/10 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#2563EB] transition-all hover:scale-105"
+                aria-label="View notifications"
+              >
+                <BellIcon className="h-6 w-6"/>
+                {unreadNotificationCount > 0 && (
+                  <span className="absolute top-0 right-0 block h-4 w-4 transform -translate-y-1/2 translate-x-1/2 rounded-full bg-red-500 text-white text-xs flex items-center justify-center shadow-lg">
+                    {unreadNotificationCount > 9 ? '9+' : unreadNotificationCount}
+                  </span>
+                )}
+              </button>
             )}
+
+            {/* Wallet Button */}
+            <WalletMultiButtonDynamic style={{
+              backgroundColor: '#2563EB',
+              color: 'white',
+              borderRadius: '9999px',
+              paddingLeft: '24px',
+              paddingRight: '24px',
+              paddingTop: '12px',
+              paddingBottom: '12px',
+              fontSize: '0.875rem',
+              lineHeight: '1.25rem',
+              fontWeight: 500,
+              transition: 'all 0.3s ease',
+            }} />
 
             {/* X Login Button: Show only if not X authenticated and on client */}
             {isClient && authStatus !== "authenticated" && (
@@ -165,20 +178,6 @@ export default function AppHeader() {
                   Sign Out
                 </button>
               </>
-            )}
-
-            {/* Notifications Bell - Show if X authenticated, wallet connected, and on client */}
-            {isClient && authStatus === "authenticated" && connected && (
-              <button 
-                onClick={handleOpenNotifications} 
-                className="ml-3 p-1 rounded-full text-gray-700 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 relative"
-              >
-                <span className="sr-only">View notifications</span>
-                <BellIcon className="h-6 w-6" aria-hidden="true" />
-                {unreadNotificationCount > 0 && (
-                  <span className="absolute top-0 right-0 block h-2 w-2 transform translate-x-1/2 -translate-y-1/2 bg-red-500 rounded-full"></span>
-                )}
-              </button>
             )}
           </div>
         </div>

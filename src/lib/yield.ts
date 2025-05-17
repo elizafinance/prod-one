@@ -43,8 +43,8 @@ interface Pool {
 }
 
 // Program ID for the yield program
-export const YIELD_PROGRAM_ID = new PublicKey(process.env.NEXT_PUBLIC_YIELD_PROGRAM_ID || 'vz3uzUGLjokzqNX98LjCZXhykeK5wrkKjQrPScUcuUF');
-export const AIR_TOKEN_MINT = new PublicKey(process.env.NEXT_PUBLIC_AIR_CONTRACT_ADDRESS || 'So11111111111111111111111111111111111111112');
+export const YIELD_PROGRAM_ID = new PublicKey('vz3uzUGLjokzqNX98LjCZXhykeK5wrkKjQrPScUcuUF');
+export const AIR_TOKEN_MINT = new PublicKey('So11111111111111111111111111111111111111112');
 
 // Lock period definitions in seconds
 export const LOCK_PERIODS = {

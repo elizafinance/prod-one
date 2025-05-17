@@ -95,10 +95,9 @@ if (isNaN(REQUIRED_DEFAI_AMOUNT)) {
 }
 
 export default function HomePage() {
-  const { data: session, status: authStatus, update: updateSession } = useSession<any>();
-  const typedSession: any = session;
+  const { data: session, status: authStatus, update: updateSession } = useSession();
   const wallet = useWallet();
-  const { connection } = useConnection(); // Correct usage
+  const { connection } = useConnection();
   const router = useRouter();
 
   // State for airdrop check (now independent of wallet connection initially)
@@ -143,6 +142,83 @@ export default function HomePage() {
   // Added missing state
   const [totalCommunityPoints, setTotalCommunityPoints] = useState<number | null>(null);
   const [defaiBalance, setDefaiBalance] = useState<number | null>(null);
+
+  // Callback to link wallet and update session
+  const handleWalletConnectSuccess = useCallback(async () => {
+    if (!wallet.publicKey || !session?.user?.xId) return;
+
+    toast.info("Linking your wallet to your X account...");
+    try {
+      const response = await fetch('/api/users/link-wallet', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ walletAddress: wallet.publicKey.toBase58() }),
+      });
+      const data = await response.json();
+      if (response.ok) {
+        toast.success(data.message || "Wallet linked successfully!");
+        await updateSession(); // Refresh the session to get walletAddress
+        // The main useEffect watching authStatus and session.user.walletAddress will then proceed.
+      } else {
+        toast.error(data.error || "Failed to link wallet.");
+        // Optionally disconnect wallet if linking fails critically
+        // await wallet.disconnect();
+      }
+    } catch (error) {
+      console.error("Error linking wallet:", error);
+      toast.error("An error occurred while linking your wallet.");
+    }
+  }, [wallet, session, updateSession]);
+
+  // This useEffect now also handles calling handleWalletConnectSuccess
+  // if X is authed, wallet is connected, but session doesn't yet have walletAddress.
+  useEffect(() => {
+    if (authStatus === "authenticated" && session?.user?.xId && wallet.connected && wallet.publicKey && !session?.user?.walletAddress && !isActivatingRewards) {
+      // Wallet is connected, X is authed, but walletAddress not in session yet. Link it.
+      handleWalletConnectSuccess();
+    } else if (authStatus === "authenticated" && session?.user?.xId && session?.user?.walletAddress && wallet.connected && wallet.publicKey && !isRewardsActive && !isActivatingRewards && !activationAttempted) {
+      // All conditions met for activation (X authed, session has wallet, wallet connected)
+      activateRewardsAndFetchData(wallet.publicKey.toBase58(), session.user.xId, session.user.dbId);
+    } else if (authStatus === "authenticated" && wallet.connected && wallet.publicKey && isRewardsActive && hasSufficientDefai === null && !isCheckingDefaiBalance) {
+      console.log("Rewards active, checking DeFAI balance...");
+      setTimeout(() => {
+        if (connection && wallet.publicKey) {
+          checkDefaiBalance(wallet.publicKey, connection);
+        } else {
+          console.error("Connection or wallet public key not available after delay");
+          toast.error("Connection error: Please try refreshing the page");
+        }
+      }, 1000);
+    } else if (authStatus === "authenticated" && wallet.connected && isRewardsActive && !isFetchingInvites) {
+        fetchPendingInvites();
+    }
+
+    if (authStatus === "authenticated" && !wallet.connected && isRewardsActive) {
+      // If wallet disconnects after rewards were active, reset state
+      setIsRewardsActive(false);
+      setUserData(null);
+      setMySquadData(null);
+      setUserCheckedNoSquad(false);
+      setHasSufficientDefai(null);
+      // No need to clear session.user.walletAddress, as that's tied to DB linkage.
+      // User would need to disconnect from X or link a different wallet.
+    }
+  }, [
+      authStatus, 
+      session, 
+      wallet.connected, 
+      wallet.publicKey, 
+      isRewardsActive, 
+      isActivatingRewards, 
+      activationAttempted,
+      handleWalletConnectSuccess, // Added dependency
+      activateRewardsAndFetchData, 
+      hasSufficientDefai, 
+      isCheckingDefaiBalance, 
+      fetchPendingInvites, 
+      connection,
+      checkDefaiBalance
+    ]);
 
   // Check required environment variables on component mount
   useEffect(() => {
@@ -359,57 +435,6 @@ export default function HomePage() {
     setIsActivatingRewards(false);
   }, [initialReferrer, squadInviteIdFromUrl, fetchMySquadData, fetchPendingInvites, connection, wallet.publicKey, checkDefaiBalance]);
 
-  useEffect(() => {
-    if (authStatus === "authenticated" && typedSession?.user?.xId && typedSession?.user?.dbId && wallet.connected && wallet.publicKey && !isRewardsActive && !isActivatingRewards && !activationAttempted) {
-      const dbIdForApi = typedSession.user.dbId;
-      activateRewardsAndFetchData(wallet.publicKey.toBase58(), typedSession.user.xId, dbIdForApi);
-    } else if (authStatus === "authenticated" && wallet.connected && wallet.publicKey && isRewardsActive && hasSufficientDefai === null && !isCheckingDefaiBalance) {
-      console.log("Rewards active, checking DeFAI balance...");
-      setTimeout(() => {
-        if (connection && wallet.publicKey) {
-          checkDefaiBalance(wallet.publicKey, connection);
-        } else {
-          console.error("Connection or wallet public key not available after delay");
-          toast.error("Connection error: Please try refreshing the page");
-        }
-      }, 1000);
-    } else if (authStatus === "authenticated" && wallet.connected && isRewardsActive && !isFetchingInvites) {
-        fetchPendingInvites();
-    }
-    if (authStatus === "authenticated" && !wallet.connected && isRewardsActive) {
-      setIsRewardsActive(false);
-      setUserData(null);
-      setMySquadData(null);
-      setUserCheckedNoSquad(false);
-    }
-  }, [
-      authStatus, 
-      session,
-      typedSession?.user?.xId,
-      typedSession?.user?.dbId,
-      wallet.connected, 
-      wallet.publicKey, 
-      isRewardsActive, 
-      isActivatingRewards, 
-      activateRewardsAndFetchData, 
-      userData, 
-      mySquadData, 
-      fetchMySquadData, 
-      isFetchingSquad, 
-      pendingInvites, 
-      fetchPendingInvites, 
-      userCheckedNoSquad, 
-      hasSufficientDefai, 
-      isCheckingDefaiBalance, 
-      connection, 
-      checkDefaiBalance, 
-      updateSession,
-      isFetchingInvites,
-      activationAttempted
-    ]);
-  
-  // This useEffect from HEAD for managing prevWalletAddress and activationAttempted should be kept.
-  // It was outside the explicit conflict markers but is vital for the activationAttempted logic.
   useEffect(() => {
     const currentAddress = wallet.publicKey ? wallet.publicKey.toBase58() : null;
 

@@ -3,7 +3,7 @@ import { Program, AnchorProvider, Idl } from '@project-serum/anchor';
 
 import { useEffect, useState } from 'react';
 import { fetchIdlFromChain } from '@/services/fetchIDL';
-import { programID } from '@/constants/constants';
+import { programId } from '@/constants/constants';
 
 export function useAnchorProgram() {
   const { connection } = useConnection();
@@ -14,10 +14,10 @@ export function useAnchorProgram() {
   useEffect(() => {
     const initializeProgram = async () => {
       if (wallet && connection) {
-        const fetchedIdl = await fetchIdlFromChain(programID.toBase58());
+        const fetchedIdl = await fetchIdlFromChain(programId.toBase58());
         try {
           const provider = new AnchorProvider(connection, wallet as AnchorWallet, { preflightCommitment: 'confirmed' });
-          const program = new Program(fetchedIdl as Idl, programID, provider);
+          const program = new Program(fetchedIdl as Idl, programId, provider);
 
           setProgram(program);
           setProvider(provider);

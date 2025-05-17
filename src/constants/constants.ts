@@ -12,27 +12,26 @@ export const YIELD_TIERS = [
 
 export const poolState = new PublicKey('11111111111111111111111111111111');
 
+export const ELIZA_PROGRAM_ID = new PublicKey(process.env.NEXT_PUBLIC_ELIZA_PROGRAM_ID || '11111111111111111111111111111111');
+export const REWARD_TOKEN_MINT = new PublicKey(process.env.NEXT_PUBLIC_REWARD_TOKEN_MINT || '11111111111111111111111111111111');
+
+export const USDT_TRX_WHIRLPOOL_ADDRESS = new PublicKey(process.env.NEXT_PUBLIC_USDT_TRX_WHIRLPOOL_ADDRESS || '11111111111111111111111111111111');
+export const USDT_BTC_WHIRLPOOL_ADDRESS = new PublicKey(process.env.NEXT_PUBLIC_USDT_BTC_WHIRLPOOL_ADDRESS || '11111111111111111111111111111111');
+export const TRX_BTC_WHIRLPOOL_ADDRESS = new PublicKey(process.env.NEXT_PUBLIC_TRX_BTC_WHIRLPOOL_ADDRESS || '11111111111111111111111111111111');
+
 export const usdtTrxWhirlpool = {
-  positionMint: new PublicKey('11111111111111111111111111111111'),
+  positionMint: USDT_TRX_WHIRLPOOL_ADDRESS,
 };
 
-// Additional placeholders required by legacy hooks
-export const programID = new PublicKey('11111111111111111111111111111111');
-export const rewardTokenMint = new PublicKey('11111111111111111111111111111111');
-export const rewardTokenVault = new PublicKey('11111111111111111111111111111111');
-export const whirlpoolAddress = new PublicKey('11111111111111111111111111111111');
-
-// Additional whirlpool placeholders
 export const usdtBtcWhirlpool = {
-  positionMint: new PublicKey('11111111111111111111111111111111'),
+  positionMint: USDT_BTC_WHIRLPOOL_ADDRESS,
 };
 
 export const trxBtcWhirlpool = {
-  positionMint: new PublicKey('11111111111111111111111111111111'),
+  positionMint: TRX_BTC_WHIRLPOOL_ADDRESS,
 };
 
-// Alias for backward compatibility
-export const programId = programID;
+export const programId = ELIZA_PROGRAM_ID;
+export const rewardTokenMint = REWARD_TOKEN_MINT;
 
-// THIS NEEDS TO BE YOUR ACTUAL CONFIG ACCOUNT PUBLIC KEY
-export const elizaConfig = new PublicKey('11111111111111111111111111111111'); 
+export const elizaConfig = ELIZA_PROGRAM_ID; 

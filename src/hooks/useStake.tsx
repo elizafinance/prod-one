@@ -1,133 +1,167 @@
+// @ts-nocheck
+
+import { useCallback, useState } from 'react';
 import { useAnchorProgram } from './useAnchorProgram';
 import { BN } from '@project-serum/anchor';
 import { PublicKey, SystemProgram, Transaction } from '@solana/web3.js';
-import { Address } from '@solana/kit'
+import { Address } from '@solana/kit';
 import {
   TOKEN_2022_PROGRAM_ID,
   ASSOCIATED_TOKEN_PROGRAM_ID,
   getAssociatedTokenAddressSync,
   createAssociatedTokenAccountInstruction,
-  getAccount
+  getAccount,
 } from '@solana/spl-token';
 import { getPositionAddress } from '@orca-so/whirlpools-client';
 import {
   elizaConfig,
   poolState,
   rewardTokenMint,
-  whirlpoolAddress,
 } from '@/constants/constants';
 import { getPositionVaultPDA } from '@/services/getPositionVault';
-import { useState } from 'react';
+import { toast } from 'sonner';
+
+interface StakeResult {
+  signature: string;
+  stakeEntryAddress: PublicKey;
+  stakedAmount: BN;
+}
 
 export const useStake = () => {
   const { program, provider } = useAnchorProgram();
-  const [positionMint, setPositionMint] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const stake = async (stakingTime: string, setStakeEntryAccount: (stakeEntryAccount: { liquidity: bigint, pubKey: PublicKey }) => void) => {
+  const stake = useCallback(async (
+    positionMintAddress: PublicKey,
+    whirlpoolAddress: PublicKey,
+    stakeDurationSeconds: number
+  ): Promise<StakeResult | null> => {
     if (!program || !provider || !(provider as any).wallet?.publicKey) {
-      throw new Error('Wallet not connected');
+      setError('Wallet not connected');
+      toast.error('Wallet not connected');
+      return null;
+    }
+    if (!positionMintAddress || !whirlpoolAddress) {
+      setError('Position Mint and Whirlpool Address are required.');
+      toast.error('Position Mint and Whirlpool Address are required.');
+      return null;
     }
 
-    const user = (provider as any).wallet.publicKey;
-    const positionMintPK = new PublicKey(positionMint);
-
-    const userRewardTokenAccount = getAssociatedTokenAddressSync(
-      rewardTokenMint,
-      user,
-      false,
-      TOKEN_2022_PROGRAM_ID
-    );
-
-    const userPositionTokenAccount = getAssociatedTokenAddressSync(
-      positionMintPK,
-      user,
-      false,
-      TOKEN_2022_PROGRAM_ID
-    );
-
+    setIsLoading(true);
+    setError(null);
 
     try {
-      await getAccount((provider as any).connection, userRewardTokenAccount, undefined, TOKEN_2022_PROGRAM_ID);
-      console.log('ATA already exists.');
-    } catch {
-      console.log(`Not found → create it`);
-      // Not found → create it
-      const ataIx = createAssociatedTokenAccountInstruction(
-        user,
-        userRewardTokenAccount,
-        user,
+      const user = (provider as any).wallet.publicKey;
+
+      const userRewardTokenAccount = getAssociatedTokenAddressSync(
         rewardTokenMint,
-        TOKEN_2022_PROGRAM_ID,
-        ASSOCIATED_TOKEN_PROGRAM_ID
+        user,
+        false,
+        TOKEN_2022_PROGRAM_ID
       );
-      await (provider as any).sendAndConfirm(new Transaction().add(ataIx));
-      console.log('Created ATA:', userRewardTokenAccount.toBase58());
+
+      let rewardAtaTransaction: Transaction | undefined;
+      try {
+        await getAccount((provider as any).connection, userRewardTokenAccount, undefined, TOKEN_2022_PROGRAM_ID);
+      } catch {
+        console.log(`Reward ATA not found for ${rewardTokenMint.toBase58()}, creating it.`);
+        rewardAtaTransaction = new Transaction().add(
+          createAssociatedTokenAccountInstruction(
+            user, userRewardTokenAccount, user, rewardTokenMint, TOKEN_2022_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID
+          )
+        );
+      }
+
+      const [userStakeEntryPDA] = PublicKey.findProgramAddressSync(
+        [user.toBuffer(), poolState.toBuffer(), Buffer.from('stake_entry')],
+        program.programId
+      );
+
+      const [poolAuthorityPDA] = PublicKey.findProgramAddressSync(
+        [Buffer.from('vault_authority')],
+        program.programId
+      );
+      
+      const positionVaultPDA = getPositionVaultPDA(positionMintAddress, userStakeEntryPDA, program.programId)[0];
+
+      const userPositionTokenAccount = getAssociatedTokenAddressSync(
+        positionMintAddress,
+        user,
+        false,
+        TOKEN_2022_PROGRAM_ID
+      );
+      
+      const positionAccountForStakeInstruction = positionMintAddress;
+
+      const transaction = new Transaction();
+      if (rewardAtaTransaction) {
+        transaction.add(rewardAtaTransaction);
+      }
+
+      let stakeEntryAccountInfo = null;
+      try {
+        stakeEntryAccountInfo = await program.account.stakedPosition.fetch(userStakeEntryPDA);
+      } catch (e) {
+        console.log(`Stake entry ${userStakeEntryPDA.toBase58()} not found, creating init instruction.`);
+        const initStakeEntryIx = await program.methods
+          .initStakeEntry()
+          .accounts({
+            elizaConfig,
+            user,
+            userStakeEntry: userStakeEntryPDA,
+            position: positionAccountForStakeInstruction,
+            userRewardTokenAccount,
+            rewardTokenMint,
+            poolState,
+            tokenProgram: TOKEN_2022_PROGRAM_ID,
+            associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+            systemProgram: SystemProgram.programId,
+          })
+          .instruction();
+        transaction.add(initStakeEntryIx);
+      }
+
+      const duration = new BN(stakeDurationSeconds);
+      const stakeIx = await program.methods
+        .stake(duration)
+        .accountsStrict({
+          elizaConfig,
+          poolState,
+          position: positionAccountForStakeInstruction,
+          positionMint: positionMintAddress,
+          poolAuthority: poolAuthorityPDA,
+          positionVault: positionVaultPDA,
+          user,
+          userPositionTokenAccount,
+          userStakeEntry: userStakeEntryPDA,
+          tokenProgram: TOKEN_2022_PROGRAM_ID,
+          whirlpool: whirlpoolAddress,
+          systemProgram: SystemProgram.programId,
+        })
+        .instruction();
+      transaction.add(stakeIx);
+
+      const signature = await provider.sendAndConfirm(transaction);
+      toast.success(`Successfully staked! Tx: ${signature.substring(0, 8)}...`);
+      
+      const finalStakeEntryData = await program.account.stakedPosition.fetch(userStakeEntryPDA);
+
+      return {
+        signature,
+        stakeEntryAddress: userStakeEntryPDA,
+        stakedAmount: finalStakeEntryData.liquidity,
+      };
+
+    } catch (err: any) {
+      console.error('Stake failed:', err);
+      setError(err.message || 'An unknown error occurred during staking.');
+      toast.error(err.message || 'Stake failed');
+      return null;
+    } finally {
+      setIsLoading(false);
     }
+  }, [program, provider]);
 
-    const positionId = (await getPositionAddress(positionMintPK.toString() as Address))[0];
-    console.log("positionId", positionId);
-
-    const [stakeEntry] = PublicKey.findProgramAddressSync(
-      [user.toBuffer(), poolState.toBuffer(), Buffer.from('stake_entry')],
-      (program as any).programId
-    );
-
-    const [poolAuthority] = PublicKey.findProgramAddressSync(
-      [Buffer.from('vault_authority')],
-      (program as any).programId
-    );
-
-    const duration = new BN(stakingTime);
-
-    const transaction = new Transaction();
-
-    const positionVault = getPositionVaultPDA(positionMintPK, stakeEntry, (program as any).programId)[0];
-
-
-    const initStakeEntryIx = await (program as any).methods
-      .initStakeEntry()
-      .accounts({
-        elizaConfig,
-        user,
-        userStakeEntry: stakeEntry,
-        userRewardTokenAccount,
-        rewardTokenMint,
-        poolState,
-        tokenProgram: TOKEN_2022_PROGRAM_ID,
-        associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
-        systemProgram: SystemProgram.programId,
-      })
-      .instruction();
-
-    const stakeIx = await (program as any).methods
-      .stake(duration)
-      .accountsStrict({
-        elizaConfig,
-        poolState,
-        position: positionId,
-        positionMint: positionMintPK,
-        poolAuthority,
-        positionVault,
-        user,
-        userPositionTokenAccount,
-        userStakeEntry: stakeEntry,
-        tokenProgram: TOKEN_2022_PROGRAM_ID,
-        whirlpool: whirlpoolAddress,
-        systemProgram: SystemProgram.programId,
-      })
-      .instruction();
-
-    transaction.add(stakeIx);
-
-    const txSig = await (provider as any).sendAndConfirm(transaction);
-
-    console.log('Stake transaction:', txSig);
-
-    const stakeEntryAccount = await (program as any).account.stakedPosition.fetch(stakeEntry);
-    stakeEntryAccount.pubKey = stakeEntry;
-    setStakeEntryAccount(stakeEntryAccount as { liquidity: bigint; pubKey: PublicKey });
-    return txSig;
-  };
-
-  return { stake, positionMint, setPositionMint };
+  return { stake, isLoading, error };
 };

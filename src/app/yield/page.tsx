@@ -25,7 +25,6 @@ import { useTotalLiquidity } from '@/hooks/useTotalLiquidity';
 // Import from constants
 import { YIELD_TIERS, poolState, usdtTrxWhirlpool } from '@/constants/constants';
 import { Pool } from "@/components/Pool";
-import { CreatePosition } from "@/components/CreatePosition";
 
 export const dynamic = 'force-dynamic';
 
@@ -357,8 +356,8 @@ export default function YieldPage() {
       return;
     }
     
-    if (!stakedPosition || !stakedPosition.pubKey) {
-      setError('No staked position found');
+    if (!stakedPosition || !stakedPosition.pubKey || !stakedPosition.position) {
+      setError('No valid staked position found, or position mint missing.');
       return;
     }
     
@@ -369,34 +368,26 @@ export default function YieldPage() {
     try {
       console.log("Attempting to unstake position:", stakedPosition);
       
-      // Call the unstake function with just the stake entry pubKey
-      const result = await unstake(stakedPosition.pubKey);
+      const result = await unstake(stakedPosition.pubKey, stakedPosition.position);
       
       console.log("Unstake result:", result);
       
-      if (result && result.success) {
-        setSuccess(`Successfully unstaked position. ${result.signature ? `Transaction: ${result.signature}` : ''}`);
+      if (result && result.signature) {
+        setSuccess(`Successfully unstaked position. Transaction: ${result.signature.substring(0,8)}...`);
         
-        // Refresh staking status with safety check
         if (checkStakeHook && typeof checkStakeHook.checkStakingStatus === 'function') {
           setTimeout(() => {
             checkStakeHook.checkStakingStatus();
-          }, 2000); // Small delay to allow blockchain state to update
+          }, 2000);
         }
-      } else if (result && result.message) {
-        // Show the error message from the hook
-        setError(result.message);
       } else {
-        setError('Unknown error occurred during unstaking');
+        if (unstakeError) {
+          setError(unstakeError);
+        }
       }
     } catch (err) {
       console.error('Error unstaking tokens:', err);
       setError(`Failed to unstake tokens: ${err instanceof Error ? err.message : 'Unknown error'}`);
-      
-      // Check for unstake error from the hook
-      if (unstakeError) {
-        setError(unstakeError);
-      }
     } finally {
       setIsUnstaking(false);
     }
@@ -413,29 +404,25 @@ export default function YieldPage() {
       return;
     }
     
-    // Calculate current rewards based on the staked position
+    // If no meaningful rewards to claim, show error
+    // This client-side check can be removed if the harvest instruction handles it gracefully
+    // or if we prefer to always attempt the transaction.
+    // For now, let's keep it to prevent unnecessary transactions.
     const stakedLiquidity = Number(stakedPosition.liquidity || 0);
     const startTimeUnix = Number(stakedPosition.startTime || 0);
-    const currentTime = Math.floor(Date.now() / 1000);
-    const timeElapsedSeconds = Math.max(0, currentTime - startTimeUnix);
-    const durationInDays = timeElapsedSeconds / (24 * 60 * 60);
-    
-    // Find APY tier
     const unlockTimeUnix = Number(stakedPosition.unlockTime || 0);
-    const lockPeriodSeconds = unlockTimeUnix - startTimeUnix <= 1 ? 
-      30 * 24 * 60 * 60 : // Default to 30 days if unlock time looks wrong
-      unlockTimeUnix - startTimeUnix;
-    
+    const lockPeriodSeconds = unlockTimeUnix - startTimeUnix <= 1 ? 30 * 24 * 60 * 60 : unlockTimeUnix - startTimeUnix;
     const tier = YIELD_TIERS.find(t => {
       const minDuration = t.durationSeconds * 0.9;
       const maxDuration = t.durationSeconds * 1.1;
       return lockPeriodSeconds >= minDuration && lockPeriodSeconds <= maxDuration;
     }) || YIELD_TIERS[0];
-    
+    const currentTime = Math.floor(Date.now() / 1000);
+    const timeElapsedSeconds = Math.max(0, currentTime - startTimeUnix);
+    const durationInDays = timeElapsedSeconds / (24 * 60 * 60);
     const dailyRate = tier.apyValue / 365 / 100;
     const calculatedRewards = stakedLiquidity * dailyRate * durationInDays;
-    
-    // If no meaningful rewards to claim, show error
+
     if (calculatedRewards < 0.0001) {
       setError('No significant rewards available to claim yet');
       return;
@@ -455,34 +442,21 @@ export default function YieldPage() {
     setSuccess(null);
     
     try {
-      // Get the position mint for the staked position - we need to use the correct position mint for the pool
-      let positionMint;
-      
-      // If we have access to the selected whirlpool from Pool component, use it
-      // For now we use USDT_TRX as default
-      positionMint = usdtTrxWhirlpool.positionMint;
-      
-      console.log('Executing claim rewards with:', {
-        poolState: poolState.toString(),
-        positionMint: positionMint.toString(),
-        stakeEntry: stakedPosition.pubKey.toString()
-      });
+      console.log('Executing claim rewards with stake entry:', stakedPosition.pubKey.toString());
       
       // Actually call the harvest function to claim rewards
-      const result = await harvest(
-        poolState,
-        positionMint,
-        stakedPosition.pubKey
-      );
+      // Corrected: Pass only the stake entry public key
+      const result = await harvest(stakedPosition.pubKey);
       
       console.log('Harvest result:', result);
       
-      if (result && result.success) {
-        setSuccess(`Successfully claimed ${calculatedRewards.toFixed(6)} AIR rewards. ${result.signature ? `Transaction: ${result.signature}` : result.tx ? `Transaction: ${result.tx}` : ''}`);
-      } else if (result && result.message) {
-        setError(result.message);
+      // Corrected: Update result handling according to useHarvest hook
+      if (result && result.signature) {
+        setSuccess(`Successfully claimed rewards. Transaction: ${result.signature.substring(0,8)}...`);
       } else {
-        setError('Unknown error occurred during rewards claiming');
+        // Error should be set by the useHarvest hook and displayed via its error state if not already handled by toast
+        // setError('Unknown error occurred during rewards claiming or no signature returned.');
+        // Check harvestLoading and hook's error state if needed, but toast in hook is primary feedback for errors.
       }
       
       // Refresh staking status with safety check
@@ -540,7 +514,7 @@ export default function YieldPage() {
           
           {/* Split the layout into two columns on larger screens */}
             {/* Right column - Create Position Component */}
-            <CreatePosition />
+            {/* Temporarily remove CreatePosition placeholder */}
           
           {/* Staking Form */}
           <Pool />

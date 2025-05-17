@@ -6,23 +6,27 @@ import { PublicKey } from '@solana/web3.js';
 
 interface StakeModalProps {
   setIsStakeModalOpen: (isOpen: boolean) => void;
-  setStakeEntryAccount: (stakeEntryAccount: { liquidity: bigint; pubKey: PublicKey }) => void;
+  onStakeSuccess: (result: { signature: string; stakeEntryAddress: PublicKey; stakedAmount: any }) => void;
 }
 
-export const StakeModal: React.FC<StakeModalProps> = ({
-  setIsStakeModalOpen,
-  setStakeEntryAccount
-}) => {
-  const { stake, positionMint, setPositionMint } = useStake();
+export const StakeModal: React.FC<StakeModalProps> = ({ setIsStakeModalOpen, onStakeSuccess }) => {
+  const { stake } = useStake();
 
-  const [time, setTime] = useState('');
+  const [durationSeconds, setDurationSeconds] = useState('');
+  const [positionMint, setPositionMint] = useState('');
+  const [whirlpoolAddress, setWhirlpoolAddress] = useState('');
 
   const handleStake = async () => {
     try {
       setIsStakeModalOpen(false);
 
-      const tx = await stake(time, setStakeEntryAccount);
+      const positionMintKey = new PublicKey(positionMint);
+      const whirlpoolKey = new PublicKey(whirlpoolAddress);
+      const tx = await stake(positionMintKey, whirlpoolKey, Number(durationSeconds));
       console.log('Stake successful:', tx);
+      if (tx) {
+        onStakeSuccess(tx);
+      }
     } catch (error) {
       console.error('Stake failed:', error);
     }
@@ -31,10 +35,13 @@ export const StakeModal: React.FC<StakeModalProps> = ({
   return (
     <>
       <label className="text-sm font-medium text-foreground">Duration (seconds)
-        <Input type="number" value={time} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTime(e.target.value)} placeholder="Enter staking duration" className="mt-1" />
+        <Input type="number" value={durationSeconds} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDurationSeconds(e.target.value)} placeholder="Enter staking duration" className="mt-1" />
       </label>
-      <label className="text-sm font-medium text-foreground mt-3">Position Mint
-        <Input value={positionMint} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPositionMint(e.target.value)} placeholder="Enter staking position mint" className="mt-1" />
+      <label className="text-sm font-medium text-foreground mt-3">Position Mint Address
+        <Input value={positionMint} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPositionMint(e.target.value)} placeholder="Enter position mint" className="mt-1" />
+      </label>
+      <label className="text-sm font-medium text-foreground mt-3">Whirlpool Address
+        <Input value={whirlpoolAddress} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setWhirlpoolAddress(e.target.value)} placeholder="Enter whirlpool address" className="mt-1" />
       </label>
       <div className="mt-4 flex justify-end space-x-2">
         <button

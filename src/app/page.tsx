@@ -671,7 +671,7 @@ export default function HomePage() {
         <DeFAILogo className="h-20 w-20 mb-6" />
         <h1 className="text-3xl font-bold text-primary mb-4 font-orbitron">Welcome to DeFAI Rewards</h1>
         <p className="text-lg mb-6">Please log in with your X account to continue.</p>
-        <p className="text-sm text-muted-foreground">The "Login with X" button is in the header.</p>
+        <p className="text-sm text-muted-foreground">The Login with X button is in the header.</p>
       </main>
     );
   }
@@ -683,7 +683,7 @@ export default function HomePage() {
         <DeFAILogo className="h-20 w-20 mb-6" />
         <h1 className="text-3xl font-bold text-primary mb-4 font-orbitron">Almost There!</h1>
         <p className="text-lg mb-6">Your X account is authenticated. Now, please connect your wallet to activate your DeFAI Rewards account.</p>
-        <p className="text-sm text-muted-foreground">The "Connect Wallet" button is in the header.</p>
+        <p className="text-sm text-muted-foreground">The Connect Wallet button is in the header.</p>
         {wallet.connecting && <p className="text-primary mt-4">Connecting to wallet...</p>}
       </main>
     );

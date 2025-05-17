@@ -477,7 +477,7 @@ export default function HomePage() {
                   </p>
                   {/* Floating illustration on desktop */}
                   <div className="hidden lg:block absolute -right-40 -top-12 pointer-events-none select-none animate-float">
-                    <img src="/public/ai-image.jpeg" alt="AI Hero" className="w-[400px] h-auto rounded-xl shadow-lg animate-float" />
+                    <img src="/public/tits.png" alt="AI Hero" className="w-[400px] h-auto rounded-xl shadow-lg animate-float" />
                   </div>
                 </div>
 

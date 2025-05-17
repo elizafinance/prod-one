@@ -95,6 +95,8 @@ if (isNaN(REQUIRED_DEFAI_AMOUNT)) {
 }
 
 export default function HomePage() {
+  console.log("[HomePage] Component Rendering/Re-rendering");
+
   const { data: session, status: authStatus, update: updateSession } = useSession();
   const wallet = useWallet();
   const { connection } = useConnection();
@@ -145,8 +147,12 @@ export default function HomePage() {
 
   // Callback to link wallet and update session
   const handleWalletConnectSuccess = useCallback(async () => {
-    if (!wallet.publicKey || !session?.user?.xId) return;
-
+    console.log("[HomePage] handleWalletConnectSuccess called");
+    if (!wallet.publicKey || !session?.user?.xId) {
+      console.log("[HomePage] handleWalletConnectSuccess: Aborting - no publicKey or session.user.xId", { hasPublicKey: !!wallet.publicKey, hasXId: !!session?.user?.xId });
+      return;
+    }
+    console.log("[HomePage] handleWalletConnectSuccess: Proceeding to link wallet");
     toast.info("Linking your wallet to your X account...");
     try {
       const response = await fetch('/api/users/link-wallet', {
@@ -156,31 +162,32 @@ export default function HomePage() {
       });
       const data = await response.json();
       if (response.ok) {
+        console.log("[HomePage] handleWalletConnectSuccess: Wallet linked successfully via API, updating session.");
         toast.success(data.message || "Wallet linked successfully!");
-        await updateSession(); // Refresh the session to get walletAddress
-        // The main useEffect watching authStatus and session.user.walletAddress will then proceed.
+        await updateSession(); 
       } else {
+        console.error("[HomePage] handleWalletConnectSuccess: API error linking wallet", data);
         toast.error(data.error || "Failed to link wallet.");
-        // Optionally disconnect wallet if linking fails critically
-        // await wallet.disconnect();
       }
     } catch (error) {
-      console.error("Error linking wallet:", error);
+      console.error("[HomePage] handleWalletConnectSuccess: Exception linking wallet", error);
       toast.error("An error occurred while linking your wallet.");
     }
-  }, [wallet, session, updateSession]);
+  }, [wallet, session, updateSession]); // wallet.publicKey and session.user?.xId are implicitly covered by wallet and session
 
   // This useEffect now also handles calling handleWalletConnectSuccess
   // if X is authed, wallet is connected, but session doesn't yet have walletAddress.
   useEffect(() => {
+    console.log("[HomePage] Main Effect Triggered", { authStatus, sessionExists: !!session, walletConnected: wallet.connected, walletAddressInSession: !!session?.user?.walletAddress, isActivatingRewards, isRewardsActive, activationAttempted });
+
     if (authStatus === "authenticated" && session?.user?.xId && wallet.connected && wallet.publicKey && !session?.user?.walletAddress && !isActivatingRewards) {
-      // Wallet is connected, X is authed, but walletAddress not in session yet. Link it.
+      console.log("[HomePage] Main Effect: Condition met for handleWalletConnectSuccess");
       handleWalletConnectSuccess();
     } else if (authStatus === "authenticated" && session?.user?.xId && session?.user?.walletAddress && wallet.connected && wallet.publicKey && !isRewardsActive && !isActivatingRewards && !activationAttempted) {
-      // All conditions met for activation (X authed, session has wallet, wallet connected)
+      console.log("[HomePage] Main Effect: Condition met for activateRewardsAndFetchData");
       activateRewardsAndFetchData(wallet.publicKey.toBase58(), session.user.xId, session.user.dbId);
     } else if (authStatus === "authenticated" && wallet.connected && wallet.publicKey && isRewardsActive && hasSufficientDefai === null && !isCheckingDefaiBalance) {
-      console.log("Rewards active, checking DeFAI balance...");
+      console.log("[HomePage] Main Effect: Condition met for checking DeFAI balance");
       setTimeout(() => {
         if (connection && wallet.publicKey) {
           checkDefaiBalance(wallet.publicKey, connection);
@@ -190,11 +197,12 @@ export default function HomePage() {
         }
       }, 1000);
     } else if (authStatus === "authenticated" && wallet.connected && isRewardsActive && !isFetchingInvites) {
+      console.log("[HomePage] Main Effect: Condition met for fetching pending invites");
         fetchPendingInvites();
     }
 
     if (authStatus === "authenticated" && !wallet.connected && isRewardsActive) {
-      // If wallet disconnects after rewards were active, reset state
+      console.log("[HomePage] Main Effect: Wallet disconnected while rewards active, resetting.");
       setIsRewardsActive(false);
       setUserData(null);
       setMySquadData(null);
@@ -205,13 +213,13 @@ export default function HomePage() {
     }
   }, [
       authStatus, 
-      session, 
+      session, // Watching the whole session object. Consider session?.user?.xId, session?.user?.walletAddress if session object identity changes too often.
       wallet.connected, 
       wallet.publicKey, 
       isRewardsActive, 
       isActivatingRewards, 
       activationAttempted,
-      handleWalletConnectSuccess, // Added dependency
+      handleWalletConnectSuccess, 
       activateRewardsAndFetchData, 
       hasSufficientDefai, 
       isCheckingDefaiBalance, 
@@ -356,7 +364,7 @@ export default function HomePage() {
   }, [wallet.connected]);
 
   const activateRewardsAndFetchData = useCallback(async (connectedWalletAddress: string, xUserId: string, userDbId: string | undefined) => {
-    // Mark that we have attempted activation for this wallet/account combination
+    console.log("[HomePage] activateRewardsAndFetchData called", { connectedWalletAddress, xUserId, userDbId });
     setActivationAttempted(true);
     setIsActivatingRewards(true);
     toast.info("Activating your DeFAI Rewards account...");
@@ -374,6 +382,7 @@ export default function HomePage() {
       });
       const data: UserData & { message?: string, error?: string, isNewUser?: boolean } = await response.json();
       if (response.ok) {
+        console.log("[HomePage] activateRewardsAndFetchData: Success", data);
         toast.success(data.message || "Rewards activated!");
         setUserData(data);
         if (data.airdropAmount !== undefined) setAirdropCheckResult(data.airdropAmount);
@@ -396,36 +405,14 @@ export default function HomePage() {
           checkDefaiBalance(wallet.publicKey, connection);
         }
       } else {
-        // Handle specific error cases to provide better user experience
-        if (response.status === 409) {
-          // This is a wallet conflict - show a modal or prominent message instead of a toast that disappears
-          const errorMessage = data.error || "This wallet is already linked to another X account.";
-          toast.error(errorMessage, {
-            duration: 10000, // Longer duration
-            id: "wallet-conflict-error" // Using an ID prevents duplicate toasts
-          });
-          
-          // Set some state to show the user can't use this wallet and should disconnect
-          setIsRewardsActive(false);
-          setUserData(null);
-          setMySquadData(null);
-          setPendingInvites([]);
-          
-          // Suggest disconnecting the wallet
-          toast.info("Please disconnect this wallet and try with a different one, or use the X account linked to this wallet.", {
-            duration: 10000,
-            id: "wallet-conflict-suggestion"
-          });
-        } else {
-          // Handle other errors normally
-          toast.error(data.error || "Failed to activate rewards.");
-          setIsRewardsActive(false);
-          setUserData(null);
-          setMySquadData(null);
-          setPendingInvites([]);
-        }
+        console.error("[HomePage] activateRewardsAndFetchData: API error", data);
+        setIsRewardsActive(false);
+        setUserData(null);
+        setMySquadData(null);
+        setPendingInvites([]);
       }
     } catch (error) {
+      console.error("[HomePage] activateRewardsAndFetchData: Exception", error);
       toast.error("Error activating rewards.");
       setIsRewardsActive(false);
       setUserData(null);
@@ -673,9 +660,36 @@ export default function HomePage() {
   }, [wallet.connected, wallet.publicKey, connection]);
 
   if (authStatus === "loading") {
+    console.log("[HomePage] Rendering: Loading Session state");
     return <main className="flex flex-col items-center justify-center min-h-screen p-8 bg-background text-foreground"><p className="font-orbitron text-xl">Loading Session...</p></main>;
   }
 
+  if (authStatus !== "authenticated") {
+    console.log("[HomePage] Rendering: Not Authenticated state");
+    return (
+      <main className="flex flex-col items-center justify-center min-h-screen p-8 bg-background text-foreground text-center">
+        <DeFAILogo className="h-20 w-20 mb-6" />
+        <h1 className="text-3xl font-bold text-primary mb-4 font-orbitron">Welcome to DeFAI Rewards</h1>
+        <p className="text-lg mb-6">Please log in with your X account to continue.</p>
+        <p className="text-sm text-muted-foreground">The "Login with X" button is in the header.</p>
+      </main>
+    );
+  }
+
+  if (!session?.user?.walletAddress) {
+    console.log("[HomePage] Rendering: X Authenticated, Wallet Not Linked in Session state");
+    return (
+      <main className="flex flex-col items-center justify-center min-h-screen p-8 bg-background text-foreground text-center">
+        <DeFAILogo className="h-20 w-20 mb-6" />
+        <h1 className="text-3xl font-bold text-primary mb-4 font-orbitron">Almost There!</h1>
+        <p className="text-lg mb-6">Your X account is authenticated. Now, please connect your wallet to activate your DeFAI Rewards account.</p>
+        <p className="text-sm text-muted-foreground">The "Connect Wallet" button is in the header.</p>
+        {wallet.connecting && <p className="text-primary mt-4">Connecting to wallet...</p>}
+      </main>
+    );
+  }
+  
+  console.log("[HomePage] Rendering: Fully Authenticated and Wallet Linked state");
   // Determine if points/actions section should be shown
   const showPointsSection = authStatus === "authenticated" && wallet.connected && isRewardsActive && userData && hasSufficientDefai === true;
   // Determine if the "Insufficient Balance" message should be shown

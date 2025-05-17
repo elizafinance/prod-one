@@ -72,17 +72,21 @@ export async function GET(
           }
         }
 
-        // Only add the member if a corresponding user document was found
-        if (memberDetail && memberDetail.walletAddress) { // Ensure walletAddress exists on the found user doc too
+        if (memberDetail && memberDetail.walletAddress) {
+          // Normal case – we have a matching user doc.
           membersFullDetails.push({
-            walletAddress: walletAddr, // Use the walletAddr from the squad list to ensure consistency
+            walletAddress: walletAddr,
             xUsername: memberDetail.xUsername,
             xProfileImageUrl: memberDetail.xProfileImageUrl,
             points: memberDetail.points,
           });
         } else {
-          // Optionally log that a squad member's wallet address did not resolve to a user
-          console.warn(`User document not found for squad member wallet: ${walletAddr} in squad ${squad.squadId}. Omitting from details.`);
+          // Still include the member so counts / ordering remain correct; show bare wallet address.
+          console.warn(`User document not found for squad member wallet: ${walletAddr} in squad ${squad.squadId}. Displaying with minimal details.`);
+          membersFullDetails.push({
+            walletAddress: walletAddr,
+            // Leave other fields undefined
+          });
         }
       }
     }

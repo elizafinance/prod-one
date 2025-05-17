@@ -809,8 +809,8 @@ export default function SquadDetailsPage() {
                     />
                     <div>
                       <p className="text-xs text-muted-foreground">
-                        {member.xUsername ? `@${member.xUsername}` : 'X: N/A'} - 
-                        <span className="text-xs text-purple-700">{TOKEN_LABEL_POINTS}: {member.points?.toLocaleString() || 'N/A'}</span>
+                        {member.xUsername ? `@${member.xUsername}` : `${member.walletAddress.substring(0,6)}...`} - 
+                        <span className="text-xs text-purple-700">{TOKEN_LABEL_POINTS}: {member.points?.toLocaleString() || '0'}</span>
                       </p>
                     </div>
                   </div>

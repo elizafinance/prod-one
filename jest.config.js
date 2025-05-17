@@ -4,6 +4,7 @@ export default {
   testEnvironment: 'node',
   globalSetup: '<rootDir>/__tests__/jest.globalSetup.js',
   globalTeardown: '<rootDir>/__tests__/jest.globalTeardown.js',
+  setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
   moduleNameMapper: {
     // Handle module aliases (if you have them in tsconfig.json)
     '^@/(.*)$': '<rootDir>/src/$1',
@@ -25,18 +26,15 @@ export default {
   verbose: true,
   // Automatically clear mock calls and instances between every test
   clearMocks: true,
-  // A list of paths to modules that run some code to configure or set up the testing framework before each test
-  // setupFilesAfterEnv: ['<rootDir>/jest.setup.js'], // if you have a setup file
   // The glob patterns Jest uses to detect test files
   testMatch: [
-    '**/__tests__/**/*.test.[jt]s?(x)',
+    '**/__tests__/**/*.test.[tj]s?(x)',
     // '**/?(*.)+(spec|test).[tj]s?(x)' // Default jest pattern
   ],
   // An array of regexp pattern strings that are matched against all source file paths, matched files will skip transformation
   transformIgnorePatterns: [
-    // Default: '/node_modules/'. Adjust if specific node_modules need transformation.
-    // For now, keeping default. If error shifts to a node_module, revisit this.
-    '/node_modules/',
+    // Allow transformation for specific problematic ESM modules in node_modules
+    '/node_modules/(?!uuid|jayson|@project-serum/anchor|@solana/wallet-adapter-base|@solana/wallet-adapter-react|@solana/web3.js)',
     '\\.pnp\\.[^/\]+$',
   ],
   testPathIgnorePatterns: [
@@ -56,4 +54,5 @@ export default {
   // coverageDirectory: "coverage", // Output directory for coverage reports
   // coverageProvider: "v8", // or "babel"
   // coverageReporters: ["json", "text", "lcov", "clover"], // Coverage report formats
+  testTimeout: 30000,
 }; 

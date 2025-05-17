@@ -19,7 +19,7 @@ export async function fetchWhirlpoolData(
   // Create a basic provider for read-only operations. 
   // The wallet is a dummy one as we're not signing transactions here.
   const provider = new AnchorProvider(connection, { publicKey: PublicKey.default } as any, {});
-  const ctx = WhirlpoolContext.withProvider(provider, ORCA_WHIRLPOOL_PROGRAM_ID);
+  const ctx = WhirlpoolContext.withProvider(provider as any, ORCA_WHIRLPOOL_PROGRAM_ID);
   const client = buildWhirlpoolClient(ctx);
 
   try {
@@ -43,7 +43,7 @@ export async function fetchPositionData(
   positionAddress: PublicKey
 ): Promise<PositionData | null> {
   const provider = new AnchorProvider(connection, { publicKey: PublicKey.default } as any, {});
-  const ctx = WhirlpoolContext.withProvider(provider, ORCA_WHIRLPOOL_PROGRAM_ID);
+  const ctx = WhirlpoolContext.withProvider(provider as any, ORCA_WHIRLPOOL_PROGRAM_ID);
   const client = buildWhirlpoolClient(ctx);
 
   try {

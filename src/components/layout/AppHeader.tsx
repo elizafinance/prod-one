@@ -113,6 +113,7 @@ export default function AppHeader() {
             )}
 
             <WalletMultiButtonDynamic 
+              className="ml-2"
               style={{
                 backgroundColor: '#2B96F1', 
                 color: 'white', 
@@ -128,6 +129,7 @@ export default function AppHeader() {
             {authStatus !== "authenticated" && (
               <button
                 onClick={() => signIn('twitter')}
+                className="ml-2 flex items-center space-x-1 hover:opacity-90 transition-opacity"
                 style={{
                   backgroundColor: '#2B96F1',
                   color: 'white',
@@ -137,7 +139,6 @@ export default function AppHeader() {
                   fontSize: '0.875rem',
                   height: '36px'
                 }}
-                className="flex items-center space-x-1 hover:opacity-90 transition-opacity"
               >
                 <XIcon />
                 <span className="hidden sm:inline">Login</span>
@@ -147,6 +148,7 @@ export default function AppHeader() {
             {authStatus === "authenticated" && (
               <button
                 onClick={() => signOut()}
+                className="ml-2 flex items-center space-x-2 hover:opacity-90 transition-opacity overflow-hidden"
                 style={{
                   backgroundColor: '#2B96F1',
                   color: 'white',
@@ -157,7 +159,6 @@ export default function AppHeader() {
                   height: '36px',
                   maxWidth: '180px'
                 }}
-                className="flex items-center space-x-2 hover:opacity-90 transition-opacity overflow-hidden"
               >
                 {typedSession?.user?.xProfileImageUrl && (
                   <img src={typedSession.user.xProfileImageUrl} alt="X avatar" className="w-6 h-6 rounded-full" />

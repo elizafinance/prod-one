@@ -19,7 +19,8 @@ interface AirdropInfoDisplayProps {
 const AirdropInfoDisplay: React.FC<AirdropInfoDisplayProps> = ({ onNotConnected, showTitle = true, onTotalAirdropChange }) => {
   const { publicKey, connected } = useWallet();
   const { connection } = useConnection();
-  const { data: session, status: authStatus } = useSession();
+  const { data: session, status: authStatus } = useSession<any>();
+  const typedSession: any = session;
 
   const [defaiBalance, setDefaiBalance] = useState<number | null>(null);
   const [userPoints, setUserPoints] = useState<number | null>(null);
@@ -49,7 +50,7 @@ const AirdropInfoDisplay: React.FC<AirdropInfoDisplayProps> = ({ onNotConnected,
   }, [initialAirdropAllocation, defaiBalance, userPoints, totalCommunityPoints, airdropPoolSize, onTotalAirdropChange]);
 
   const fetchAirdropData = useCallback(async () => {
-    if (!connected || !publicKey || !session?.user?.walletAddress) {
+    if (!connected || !publicKey || !typedSession?.user?.walletAddress) {
       setDefaiBalance(null);
       setUserPoints(null);
       return;
@@ -147,10 +148,10 @@ const AirdropInfoDisplay: React.FC<AirdropInfoDisplayProps> = ({ onNotConnected,
 
     setIsLoading(false);
 
-  }, [connected, publicKey, session, connection, tokenMintAddress, tokenDecimals]);
+  }, [connected, publicKey, typedSession, connection, tokenMintAddress, tokenDecimals]);
 
   useEffect(() => {
-    if (connected && publicKey && session?.user?.walletAddress && authStatus === 'authenticated') {
+    if (connected && publicKey && typedSession?.user?.walletAddress && authStatus === 'authenticated') {
       if (!tokenMintAddress) {
         setError("DeFAI token mint address is not configured. Check NEXT_PUBLIC_DEFAI_TOKEN_MINT_ADDRESS.");
         toast.error("Airdrop configuration error.");
@@ -158,9 +159,9 @@ const AirdropInfoDisplay: React.FC<AirdropInfoDisplayProps> = ({ onNotConnected,
       }
       fetchAirdropData();
     }
-  }, [connected, publicKey, session, authStatus, fetchAirdropData, tokenMintAddress]);
+  }, [connected, publicKey, typedSession, authStatus, fetchAirdropData, tokenMintAddress]);
 
-  if (!connected || !publicKey || authStatus !== 'authenticated' || !session?.user?.walletAddress) {
+  if (!connected || !publicKey || authStatus !== 'authenticated' || !typedSession?.user?.walletAddress) {
     return onNotConnected ? <>{onNotConnected()}</> : null;
   }
 

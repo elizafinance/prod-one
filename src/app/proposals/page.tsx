@@ -28,7 +28,8 @@ export default function ProposalsPage() {
 
   // State for current user's points
   const [currentUserPoints, setCurrentUserPoints] = useState<number | null>(null);
-  const { data: session, status: sessionStatus } = useSession(); // Get session
+  const { data: session, status: sessionStatus } = useSession<any>(); // Get session
+  const typedSession: any = session;
 
   const [selectedProposalForModal, setSelectedProposalForModal] = useState<ProposalCardData | null>(null);
   const [isVoteModalOpen, setIsVoteModalOpen] = useState(false);
@@ -80,7 +81,7 @@ export default function ProposalsPage() {
 
   // Fetch current user's points when session is available
   useEffect(() => {
-    if (sessionStatus === 'authenticated' && session?.user?.walletAddress) {
+    if (sessionStatus === 'authenticated' && typedSession?.user?.walletAddress) {
       let pointsFound = false;
       const storedUserData = localStorage.getItem('defaiUserData');
       if (storedUserData) {
@@ -97,8 +98,8 @@ export default function ProposalsPage() {
 
       if (!pointsFound) {
         // Fallback: Fetch from API if not in localStorage or if parsing failed
-        console.log(`[ProposalsPage] Fetching points via API for ${session.user.walletAddress}`);
-        fetch(`/api/users/points?address=${session.user.walletAddress}`)
+        console.log(`[ProposalsPage] Fetching points via API for ${typedSession.user.walletAddress}`);
+        fetch(`/api/users/points?address=${typedSession.user.walletAddress}`)
           .then(res => {
             if (!res.ok) {
               // Handle non-OK responses (e.g., 404, 500) by throwing an error to be caught below
@@ -122,7 +123,7 @@ export default function ProposalsPage() {
     } else if (sessionStatus === 'unauthenticated') {
         setCurrentUserPoints(null); // Clear points if user logs out
     }
-  }, [sessionStatus, session?.user?.walletAddress]); // Ensure dependency on walletAddress too
+  }, [sessionStatus, typedSession?.user?.walletAddress]); // Ensure dependency
 
   const handleOpenVoteModal = (proposalId: string) => {
     const proposalToVote = apiResponse?.proposals.find(p => p._id === proposalId);

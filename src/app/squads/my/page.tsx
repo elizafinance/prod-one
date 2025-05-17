@@ -18,7 +18,8 @@ const PROPOSAL_CREATION_MIN_SQUAD_POINTS = parseInt(process.env.NEXT_PUBLIC_SQUA
 
 export default function MySquadPage() {
   const { publicKey, connected } = useWallet();
-  const { data: session, status: authStatus } = useSession();
+  const { data: session, status: authStatus } = useSession<any>();
+  const typedSession: any = session;
   const [mySquadData, setMySquadData] = useState<MySquadData | null>(null);
   const [isFetchingSquad, setIsFetchingSquad] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -73,7 +74,7 @@ export default function MySquadPage() {
   }, [isLoadingPoints]);
 
   const fetchMySquadData = useCallback(async (userWalletAddress: string) => {
-    if (authStatus !== "authenticated" || !session?.user?.xId) {
+    if (authStatus !== "authenticated" || !typedSession?.user?.xId) {
       setError("User not authenticated. Cannot fetch squad data.");
       setIsFetchingSquad(false);
       setHasLoadedData(true);
@@ -126,7 +127,7 @@ export default function MySquadPage() {
     }
     
     setIsFetchingSquad(false);
-  }, [isFetchingSquad, userCheckedNoSquad, fetchUserPoints, mySquadData, hasLoadedData, isCreateProposalModalOpen, authStatus, session?.user?.xId]);
+  }, [isFetchingSquad, userCheckedNoSquad, fetchUserPoints, mySquadData, hasLoadedData, isCreateProposalModalOpen, authStatus, typedSession?.user?.xId]);
 
   useEffect(() => {
     let isActive = true;
@@ -136,7 +137,7 @@ export default function MySquadPage() {
     const shouldFetch = 
       // Authentication requirements
       authStatus === "authenticated" && 
-      session?.user?.xId && 
+      typedSession?.user?.xId && 
       // Wallet requirements
       connected && 
       publicKey && 
@@ -160,7 +161,7 @@ export default function MySquadPage() {
       }, 500);
     } 
     // Clear case - set definitive state to prevent further attempts
-    else if (authStatus === "unauthenticated" || (authStatus === "authenticated" && !session?.user?.xId)) {
+    else if (authStatus === "unauthenticated" || (authStatus === "authenticated" && !typedSession?.user?.xId)) {
       console.log("[MySquadPage] Not authenticated properly, clearing squad data");
       setMySquadData(null);
       setUserCheckedNoSquad(true);
@@ -174,7 +175,7 @@ export default function MySquadPage() {
     };
   }, [
     authStatus, 
-    session?.user?.xId, 
+    typedSession?.user?.xId, 
     connected, 
     publicKey, 
     fetchMySquadData,

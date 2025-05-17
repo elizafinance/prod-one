@@ -32,7 +32,7 @@ const navItems: NavItem[] = [
 ];
 
 export default function AppHeader() {
-  const { data: session, status: authStatus } = useSession();
+  const { data: session, status: authStatus } = useSession<any>();
   const { connected, publicKey } = useWallet();
   const [notificationsInitialized, setNotificationsInitialized] = useState(false);
 
@@ -41,6 +41,8 @@ export default function AppHeader() {
   const toggleNotificationsPanel = useUiStateStore((state) => state.toggleNotificationsPanel);
   const setUnreadNotificationCountInStore = useUiStateStore((state) => state.setUnreadNotificationCount);
   const fetchInitialUnreadCount = useUiStateStore((state) => state.fetchInitialUnreadCount);
+
+  const typedSession: any = session;
 
   useEffect(() => {
     // Fetch initial unread count when user is authenticated and wallet connected
@@ -157,10 +159,10 @@ export default function AppHeader() {
                 }}
                 className="flex items-center space-x-2 hover:opacity-90 transition-opacity overflow-hidden"
               >
-                {session?.user?.xProfileImageUrl && (
-                  <img src={session.user.xProfileImageUrl} alt="X avatar" className="w-6 h-6 rounded-full" />
+                {typedSession?.user?.xProfileImageUrl && (
+                  <img src={typedSession.user.xProfileImageUrl} alt="X avatar" className="w-6 h-6 rounded-full" />
                 )}
-                <span className="truncate">@{session?.user?.xUsername || session?.user?.name}</span>
+                <span className="truncate">@{typedSession?.user?.xUsername || typedSession?.user?.name}</span>
               </button>
             )}
           </div>

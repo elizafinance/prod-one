@@ -22,7 +22,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   // Ensure user is authenticated
-  const session = await getServerSession(req, res, authOptions);
+  const session = await getServerSession(req, res, authOptions) as any;
   if (!session || !session.user || typeof session.user.walletAddress !== 'string') {
     return res.status(401).json({ error: 'User not authenticated' });
   }

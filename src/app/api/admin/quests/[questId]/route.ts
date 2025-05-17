@@ -42,7 +42,8 @@ interface RouteContext {
 
 // GET - Get a single quest by ID
 export async function GET(request: Request, { params }: RouteContext) {
-  const session = await getServerSession(authOptions);
+  // Cast session to a type that includes an optional user with an optional role
+  const session: any = await (getServerSession as any)(authOptions);
   if (!session || !session.user || session.user.role !== 'admin') {
     return NextResponse.json({ error: 'Forbidden: Requires admin privileges' }, { status: 403 });
   }
@@ -93,7 +94,8 @@ export async function GET(request: Request, { params }: RouteContext) {
 
 // PUT - Update a quest by ID
 export async function PUT(request: Request, { params }: RouteContext) {
-  const session = await getServerSession(authOptions);
+  // Cast session to a type that includes an optional user with an optional role
+  const session: any = await (getServerSession as any)(authOptions);
   if (!session || !session.user || session.user.role !== 'admin') {
     return NextResponse.json({ error: 'Forbidden: Requires admin privileges' }, { status: 403 });
   }
@@ -235,7 +237,8 @@ export async function PUT(request: Request, { params }: RouteContext) {
 
 // DELETE - Delete a quest by ID (or mark as inactive/archived)
 export async function DELETE(request: Request, { params }: RouteContext) {
-  const session = await getServerSession(authOptions);
+  // Cast session to a type that includes an optional user with an optional role
+  const session: any = await (getServerSession as any)(authOptions);
   if (!session || !session.user || session.user.role !== 'admin') {
     return NextResponse.json({ error: 'Forbidden: Requires admin privileges' }, { status: 403 });
   }

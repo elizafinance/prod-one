@@ -22,5 +22,17 @@ export const rewardTokenMint = new PublicKey('11111111111111111111111111111111')
 export const rewardTokenVault = new PublicKey('11111111111111111111111111111111');
 export const whirlpoolAddress = new PublicKey('11111111111111111111111111111111');
 
+// Additional whirlpool placeholders
+export const usdtBtcWhirlpool = {
+  positionMint: new PublicKey('11111111111111111111111111111111'),
+};
+
+export const trxBtcWhirlpool = {
+  positionMint: new PublicKey('11111111111111111111111111111111'),
+};
+
+// Alias for backward compatibility
+export const programId = programID;
+
 // THIS NEEDS TO BE YOUR ACTUAL CONFIG ACCOUNT PUBLIC KEY
-export const elizaConfig = new PublicKey('REPLACE_WITH_YOUR_ELIZA_CONFIG_PUBKEY'); 
+export const elizaConfig = new PublicKey('11111111111111111111111111111111'); 

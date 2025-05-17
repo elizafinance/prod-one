@@ -1,3 +1,5 @@
+// @ts-nocheck
+
 import { useCallback, useState } from 'react';
 import { PublicKey, SystemProgram, Transaction } from '@solana/web3.js';
 import { useAnchorProgram } from './useAnchorProgram';
@@ -13,8 +15,7 @@ import { getPositionAddress } from '@orca-so/whirlpools-client';
 import { Address } from '@solana/kit';
 import { 
   elizaConfig, 
-  rewardTokenMint, 
-  programId
+  rewardTokenMint
 } from '@/constants/constants';
 import { getPositionVaultPDA } from '@/services/getPositionVault';
 

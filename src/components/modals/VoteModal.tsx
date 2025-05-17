@@ -28,7 +28,7 @@ interface UserVoteData {
 
 const VoteModal: React.FC<VoteModalProps> = ({ isOpen, onClose, proposal, onVoteSuccess, currentUserPoints }) => {
   const router = useRouter();
-  const { data: session, status: sessionStatus } = useSession();
+  const { data: session, status: sessionStatus } = useSession<any>();
   const wallet = useWallet();
   const [isSubmittingVote, setIsSubmittingVote] = useState(false);
   const [currentUserVote, setCurrentUserVote] = useState<UserVoteData | null>(null);
@@ -36,6 +36,7 @@ const VoteModal: React.FC<VoteModalProps> = ({ isOpen, onClose, proposal, onVote
   const [isSquadLeader, setIsSquadLeader] = useState<boolean>(false);
   const [voteCount, setVoteCount] = useState<number | null>(null);
   const [isCancelling, setIsCancelling] = useState(false);
+  const typedSession: any = session;
 
   const isProposalActive = proposal?.status === 'active';
 
@@ -74,9 +75,9 @@ const VoteModal: React.FC<VoteModalProps> = ({ isOpen, onClose, proposal, onVote
 
   // Check if the user is the squad leader and if the proposal has votes
   useEffect(() => {
-    if (isOpen && proposal && session?.user?.walletAddress) {
+    if (isOpen && proposal && typedSession?.user?.walletAddress) {
       // Check if user is squad leader
-      const userIsLeader = session.user.walletAddress === proposal.leaderWalletAddress; // Add this field to your ProposalCardData interface if needed
+      const userIsLeader = typedSession.user.walletAddress === proposal.leaderWalletAddress; // Add this field to your ProposalCardData interface if needed
       setIsSquadLeader(userIsLeader);
       
       // If leader, also check vote count to determine if can cancel
@@ -85,7 +86,7 @@ const VoteModal: React.FC<VoteModalProps> = ({ isOpen, onClose, proposal, onVote
         setVoteCount(proposal.totalVoters);
       }
     }
-  }, [isOpen, proposal, session?.user?.walletAddress]);
+  }, [isOpen, proposal, typedSession?.user?.walletAddress]);
 
   const handleVoteSubmit = async (choice: 'up' | 'down' | 'abstain') => {
     console.time('[VoteModal] vote');

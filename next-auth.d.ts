@@ -11,15 +11,25 @@ declare module "next-auth" {
       xId?: string | null;
       /** The user's database ID. */
       dbId?: string | null;
+      /** The user's wallet address. */
+      walletAddress?: string | null;
       /** The user's role. */
       role?: string | null;
+      /** Name and image are already in DefaultSession but keeping explicit for clarity */
+      id?: string | null;
+      name?: string | null;
+      image?: string | null;
     } & DefaultSession["user"]; // Keep existing properties like name, email, image
   }
 
   interface User extends DefaultUser {
     xId?: string | null;
     dbId?: string | null;
+    walletAddress?: string | null;
     role?: string | null;
+    id?: string | null;
+    name?: string | null;
+    image?: string | null;
   }
 }
 
@@ -28,6 +38,7 @@ declare module "next-auth/jwt" {
   interface JWT extends DefaultJWT {
     xId?: string | null;
     dbId?: string | null;
+    walletAddress?: string | null;
     role?: string | null;
   }
 } 

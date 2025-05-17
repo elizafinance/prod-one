@@ -36,7 +36,7 @@ function containsProfanity(name: string, list: string[]): boolean {
 }
 
 export async function POST(request: Request) {
-  const session = await getServerSession(authOptions);
+  const session = await getServerSession(authOptions) as any;
   // Prefer leaderWalletAddress variable name as used in squad-goals for clarity
   const leaderWalletAddress = session?.user?.walletAddress;
   if (!leaderWalletAddress) { 

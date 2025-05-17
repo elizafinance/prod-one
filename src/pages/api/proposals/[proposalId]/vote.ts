@@ -35,7 +35,7 @@ async function handler(
   // session: Session // This would be provided by withAuth
 ) {
   // Manually get session if withAuth is removed for testing
-  const session = await getServerSession(req, res, authOptions);
+  const session = await getServerSession(req, res, authOptions) as any;
   if (!session || !session.user || !session.user.dbId || !session.user.walletAddress ) {
     return res.status(401).json({ error: 'User not authenticated or session data incomplete.' });
   }
@@ -55,6 +55,13 @@ async function handler(
   if (req.method === 'POST') {
     if (typeof proposalId !== 'string' || proposalId.trim() === '') {
       return res.status(400).json({ error: 'Proposal identifier is required.' });
+    }
+
+    // Additional validation: ensure proposalId is either a valid Mongo ObjectId or matches slug requirements (alphanumeric, hyphen, underscore)
+    const isValidObjectId = Types.ObjectId.isValid(proposalId);
+    const isValidSlug = /^[a-zA-Z0-9_-]+$/.test(proposalId);
+    if (!isValidObjectId && !isValidSlug) {
+      return res.status(400).json({ error: 'Valid Proposal ID is required.' });
     }
 
     if (!choice || !['up', 'down', 'abstain'].includes(choice)) {
@@ -85,12 +92,17 @@ async function handler(
     }
 
     try {
-      let voter = null;
+      // Fetch voter profile – be tolerant of test mocks that return plain objects without `lean()`
+      let voter: any = null;
       if (userId) {
-        voter = await User.findById(userId).lean<IUser>();
+        const queryOrDoc: any = User.findById(userId);
+        voter = (queryOrDoc && typeof queryOrDoc.lean === 'function')
+          ? await queryOrDoc.lean()
+          : await queryOrDoc;
       }
       if (!voter) {
-        voter = await User.findOne({ walletAddress: userWalletAddress }).lean<IUser>();
+        const queryOrDoc2: any = User.findOne({ walletAddress: userWalletAddress });
+        voter = (queryOrDoc2 && typeof queryOrDoc2.lean === 'function') ? await queryOrDoc2.lean() : await queryOrDoc2;
       }
       if (!voter) {
         console.warn('[VoteAPI] Voter not found, creating minimal profile:', {
@@ -130,7 +142,15 @@ async function handler(
       if (proposal.status !== 'active') { return res.status(403).json({ error: 'Voting is only allowed on active proposals.' });}
       const now = new Date();
       if (now >= proposal.epochEnd) { return res.status(403).json({ error: 'The voting period for this proposal has ended.' }); }
-      let squad = null; try { squad = await Squad.findById(proposal.squadId).lean<ISquad>(); if (!squad) { squad = await Squad.findOne({ squadId: proposal.squadId.toString() }).lean<ISquad>(); } } catch (squadErr) { console.error(`[VoteAPI] Error finding squad for proposal:`, squadErr); }
+      let squad: any = null;
+      try {
+        const squadQuery: any = Squad.findById(proposal.squadId);
+        squad = (squadQuery && typeof squadQuery.lean === 'function') ? await squadQuery.lean() : await squadQuery;
+        if (!squad) {
+          const altQuery: any = Squad.findOne({ squadId: proposal.squadId.toString() });
+          squad = (altQuery && typeof altQuery.lean === 'function') ? await altQuery.lean() : await altQuery;
+        }
+      } catch (squadErr) { console.error(`[VoteAPI] Error finding squad for proposal:`, squadErr); }
       if (!squad) { console.warn(`[VoteAPI] Allowing vote without squad verification for wallet: ${userWalletAddress}`); } else if (!squad.memberWalletAddresses.includes(userWalletAddress)) { return res.status(403).json({ error: 'You must be a member of the squad to vote on this proposal.' });}
       const voterPointsAtCast = voter.points || 0;
       const newVote = new Vote({ proposalId: proposalObjectId, voterUserId: userId, voterWallet: userWalletAddress, squadId: proposal.squadId, choice, voterPointsAtCast, });

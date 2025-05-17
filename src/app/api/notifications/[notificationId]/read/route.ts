@@ -11,7 +11,7 @@ interface RouteContext {
 }
 
 export async function PUT(request: Request, { params }: RouteContext) {
-  const session = await getServerSession(authOptions);
+  const session = await getServerSession(authOptions) as any;
   const { notificationId } = params;
 
   if (!session || !session.user || !session.user.walletAddress) {

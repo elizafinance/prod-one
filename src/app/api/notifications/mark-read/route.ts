@@ -8,7 +8,7 @@ interface MarkReadRequestBody {
 }
 
 export async function POST(request: Request) {
-  const session = await getServerSession(authOptions);
+  const session = await getServerSession(authOptions) as any;
   if (!session || !session.user || typeof session.user.walletAddress !== 'string') {
     console.warn('[Notifications] User not authenticated when marking notifications as read');
     return NextResponse.json({ error: 'User not authenticated or wallet not available in session' }, { status: 401 });

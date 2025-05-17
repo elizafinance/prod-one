@@ -1,0 +1,120 @@
+import { useAnchorProgram } from './useAnchorProgram';
+import { PublicKey, SystemProgram, Transaction, TransactionInstruction } from '@solana/web3.js';
+import { TOKEN_2022_PROGRAM_ID, getAssociatedTokenAddressSync } from '@solana/spl-token';
+import { 
+  elizaConfig, 
+  poolState, 
+  rewardTokenMint,
+  usdtTrxWhirlpool, 
+  usdtBtcWhirlpool, 
+  trxBtcWhirlpool, 
+  programId 
+} from '@/constants/constants';
+import { getPositionVaultPDA } from '@/services/getPositionVault';
+import { getPositionAddress } from '@orca-so/whirlpools-client';
+import { Address } from '@solana/kit';
+import { useState, useEffect } from 'react';
+import { WhirlpoolType } from './useStake';
+import { BN, web3 } from '@project-serum/anchor';
+import { useCheckStake } from './useCheckStake';
+
+// Memo program ID
+const MEMO_PROGRAM_ID = new PublicKey('MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr');
+
+// Reward rate constants - rewards per day in the simulation
+const REWARD_RATE_PER_DAY = 1.5; // 1.5 tokens per day per 1000 liquidity
+
+export const useHarvest = () => {
+  const { program, provider } = useAnchorProgram();
+  const [selectedWhirlpool, setSelectedWhirlpool] = useState<WhirlpoolType>('USDT_TRX');
+  const { stakedPosition } = useCheckStake();
+  const [calculatedRewards, setCalculatedRewards] = useState<number>(0);
+
+  // Simulate rewards calculation based on staking duration and liquidity
+  useEffect(() => {
+    if (!stakedPosition) {
+      setCalculatedRewards(0);
+      return;
+    }
+    
+    // Get current time and stake start time in seconds
+    const currentTime = Math.floor(Date.now() / 1000);
+    const startTime = Number(stakedPosition.startTime);
+    const liquidity = Number(stakedPosition.liquidity);
+    
+    // Calculate staking duration in days
+    const durationInSeconds = currentTime - startTime;
+    const durationInDays = durationInSeconds / 86400; // seconds in a day
+    
+    // Calculate rewards based on liquidity and duration
+    // Use a formula like: (liquidity / 1000) * rate * days
+    const rewards = (liquidity / 1000) * REWARD_RATE_PER_DAY * durationInDays;
+    
+    // Update the calculated rewards
+    setCalculatedRewards(rewards);
+    
+    // Log the calculation
+    console.log('Rewards calculation:', {
+      liquidity,
+      startTime,
+      currentTime,
+      durationInDays,
+      calculatedRewards: rewards
+    });
+    
+  }, [stakedPosition]);
+
+  const getWhirlpoolConfig = (type: WhirlpoolType) => {
+    switch (type) {
+      case 'USDT_TRX':
+        return usdtTrxWhirlpool;
+      case 'USDT_BTC':
+        return usdtBtcWhirlpool;
+      case 'TRX_BTC':
+        return trxBtcWhirlpool;
+      default:
+        throw new Error('Invalid whirlpool type');
+    }
+  };
+
+  // Simulate harvesting rewards - this would update the on-chain reward state
+  // In a real application, this would call the smart contract to calculate and claim rewards
+  const harvest = async (userStakeEntryAddress: PublicKey) => {
+    if (!provider || !provider.wallet.publicKey) {
+      throw new Error('Wallet not connected');
+    }
+
+    if (!stakedPosition) {
+      throw new Error('No staked position found');
+    }
+
+    try {
+      const user = provider.wallet.publicKey;
+      
+      console.log("Simulating reward claim for:", {
+        user: user.toString(),
+        stakeEntry: userStakeEntryAddress.toString(),
+        calculatedRewards
+      });
+      
+      // Simulate transaction processing time
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // In a real application, we would update the on-chain state
+      // For this demo, we'll just pretend the rewards were claimed
+      
+      // Return a mock transaction signature
+      return "MOCK_TRANSACTION_SIGNATURE_FOR_REWARDS_CLAIM";
+    } catch (err) {
+      console.error("Error in simulated claim rewards:", err);
+      throw err;
+    }
+  };
+
+  return { 
+    harvest, 
+    selectedWhirlpool, 
+    setSelectedWhirlpool,
+    calculatedRewards
+  };
+}; 

@@ -30,7 +30,7 @@ interface CreateQuestRequestBody {
 
 // GET - List all quests with filtering and sorting
 export async function GET(request: Request) {
-  const session = await getServerSession(authOptions);
+  const session:any = await (getServerSession as any)(authOptions);
   // NOTE: Assumes session.user.role is correctly typed via next-auth.d.ts
   if (!session?.user?.role || session.user.role !== 'admin') { 
     return NextResponse.json({ error: 'Forbidden: Requires admin privileges' }, { status: 403 });
@@ -81,7 +81,7 @@ export async function GET(request: Request) {
 
 // POST - Create a new quest
 export async function POST(request: Request) {
-  const session = await getServerSession(authOptions);
+  const session:any = await (getServerSession as any)(authOptions);
   // NOTE: Assumes session.user.role, walletAddress, id are correctly typed via next-auth.d.ts
   if (!session?.user?.role || session.user.role !== 'admin') { 
     return NextResponse.json({ error: 'Forbidden: Requires admin privileges' }, { status: 403 });

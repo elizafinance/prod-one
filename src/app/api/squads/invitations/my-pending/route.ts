@@ -11,7 +11,7 @@ interface EnrichedSquadInvitation extends SquadInvitationDocument {
 }
 
 export async function GET(request: Request) {
-  const session = await getServerSession(authOptions);
+  const session = await getServerSession(authOptions) as any;
   console.log('[MyPendingInvitesAPI] Session:', JSON.stringify(session));
   let currentUserWalletAddress = '';
   if (session && session.user && typeof (session.user as any).walletAddress === 'string') {

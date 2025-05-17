@@ -23,7 +23,7 @@ interface MySquadApiResponse {
 }
 
 export async function GET(request: Request) {
-  const session = await getServerSession(authOptions);
+  const session = await getServerSession(authOptions) as any;
   console.log('[MySquadAPI] Session:', JSON.stringify(session));
   // Step 1: Basic authentication - is the user logged in via NextAuth?
   if (!session || !session.user || !session.user.xId) { // Check for xId as the primary session identifier

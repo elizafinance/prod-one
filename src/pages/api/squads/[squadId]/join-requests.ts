@@ -16,7 +16,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(400).json({ error: 'Squad ID is required' });
   }
 
-  const session = await getServerSession(req, res, authOptions);
+  const session = await getServerSession(req, res, authOptions) as any;
   if (!session || !session.user || !session.user.walletAddress) {
     return res.status(401).json({ error: 'User not authenticated' });
   }

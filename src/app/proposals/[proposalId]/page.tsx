@@ -22,7 +22,8 @@ export default function ProposalDetailPage({ params }: PageProps) {
 
   const [isVoteModalOpen, setIsVoteModalOpen] = useState(false);
   const [currentUserPoints, setCurrentUserPoints] = useState<number | null>(null);
-  const { data: session, status: sessionStatus } = useSession();
+  const { data: session, status: sessionStatus } = useSession<any>();
+  const typedSession:any = session;
 
   const fetchProposal = useCallback(async () => {
     setIsLoading(true);
@@ -50,8 +51,8 @@ export default function ProposalDetailPage({ params }: PageProps) {
 
   // Fetch current user points (similar logic to proposals list page)
   useEffect(() => {
-    if (sessionStatus === 'authenticated' && session?.user?.walletAddress) {
-      const address = session.user.walletAddress;
+    if (sessionStatus === 'authenticated' && typedSession?.user?.walletAddress) {
+      const address = typedSession.user.walletAddress;
       fetch(`/api/users/points?address=${address}`)
         .then(async (res) => {
           if (!res.ok) throw new Error(`Failed to fetch points (${res.status})`);
@@ -68,7 +69,7 @@ export default function ProposalDetailPage({ params }: PageProps) {
     } else if (sessionStatus === 'unauthenticated') {
       setCurrentUserPoints(null);
     }
-  }, [sessionStatus, session?.user?.walletAddress]);
+  }, [sessionStatus, typedSession?.user?.walletAddress]);
 
   const handleVoteSuccess = () => {
     fetchProposal(); // refresh proposal tallies after successful vote

@@ -10,7 +10,7 @@ interface DeclineInvitationRequestBody {
 }
 
 export async function POST(request: Request) {
-  const session = await getServerSession(authOptions);
+  const session = await getServerSession(authOptions) as any;
   if (!session || !session.user || typeof session.user.walletAddress !== 'string') {
     return NextResponse.json({ error: 'User not authenticated or wallet not available in session' }, { status: 401 });
   }

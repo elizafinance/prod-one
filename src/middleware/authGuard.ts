@@ -16,7 +16,7 @@ export function withAuth<T extends (request: Request, session: any) => Promise<R
   handler: T
 ) {
   return async function (request: Request): Promise<Response> {
-    const session = await getServerSession(authOptions);
+    const session = await getServerSession(authOptions) as any;
 
     if (!session || !session.user || typeof session.user.walletAddress !== "string") {
       return NextResponse.json({ error: "User not authenticated" }, { status: 401 });

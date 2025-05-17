@@ -1,0 +1,1338 @@
+{
+  "version": "0.1.0",
+  "name": "eliza_staking",
+  "instructions": [
+    {
+      "name": "initPool",
+      "accounts": [
+        {
+          "name": "authority",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "poolAuthority",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "elizaConfig",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "poolState",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "rewardTokenVault",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "rewardTokenMint",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "whirlpool",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "feeCollector",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "tokenProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "rent",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "rewardDuration",
+          "type": "u64"
+        },
+        {
+          "name": "isCurveLinear",
+          "type": "bool"
+        },
+        {
+          "name": "curveBase",
+          "type": "u64"
+        },
+        {
+          "name": "curveSlopeOrExponent",
+          "type": "u64"
+        },
+        {
+          "name": "minDepositAmount",
+          "type": "u64"
+        },
+        {
+          "name": "maxDepositAmount",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "initStakeEntry",
+      "accounts": [
+        {
+          "name": "user",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "elizaConfig",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "userStakeEntry",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "position",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "userRewardTokenAccount",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "rewardTokenMint",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "poolState",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "tokenProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "associatedTokenProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "increasePoolRewards",
+      "accounts": [
+        {
+          "name": "authority",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "elizaConfig",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "poolState",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "rewardTokenMint",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "poolAuthority",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "rewardTokenVault",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "authorityRewardTokenAccount",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "tokenProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "amount",
+          "type": "u64"
+        },
+        {
+          "name": "autoUnpause",
+          "type": {
+            "option": "bool"
+          }
+        },
+        {
+          "name": "maxMultiplier",
+          "type": {
+            "option": "u64"
+          }
+        }
+      ]
+    },
+    {
+      "name": "stake",
+      "accounts": [
+        {
+          "name": "elizaConfig",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "poolState",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "whirlpool",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "position",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "positionMint",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "poolAuthority",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "positionVault",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "user",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "userPositionTokenAccount",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "userStakeEntry",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "tokenProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "stakeDuration",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "unstake",
+      "accounts": [
+        {
+          "name": "elizaConfig",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "poolState",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "position",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "positionMint",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "poolAuthority",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "positionVault",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "rewardTokenVault",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "user",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "userTokenAccount",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "userStakeEntry",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "rewardTokenMint",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "userRewardTokenAccount",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "tokenProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "claimRewards",
+      "accounts": [
+        {
+          "name": "elizaConfig",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "poolState",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "poolAuthority",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "rewardTokenVault",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "user",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "userStakeEntry",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "positionMint",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "rewardTokenMint",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "userRewardTokenAccount",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "tokenProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "updatePoolConfig",
+      "accounts": [
+        {
+          "name": "elizaConfig",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "poolState",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "rewardTokenMint",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "authority",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "tokenProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "rewardDuration",
+          "type": {
+            "option": "u64"
+          }
+        },
+        {
+          "name": "minDepositAmount",
+          "type": {
+            "option": "u64"
+          }
+        },
+        {
+          "name": "maxDepositAmount",
+          "type": {
+            "option": "u64"
+          }
+        },
+        {
+          "name": "isCurveLinear",
+          "type": {
+            "option": "bool"
+          }
+        },
+        {
+          "name": "curveBase",
+          "type": {
+            "option": "u64"
+          }
+        },
+        {
+          "name": "curveSlopeOrExponent",
+          "type": {
+            "option": "u64"
+          }
+        },
+        {
+          "name": "newFeeCollector",
+          "type": {
+            "option": "publicKey"
+          }
+        },
+        {
+          "name": "newAuthority",
+          "type": {
+            "option": "publicKey"
+          }
+        },
+        {
+          "name": "pause",
+          "type": {
+            "option": "u8"
+          }
+        }
+      ]
+    },
+    {
+      "name": "initElizaConfig",
+      "accounts": [
+        {
+          "name": "authority",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "elizaConfig",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "updateElizaConfig",
+      "accounts": [
+        {
+          "name": "authority",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "elizaConfig",
+          "isMut": true,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "rewardsAuthority",
+          "type": {
+            "option": "publicKey"
+          }
+        },
+        {
+          "name": "positionHarvestAuthority",
+          "type": {
+            "option": "publicKey"
+          }
+        },
+        {
+          "name": "pauseAllPools",
+          "type": {
+            "option": "u8"
+          }
+        }
+      ]
+    },
+    {
+      "name": "harvestPosition",
+      "accounts": [
+        {
+          "name": "authority",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "elizaConfig",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "poolAuthority",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "poolState",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "rewardTokenMint",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "userStakeEntry",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "position",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "positionMint",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "whirlpool",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "positionTokenAccount",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "tokenMintA",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "tokenMintB",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "tokenOwnerAccountA",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "tokenVaultA",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "tokenOwnerAccountB",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "tokenVaultB",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "tokenProgramA",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "tokenProgramB",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "memoProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "whirlpoolProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "remainingAccountsInfo",
+          "type": {
+            "option": {
+              "defined": "RemainingAccountsInfo"
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "accounts": [
+    {
+      "name": "ElizaConfig",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "authority",
+            "type": "publicKey"
+          },
+          {
+            "name": "rewardsAuthority",
+            "type": "publicKey"
+          },
+          {
+            "name": "positionHarvestAuthority",
+            "type": "publicKey"
+          },
+          {
+            "name": "pauseAllPools",
+            "type": "u8"
+          },
+          {
+            "name": "padding",
+            "type": {
+              "array": [
+                "u8",
+                39
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "PoolState",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "authority",
+            "type": "publicKey"
+          },
+          {
+            "name": "whirlpool",
+            "type": "publicKey"
+          },
+          {
+            "name": "rewardTokenMint",
+            "type": "publicKey"
+          },
+          {
+            "name": "rewardTokenVault",
+            "type": "publicKey"
+          },
+          {
+            "name": "vaultAuthority",
+            "type": "publicKey"
+          },
+          {
+            "name": "feeCollector",
+            "type": "publicKey"
+          },
+          {
+            "name": "totalStakedLiquidity",
+            "type": "u128"
+          },
+          {
+            "name": "totalFeesCollected",
+            "type": "u128"
+          },
+          {
+            "name": "rewardPerTokenStored",
+            "type": "u128"
+          },
+          {
+            "name": "rewardDuration",
+            "type": "u64"
+          },
+          {
+            "name": "rewardVaultBalance",
+            "type": "u64"
+          },
+          {
+            "name": "minDepositAmount",
+            "type": "u64"
+          },
+          {
+            "name": "maxDepositAmount",
+            "type": "u64"
+          },
+          {
+            "name": "rewardRate",
+            "type": "u64"
+          },
+          {
+            "name": "lastUpdateTime",
+            "type": "u64"
+          },
+          {
+            "name": "finishAt",
+            "type": "u64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "vaultAuthBump",
+            "type": "u8"
+          },
+          {
+            "name": "vaultBump",
+            "type": "u8"
+          },
+          {
+            "name": "isPaused",
+            "type": "u8"
+          },
+          {
+            "name": "padding",
+            "type": {
+              "array": [
+                "u8",
+                4
+              ]
+            }
+          },
+          {
+            "name": "timeCurve",
+            "type": {
+              "defined": "TimeCurve"
+            }
+          },
+          {
+            "name": "reserved",
+            "type": {
+              "array": [
+                "u8",
+                64
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "StakedPosition",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "user",
+            "type": "publicKey"
+          },
+          {
+            "name": "pool",
+            "type": "publicKey"
+          },
+          {
+            "name": "position",
+            "type": "publicKey"
+          },
+          {
+            "name": "userRewardTokenAccount",
+            "type": "publicKey"
+          },
+          {
+            "name": "liquidity",
+            "type": "u128"
+          },
+          {
+            "name": "rewardPerTokenPaid",
+            "type": "u128"
+          },
+          {
+            "name": "rewards",
+            "type": "u128"
+          },
+          {
+            "name": "startTime",
+            "type": "u64"
+          },
+          {
+            "name": "unlockTime",
+            "type": "u64"
+          },
+          {
+            "name": "rewardMultiplier",
+            "type": "u64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "padding",
+            "type": {
+              "array": [
+                "u8",
+                7
+              ]
+            }
+          },
+          {
+            "name": "reserved",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "Position",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "whirlpool",
+            "type": "publicKey"
+          },
+          {
+            "name": "positionMint",
+            "type": "publicKey"
+          },
+          {
+            "name": "liquidity",
+            "type": "u128"
+          },
+          {
+            "name": "tickLowerIndex",
+            "type": "i32"
+          },
+          {
+            "name": "tickUpperIndex",
+            "type": "i32"
+          },
+          {
+            "name": "feeGrowthCheckpointA",
+            "type": "u128"
+          },
+          {
+            "name": "feeOwedA",
+            "type": "u64"
+          },
+          {
+            "name": "feeGrowthCheckpointB",
+            "type": "u128"
+          },
+          {
+            "name": "feeOwedB",
+            "type": "u64"
+          },
+          {
+            "name": "rewardInfos",
+            "type": {
+              "array": [
+                {
+                  "defined": "PositionRewardInfo"
+                },
+                3
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "Whirlpool",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "whirlpoolsConfig",
+            "type": "publicKey"
+          },
+          {
+            "name": "whirlpoolBump",
+            "type": {
+              "array": [
+                "u8",
+                1
+              ]
+            }
+          },
+          {
+            "name": "tickSpacing",
+            "type": "u16"
+          },
+          {
+            "name": "tickSpacingSeed",
+            "type": {
+              "array": [
+                "u8",
+                2
+              ]
+            }
+          },
+          {
+            "name": "feeRate",
+            "type": "u16"
+          },
+          {
+            "name": "protocolFeeRate",
+            "type": "u16"
+          },
+          {
+            "name": "liquidity",
+            "type": "u128"
+          },
+          {
+            "name": "sqrtPrice",
+            "type": "u128"
+          },
+          {
+            "name": "tickCurrentIndex",
+            "type": "i32"
+          },
+          {
+            "name": "protocolFeeOwedA",
+            "type": "u64"
+          },
+          {
+            "name": "protocolFeeOwedB",
+            "type": "u64"
+          },
+          {
+            "name": "tokenMintA",
+            "type": "publicKey"
+          },
+          {
+            "name": "tokenVaultA",
+            "type": "publicKey"
+          },
+          {
+            "name": "feeGrowthGlobalA",
+            "type": "u128"
+          },
+          {
+            "name": "tokenMintB",
+            "type": "publicKey"
+          },
+          {
+            "name": "tokenVaultB",
+            "type": "publicKey"
+          },
+          {
+            "name": "feeGrowthGlobalB",
+            "type": "u128"
+          },
+          {
+            "name": "rewardLastUpdatedTimestamp",
+            "type": "u64"
+          },
+          {
+            "name": "rewardInfos",
+            "type": {
+              "array": [
+                {
+                  "defined": "WhirlpoolRewardInfo"
+                },
+                3
+              ]
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "types": [
+    {
+      "name": "TimeCurve",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Linear",
+            "fields": [
+              {
+                "name": "base",
+                "type": "u64"
+              },
+              {
+                "name": "slope",
+                "type": "u64"
+              }
+            ]
+          },
+          {
+            "name": "Exponential",
+            "fields": [
+              {
+                "name": "base",
+                "type": "u64"
+              },
+              {
+                "name": "exponent",
+                "type": "u64"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "AccountsType",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "TransferHookA"
+          },
+          {
+            "name": "TransferHookB"
+          },
+          {
+            "name": "TransferHookReward"
+          },
+          {
+            "name": "TransferHookInput"
+          },
+          {
+            "name": "TransferHookIntermediate"
+          },
+          {
+            "name": "TransferHookOutput"
+          },
+          {
+            "name": "SupplementalTickArrays"
+          },
+          {
+            "name": "SupplementalTickArraysOne"
+          },
+          {
+            "name": "SupplementalTickArraysTwo"
+          }
+        ]
+      }
+    },
+    {
+      "name": "PositionRewardInfo",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "growthInsideCheckpoint",
+            "type": "u128"
+          },
+          {
+            "name": "amountOwed",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "RemainingAccountsInfo",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "slices",
+            "type": {
+              "vec": {
+                "defined": "RemainingAccountsSlice"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "RemainingAccountsSlice",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "accountsType",
+            "type": {
+              "defined": "AccountsType"
+            }
+          },
+          {
+            "name": "length",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "WhirlpoolRewardInfo",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "mint",
+            "type": "publicKey"
+          },
+          {
+            "name": "vault",
+            "type": "publicKey"
+          },
+          {
+            "name": "authority",
+            "type": "publicKey"
+          },
+          {
+            "name": "emissionsPerSecondX64",
+            "type": "u128"
+          },
+          {
+            "name": "growthGlobalX64",
+            "type": "u128"
+          }
+        ]
+      }
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "InvalidTokenProgram",
+      "msg": "Token program is invalid"
+    },
+    {
+      "code": 6001,
+      "name": "InvalidMint",
+      "msg": "Token mint is invalid"
+    },
+    {
+      "code": 6002,
+      "name": "InvalidMintAuthority",
+      "msg": "Mint authority is invalid"
+    },
+    {
+      "code": 6003,
+      "name": "MathematicalOverflowError",
+      "msg": "Mathematical overflow occured"
+    },
+    {
+      "code": 6004,
+      "name": "InvalidProgramAuthority",
+      "msg": "Incorrect program authority"
+    },
+    {
+      "code": 6005,
+      "name": "OverdrawError",
+      "msg": "Attempted to withdraw more staking rewards than are available"
+    },
+    {
+      "code": 6006,
+      "name": "InvalidUser",
+      "msg": "Invalid user provided"
+    },
+    {
+      "code": 6007,
+      "name": "InvalidRewardTokenMint",
+      "msg": "Invalid staking token mint provider"
+    },
+    {
+      "code": 6008,
+      "name": "InvalidUserStakeTokenAccount",
+      "msg": "Given user stake token account does not match what is stored in user stake entry!"
+    },
+    {
+      "code": 6009,
+      "name": "LockPeriodNotEnded",
+      "msg": "Cannot unstake before lock period ends"
+    },
+    {
+      "code": 6010,
+      "name": "PoolPaused",
+      "msg": "Pool is currently paused"
+    },
+    {
+      "code": 6011,
+      "name": "InvalidPoolAuthority",
+      "msg": "Only the pool authority can perform this action"
+    },
+    {
+      "code": 6012,
+      "name": "InsufficientPoolRewards",
+      "msg": "Pool has insufficient rewards available in the vault"
+    },
+    {
+      "code": 6013,
+      "name": "DepositTooSmall",
+      "msg": "Deposit amount is below minimum required"
+    },
+    {
+      "code": 6014,
+      "name": "DepositTooLarge",
+      "msg": "Deposit amount exceeds maximum allowed"
+    },
+    {
+      "code": 6015,
+      "name": "InvalidDepositLimits",
+      "msg": "Invalid deposit limits: minimum is greater than maximum"
+    },
+    {
+      "code": 6016,
+      "name": "InvalidPauseValue",
+      "msg": "Invalid pause value: must be 0 or 1"
+    },
+    {
+      "code": 6017,
+      "name": "InvalidElizaAuthority",
+      "msg": "Only the Eliza config authority can perform this action"
+    },
+    {
+      "code": 6018,
+      "name": "GlobalPause",
+      "msg": "All operations are currently paused by protocol admin"
+    },
+    {
+      "code": 6019,
+      "name": "NotFullRangePosition",
+      "msg": "Only full range Whirlpool positions are accepted for staking"
+    },
+    {
+      "code": 6020,
+      "name": "InvalidWhirlpoolAccount",
+      "msg": "Invalid whirlpool account"
+    },
+    {
+      "code": 6021,
+      "name": "InvalidPositionMint",
+      "msg": "Invalid position mint"
+    },
+    {
+      "code": 6022,
+      "name": "InvalidPositionHarvestAuthority",
+      "msg": "Invalid position harvest authority"
+    },
+    {
+      "code": 6023,
+      "name": "NoStakedPosition",
+      "msg": "No staked position found"
+    },
+    {
+      "code": 6024,
+      "name": "RewardRateZero",
+      "msg": "Reward rate cannot be zero"
+    }
+  ],
+  "metadata": {
+    "address": "DFH5AGc6DYvgrpm3kWXxmd5FtaBcnZMEKhQ6G784wkdv"
+  }
+}

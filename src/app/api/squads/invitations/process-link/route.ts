@@ -15,7 +15,7 @@ interface ProcessInviteRequestBody {
 }
 
 export async function POST(request: Request) {
-  const session = await getServerSession(authOptions);
+  const session = await getServerSession(authOptions) as any;
   if (
     !session ||
     !session.user ||

@@ -34,7 +34,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     console.error('Failed to establish Mongoose connection in proposals API route:', err);
     return res.status(500).json({ error: 'Database connection error.' });
   }
-  const session = await getServerSession(req, res, authOptions);
+  const session = await getServerSession(req, res, authOptions) as any;
   if (!session || !session.user || typeof session.user.walletAddress !== 'string') {
     return res.status(401).json({ error: 'User not authenticated or wallet not available in session' });
   }

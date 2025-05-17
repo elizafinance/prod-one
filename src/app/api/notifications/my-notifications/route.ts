@@ -18,7 +18,7 @@ interface MergedNotification extends Partial<NotificationDocument> {
 }
 
 export async function GET(request: Request) {
-  const session = await getServerSession(authOptions);
+  const session = await getServerSession(authOptions) as any;
   if (!session?.user?.walletAddress) {
     return NextResponse.json({ error: 'User not authenticated' }, { status: 401 });
   }

@@ -6,7 +6,7 @@ import { authOptions } from "@/lib/auth";
 const DEFAULT_NOTIFICATIONS_LIMIT = 20; // Define a default limit
 
 export async function GET(request: Request) {
-  const session = await getServerSession(authOptions);
+  const session = await getServerSession(authOptions) as any;
 
   if (!session || !session.user || !session.user.walletAddress) {
     return NextResponse.json({ error: 'User not authenticated or wallet not linked' }, { status: 401 });

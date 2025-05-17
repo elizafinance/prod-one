@@ -503,8 +503,8 @@ export default function YieldPage() {
     <ErrorBoundary>
       <DashboardShell>
         <DashboardHeader 
-          heading="Yield Farming" 
-          text="Stake your AIR tokens to earn yield rewards"
+          heading="Yield Farming (Coming Soon)" 
+          text="This section is under active development. Soon you'll be able to stake LP tokens to earn DEFAI yield rewards and AIR multipliers."
         />
         
         <div className="grid gap-6">

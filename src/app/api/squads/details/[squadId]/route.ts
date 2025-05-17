@@ -59,23 +59,31 @@ export async function GET(
         }
       });
 
-      // Populate details in the original order of memberWalletAddresses
+      // Populate details in the original order of memberWalletAddresses, filtering out those with no user doc
       for (const walletAddr of squad.memberWalletAddresses) {
         let memberDetail: Partial<UserDocument> | undefined = memberUserMap.get(walletAddr);
-        // Fallback lookup if initial bulk query missed this member (e.g., case-mismatch or late profile creation)
+        
         if (!memberDetail) {
+          // Fallback lookup if initial bulk query missed this member (e.g., case-mismatch or late profile creation)
           const fallbackDoc = await usersCollection.findOne({ walletAddress: walletAddr }, { projection: { walletAddress: 1, xUsername: 1, xProfileImageUrl: 1, points: 1, _id: 0 } });
           if (fallbackDoc && fallbackDoc.walletAddress) {
             memberDetail = fallbackDoc as Partial<UserDocument>;
-            memberUserMap.set(fallbackDoc.walletAddress, fallbackDoc);
+            // No need to add to memberUserMap here as it's a one-off for this iteration
           }
         }
-        membersFullDetails.push({
-          walletAddress: walletAddr,
-          xUsername: memberDetail?.xUsername,
-          xProfileImageUrl: memberDetail?.xProfileImageUrl,
-          points: memberDetail?.points,
-        });
+
+        // Only add the member if a corresponding user document was found
+        if (memberDetail && memberDetail.walletAddress) { // Ensure walletAddress exists on the found user doc too
+          membersFullDetails.push({
+            walletAddress: walletAddr, // Use the walletAddr from the squad list to ensure consistency
+            xUsername: memberDetail.xUsername,
+            xProfileImageUrl: memberDetail.xProfileImageUrl,
+            points: memberDetail.points,
+          });
+        } else {
+          // Optionally log that a squad member's wallet address did not resolve to a user
+          console.warn(`User document not found for squad member wallet: ${walletAddr} in squad ${squad.squadId}. Omitting from details.`);
+        }
       }
     }
 

@@ -475,10 +475,7 @@ export default function HomePage() {
                   <p className="mt-3 text-muted-foreground max-w-xl mx-auto lg:mx-0 font-sans">
                     Welcome to DEFAI Rewards. Check eligibility, activate your account, complete actions to earn {TOKEN_LABEL_POINTS}, and climb the leaderboard!
                   </p>
-                  {/* Floating illustration on desktop */}
-                  <div className="hidden lg:block absolute -right-40 -top-12 pointer-events-none select-none animate-float">
-                    <img src="/src/assets/images/tits.png" alt="AI Hero" className="w-[400px] h-auto rounded-xl shadow-lg animate-float" />
-                  </div>
+                
                 </div>
 
                 {/* Action Buttons Row */}

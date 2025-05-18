@@ -1,6 +1,7 @@
 "use client";
 
 import Link from 'next/link';
+import { useWallet } from '@solana/wallet-adapter-react';
 import { TOKEN_LABEL_AIR } from '@/lib/labels'; // Assuming you might use DeFAI label here
 
 // Define simple icons for now, can be replaced with actual Heroicons or SVG components
@@ -8,6 +9,7 @@ const ChartIcon = () => <span>📊</span>;
 const ShareIcon = () => <span>🔗</span>;
 const XSocialIcon = () => <span>🐦</span>; // Changed from XIcon to avoid conflict if XIcon is used for close
 const TelegramIcon = () => <span>✈️</span>;
+const ShowcaseIcon = () => <span>🖼️</span>;
 
 interface DashboardActionRowProps {
   isRewardsActive: boolean;
@@ -22,6 +24,9 @@ const DashboardActionRow: React.FC<DashboardActionRowProps> = ({
   onShareToX,
   onLogSocialAction
 }) => {
+  const { publicKey } = useWallet();
+  const walletAddress = publicKey?.toBase58();
+
   return (
     <div className="flex flex-wrap justify-center gap-3 sm:gap-4 w-full my-6 md:my-8">
       <Link href="https://dexscreener.com/solana/3jiwexdwzxjva2yd8aherfsrn7a97qbwmdz8i4q6mh7y" target="_blank" rel="noopener noreferrer" className="flex-shrink-0">
@@ -54,6 +59,17 @@ const DashboardActionRow: React.FC<DashboardActionRowProps> = ({
       >
         <TelegramIcon /> Join Telegram
       </button>
+
+      {/* My Showcase Button - only show if wallet is connected */}
+      {walletAddress && (
+        <Link href={`/profile/${walletAddress}`} className="flex-shrink-0">
+          <button 
+            className="w-full sm:w-auto text-white font-bold py-3 px-6 rounded-full transition-all duration-150 ease-in-out hover:scale-105 hover:shadow-lg hover:shadow-blue-500/50 whitespace-nowrap bg-[#2563EB]"
+          >
+            <ShowcaseIcon /> My Showcase
+          </button>
+        </Link>
+      )}
     </div>
   );
 };

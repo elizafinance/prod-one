@@ -39,7 +39,11 @@ const AppNav: React.FC<AppNavProps> = ({ navItems }) => {
               {/* Logo removed */}
 
               {/* Desktop Navigation (Center) */}
-              <nav className="hidden md:flex space-x-2 lg:space-x-4 items-center">
+              {/* 
+                 Show the horizontal navigation only on very wide screens (≥2xl).
+                 On anything smaller, rely on the right-side drawer to avoid crowding.
+              */}
+              <nav className="hidden 2xl:flex space-x-2 xl:space-x-4 items-center">
                 {navItems.map((item) => (
                   <Link key={item.label} href={item.href} passHref>
                     <span
@@ -62,8 +66,8 @@ const AppNav: React.FC<AppNavProps> = ({ navItems }) => {
                 {/* UserAvatar can be added here later */}
               </div>
 
-              {/* Mobile Menu Button */}
-              <div className="-mr-2 flex items-center md:hidden">
+              {/* Drawer Toggle Button (visible below 2xl) */}
+              <div className="-mr-2 flex items-center 2xl:hidden">
                 <Popover.Button className="bg-card p-2 inline-flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#2B96F1]">
                   <span className="sr-only">Open main menu</span>
                   {open ? (
@@ -88,7 +92,7 @@ const AppNav: React.FC<AppNavProps> = ({ navItems }) => {
           >
             <Popover.Panel 
               focus 
-              className="absolute top-0 inset-x-0 p-2 transition transform origin-top-right md:hidden z-50"
+              className="fixed inset-y-0 right-0 max-w-xs w-full bg-background p-4 transition transform origin-right 2xl:hidden z-50 shadow-lg border-l border-border"
             >
               <div className="rounded-lg shadow-lg ring-1 ring-black ring-opacity-5 bg-background border border-border divide-y-2 divide-border">
                 <div className="pt-5 pb-6 px-5">

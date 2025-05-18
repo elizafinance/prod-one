@@ -358,15 +358,13 @@ export default function HomePage() {
       .then(async (res) => {
         const contentType = res.headers.get('content-type') || '';
         if (!contentType.includes('application/json')) {
-          // If the backend unexpectedly returned non-JSON (e.g. an HTML error page),
-          // surface a clear error so we don't blow up on JSON parsing.
           const text = await res.text();
           throw new Error(`Expected JSON – received: ${text.substring(0, 100)}...`);
         }
         return res.json();
       })
       .then(data => {
-        if (data.totalCommunityPoints > 0) {
+        if (data.totalCommunityPoints > 0 && typeof setTotalCommunityPoints === 'function') {
           setTotalCommunityPoints(data.totalCommunityPoints);
         }
       })
@@ -518,7 +516,7 @@ export default function HomePage() {
                       <AccordionContent className="px-4 pb-4">
                         <ul className="space-y-1.5">
                           {pointActivities.map((activity) => {
-                            const isCompleted = userData.completedActions.includes(activity.id);
+                            const isCompleted = (userData.completedActions || []).includes(activity.id);
                             let isEffectivelyCompleted = isCompleted;
                             if (activity.id === 'shared_milestone_profile_on_x') {
                               const hasFrenzyBoost = userData.activeReferralBoosts?.some(b => b.description.includes('Referral Frenzy'));
@@ -720,7 +718,7 @@ export default function HomePage() {
                     <div className="bg-card p-2.5 rounded-lg shadow border border-border">
                         <ul className="space-y-1">
                         {pointActivities.map((activity) => {
-                            const isCompleted = userData.completedActions.includes(activity.id);
+                            const isCompleted = (userData.completedActions || []).includes(activity.id);
                             let isEffectivelyCompleted = isCompleted;
                             if (activity.id === 'shared_milestone_profile_on_x') {
                             const hasFrenzyBoost = userData.activeReferralBoosts?.some(b => b.description.includes('Referral Frenzy'));

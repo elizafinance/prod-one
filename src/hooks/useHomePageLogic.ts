@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import { PublicKey } from '@solana/web3.js';
 import { getAssociatedTokenAddress, getAccount } from '@solana/spl-token';
 import { checkRequiredEnvVars } from '@/utils/checkEnv';
+import { useUserAirdrop, UserAirdropData } from '@/hooks/useUserAirdrop';
 
 export function useHomePageLogic() {
   const { data: session, status: authStatus, update: updateSession } = useSession();
@@ -15,15 +16,20 @@ export function useHomePageLogic() {
   const { connection } = useConnection();
   const router = useRouter();
 
-  // State for airdrop check
+  // Integrate useUserAirdrop hook
+  const userAirdrop = useUserAirdrop();
+
+  // State for airdrop check (for typed address, not necessarily connected user)
   const [typedAddress, setTypedAddress] = useState('');
-  const [airdropCheckResult, setAirdropCheckResult] = useState(null);
-  const [isCheckingAirdrop, setIsCheckingAirdrop] = useState(false);
+  const [airdropCheckResultForTyped, setAirdropCheckResultForTyped] = useState<number | string | null>(null);
+  const [isCheckingAirdropForTyped, setIsCheckingAirdropForTyped] = useState(false);
   
-  // State for rewards system
+  // Rewards system state - some of this will now be derived or use userAirdrop hook data
   const [isRewardsActive, setIsRewardsActive] = useState(false);
   const [isActivatingRewards, setIsActivatingRewards] = useState(false);
-  const [userData, setUserData] = useState(null);
+  // userData will still hold other user-specific details not covered by useUserAirdrop (e.g., referralCode, completedActions other than points)
+  const [otherUserData, setOtherUserData] = useState<Partial<UserAirdropData & { referralCode?: string; completedActions?: string[]; xUsername?: string; squadId?: string }>>({});
+  
   const [mySquadData, setMySquadData] = useState(null);
   const [isFetchingSquad, setIsFetchingSquad] = useState(false);
   const [userCheckedNoSquad, setUserCheckedNoSquad] = useState(false);
@@ -32,18 +38,41 @@ export function useHomePageLogic() {
   const [isFetchingInvites, setIsFetchingInvites] = useState(false);
   const [isProcessingInvite, setIsProcessingInvite] = useState(null);
   const [squadInviteIdFromUrl, setSquadInviteIdFromUrl] = useState(null);
+  // currentTotalAirdropForSharing can now be primarily userAirdrop.totalDefai if it represents the connected user's airdrop
+  // If it needs to include DeFAI balance from other sources, it might be calculated separately.
+  // For now, let's assume it aligns with the connected user's total airdrop.
   const [currentTotalAirdropForSharing, setCurrentTotalAirdropForSharing] = useState(0);
+
   const [isCheckingDefaiBalance, setIsCheckingDefaiBalance] = useState(false);
-  const [hasSufficientDefai, setHasSufficientDefai] = useState(null);
+  const [hasSufficientDefai, setHasSufficientDefai] = useState<boolean | null>(null);
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
   const [isProcessingLinkInvite, setIsProcessingLinkInvite] = useState(false);
   const [activationAttempted, setActivationAttempted] = useState(false);
-  const [prevWalletAddress, setPrevWalletAddress] = useState(null);
+  const [prevWalletAddress, setPrevWalletAddress] = useState<string | null>(null);
   const [isDesktop, setIsDesktop] = useState(false);
-  const [totalCommunityPoints, setTotalCommunityPoints] = useState(null);
-  const [defaiBalance, setDefaiBalance] = useState(null);
+  const [totalCommunityPoints, setTotalCommunityPoints] = useState<number | null>(null);
+  const [defaiBalance, setDefaiBalance] = useState<number | null>(null);
 
-  // Callbacks
+  // Combine userData from userAirdrop hook and otherUserData
+  const combinedUserData = {
+    ...otherUserData,
+    points: userAirdrop.points,
+    initialAirdropAmount: userAirdrop.initialDefai, // For clarity if `initialDefai` is used as airdrop amount
+    // other fields like referralCode, completedActions, xUsername, squadId are in otherUserData
+  };
+
+  useEffect(() => {
+    if (userAirdrop.totalDefai !== null) {
+        setCurrentTotalAirdropForSharing(userAirdrop.totalDefai + (defaiBalance || 0));
+    } else if (defaiBalance !== null) {
+        setCurrentTotalAirdropForSharing(defaiBalance);
+    } else {
+        setCurrentTotalAirdropForSharing(0);
+    }
+  }, [userAirdrop.totalDefai, defaiBalance]);
+
+
+  // Callbacks - some might need adjustment if userAirdrop hook provides the data
   const handleWalletConnectSuccess = useCallback(async () => {
     console.log("[HomePage] handleWalletConnectSuccess called");
     if (!wallet.publicKey || !session?.user?.xId) {
@@ -73,7 +102,7 @@ export function useHomePageLogic() {
     }
   }, [wallet.publicKey, session, updateSession]);
 
-  const fetchMySquadData = useCallback(async (userWalletAddress) => {
+  const fetchMySquadData = useCallback(async (userWalletAddress: string | null | undefined) => {
     if (!userWalletAddress || isFetchingSquad || userCheckedNoSquad) return;
     console.log("[HomePage] Fetching squad data for:", userWalletAddress);
     setIsFetchingSquad(true);
@@ -134,7 +163,7 @@ export function useHomePageLogic() {
     setIsFetchingInvites(false);
   }, [wallet.connected, session, isFetchingInvites]);
 
-  const checkDefaiBalance = useCallback(async (userPublicKey, conn) => {
+  const checkDefaiBalance = useCallback(async (userPublicKey: PublicKey | null, conn: any) => {
     if (!userPublicKey || !conn) {
         console.log("[HomePage] checkDefaiBalance: Aborting - no publicKey or connection");
         return;
@@ -143,6 +172,8 @@ export function useHomePageLogic() {
     setIsCheckingDefaiBalance(true);
     const tokenMintAddress = process.env.NEXT_PUBLIC_DEFAI_TOKEN_MINT_ADDRESS;
     const tokenDecimals = parseInt(process.env.NEXT_PUBLIC_DEFAI_TOKEN_DECIMALS || '9', 10);
+    const requiredDefaiAmount = parseInt(process.env.NEXT_PUBLIC_REQUIRED_DEFAI_AMOUNT || '5000', 10);
+
     if (tokenMintAddress) {
       try {
         const mint = new PublicKey(tokenMintAddress);
@@ -150,7 +181,7 @@ export function useHomePageLogic() {
         const accountInfo = await getAccount(conn, ata, 'confirmed');
         const balance = Number(accountInfo.amount) / (10 ** tokenDecimals);
         setDefaiBalance(balance);
-        setHasSufficientDefai(balance >= 5000); // TODO: Use REQUIRED_DEFAI_AMOUNT from env
+        setHasSufficientDefai(balance >= requiredDefaiAmount);
       } catch (e) {
         console.warn("Could not fetch DeFAI balance", e);
         setDefaiBalance(0);
@@ -160,7 +191,7 @@ export function useHomePageLogic() {
     setIsCheckingDefaiBalance(false);
   }, []);
 
-  const activateRewardsAndFetchData = useCallback(async (connectedWalletAddress, xUserId, userDbId) => {
+  const activateRewardsAndFetchData = useCallback(async (connectedWalletAddress: string, xUserId: string, userDbId: string | undefined) => {
     console.log("[HomePage] activateRewardsAndFetchData called", { connectedWalletAddress, xUserId, userDbId, initialReferrer, squadInviteIdFromUrl });
     setActivationAttempted(true);
     setIsActivatingRewards(true);
@@ -173,14 +204,21 @@ export function useHomePageLogic() {
           walletAddress: connectedWalletAddress, 
           xUserId: xUserId, 
           userDbId: userDbId, 
-          referrerCodeFromQuery: initialReferrer, 
+          referredByCode: initialReferrer, // Ensure backend expects referredByCode
           squadInviteIdFromUrl: squadInviteIdFromUrl 
         }),
       });
-      const data = await response.json();
+      const data = await response.json(); // This data is from activate-rewards API
       if (response.ok) {
         console.log("[HomePage] activateRewardsAndFetchData: Success", data);
-        setUserData(data);
+        // userAirdrop hook will fetch points. We primarily set other user data here.
+        setOtherUserData({
+            referralCode: data.referralCode,
+            completedActions: data.completedActions,
+            xUsername: data.xUsername,
+            squadId: data.squadId,
+            // Points and initialAirdropAmount will come from userAirdrop hook
+        });
         setIsRewardsActive(true);
         if (connectedWalletAddress) {
           fetchMySquadData(connectedWalletAddress);
@@ -192,17 +230,18 @@ export function useHomePageLogic() {
       } else {
         console.error("[HomePage] activateRewardsAndFetchData: API error", data);
         setIsRewardsActive(false);
-        setUserData(null);
+        setOtherUserData({});
       }
     } catch (error) {
       console.error("[HomePage] activateRewardsAndFetchData: Exception", error);
       setIsRewardsActive(false);
-      setUserData(null);
+      setOtherUserData({});
     }
     setIsActivatingRewards(false);
-  }, [initialReferrer, squadInviteIdFromUrl, fetchPendingInvites, checkDefaiBalance, wallet.publicKey, connection]);
+  }, [initialReferrer, squadInviteIdFromUrl, fetchMySquadData, fetchPendingInvites, checkDefaiBalance, wallet.publicKey, connection]);
 
-  // Main orchestration effect
+  // Main orchestration effect: Remains largely the same, conditions will naturally use updated states.
+  // ... (existing main useEffect logic - no major changes here, but its conditions will now react to userAirdrop.isLoading etc. implicitly)
   useEffect(() => {
     console.log("[HomePage] Main Effect Triggered", {
       authStatus,
@@ -213,6 +252,7 @@ export function useHomePageLogic() {
       isRewardsActive,
       activationAttempted,
       isFetchingInvites,
+      userAirdropLoading: userAirdrop.isLoading, // Log hook loading state
     });
 
     if (
@@ -220,20 +260,20 @@ export function useHomePageLogic() {
       session?.user?.xId &&
       wallet.connected &&
       wallet.publicKey &&
-      !session?.user?.walletAddress &&
-      !isActivatingRewards
+      !session?.user?.walletAddress && // Key: session doesn't have wallet yet
+      !isActivatingRewards // And not currently trying to link/activate
     ) {
       console.log("[HomePage] Main Effect: Condition for handleWalletConnectSuccess met");
       handleWalletConnectSuccess();
     } else if (
       authStatus === "authenticated" &&
       session?.user?.xId &&
-      session?.user?.walletAddress &&
+      session?.user?.walletAddress && // Wallet is now in session
       wallet.connected &&
       wallet.publicKey &&
-      !isRewardsActive &&
+      !isRewardsActive && // Rewards not yet marked active locally
       !isActivatingRewards &&
-      !activationAttempted
+      !activationAttempted // Haven't tried activating yet for this combo
     ) {
       console.log("[HomePage] Main Effect: Condition for activateRewardsAndFetchData met");
       activateRewardsAndFetchData(
@@ -247,7 +287,7 @@ export function useHomePageLogic() {
       wallet.publicKey &&
       session?.user?.walletAddress &&
       isRewardsActive &&
-      hasSufficientDefai === null &&
+      hasSufficientDefai === null && // Only if not yet checked or changed
       !isCheckingDefaiBalance
     ) {
       console.log("[HomePage] Main Effect: Condition for checking DeFAI balance met");
@@ -256,20 +296,22 @@ export function useHomePageLogic() {
       authStatus === "authenticated" &&
       wallet.connected &&
       session?.user?.walletAddress &&
-      isRewardsActive &&
-      !isFetchingInvites
+      isRewardsActive && // Only if rewards are active
+      !isFetchingInvites // And not already fetching invites
     ) {
       console.log("[HomePage] Main Effect: Condition for fetching pending invites met");
       fetchPendingInvites();
     }
 
+    // Reset on wallet disconnect if rewards were active
     if (authStatus === "authenticated" && !wallet.connected && isRewardsActive) {
       console.log("[HomePage] Main Effect: Wallet disconnected while rewards active, resetting.");
       setIsRewardsActive(false);
-      setUserData(null);
+      setOtherUserData({}); // Reset other user data
       setMySquadData(null);
       setUserCheckedNoSquad(false);
       setHasSufficientDefai(null);
+      // userAirdrop hook will reset its state based on wallet.connected change
     }
   }, [
     authStatus,
@@ -281,15 +323,18 @@ export function useHomePageLogic() {
     activationAttempted,
     handleWalletConnectSuccess,
     activateRewardsAndFetchData,
+    fetchMySquadData, // Added as it's called inside activateRewardsAndFetchData
     fetchPendingInvites,
     checkDefaiBalance,
     hasSufficientDefai,
     isCheckingDefaiBalance,
     isFetchingInvites,
     connection,
+    userAirdrop.isLoading, // Add hook loading state as dependency
   ]);
 
-  // Other effects
+
+  // Other effects: largely unchanged
   useEffect(() => {
     checkRequiredEnvVars();
   }, []);
@@ -325,11 +370,12 @@ export function useHomePageLogic() {
       setPrevWalletAddress(currentAddress);
       setUserCheckedNoSquad(false); 
       setActivationAttempted(false); 
-      setIsRewardsActive(false);
-      setUserData(null);
+      setIsRewardsActive(false); // Reset rewards active status for new wallet
+      setOtherUserData({});      // Reset other user data
       setMySquadData(null);
       setHasSufficientDefai(null); 
       setPendingInvites([]);
+      // userAirdrop hook will re-fetch due to publicKey change
     }
   }, [wallet.connected, wallet.publicKey, prevWalletAddress]);
 
@@ -345,11 +391,11 @@ export function useHomePageLogic() {
   useEffect(() => {
     fetch('/api/stats/total-points')
       .then(async res => {
-        if (!res.ok) throw new Error('Network');
+        if (!res.ok) throw new Error('Network error fetching total points');
         return res.json();
       })
       .then(data => {
-        if (data.totalCommunityPoints > 0) {
+        if (data.totalCommunityPoints !== undefined && data.totalCommunityPoints !== null) {
           setTotalCommunityPoints(data.totalCommunityPoints);
         } else {
           setTotalCommunityPoints(0);
@@ -368,17 +414,23 @@ export function useHomePageLogic() {
     wallet,
     connection,
 
-    // State
+    // State derived from/related to useUserAirdrop
+    userAirdropData: userAirdrop, // Expose the whole hook data object
+    userData: combinedUserData, // Expose combined data (other details + points from hook)
+
+    // Original state values that are still managed by useHomePageLogic
     typedAddress,
     setTypedAddress,
-    airdropCheckResult,
-    setAirdropCheckResult,
-    isCheckingAirdrop,
-    setIsCheckingAirdrop,
+    airdropCheckResultForTyped, // Renamed from airdropCheckResult
+    setAirdropCheckResult: setAirdropCheckResultForTyped, // Keep prop name consistent if page.tsx uses it
+    isCheckingAirdrop: isCheckingAirdropForTyped, // Renamed
+    setIsCheckingAirdrop: setIsCheckingAirdropForTyped, // Keep prop name consistent
+    
     isRewardsActive,
     isActivatingRewards,
-    userData,
-    setUserData,
+    // setUserData, // This is now managed by setOtherUserData and userAirdrop hook
+    setOtherUserData, // Expose if needed for direct updates of non-point/airdrop data
+    
     mySquadData,
     isFetchingSquad,
     userCheckedNoSquad,
@@ -388,8 +440,9 @@ export function useHomePageLogic() {
     isProcessingInvite,
     setIsProcessingInvite,
     squadInviteIdFromUrl,
-    currentTotalAirdropForSharing,
-    setCurrentTotalAirdropForSharing,
+    currentTotalAirdropForSharing, // This is now derived from userAirdrop.totalDefai + defaiBalance
+    setCurrentTotalAirdropForSharing, // Still needed if page.tsx sets it from other sources (e.g. AirdropInfoDisplay)
+
     isCheckingDefaiBalance,
     hasSufficientDefai,
     showWelcomeModal,

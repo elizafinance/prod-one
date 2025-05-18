@@ -31,6 +31,7 @@ import MiniSquadCard from "@/components/dashboard/MiniSquadCard";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import TopProposalCard from "@/components/dashboard/TopProposalCard";
 import SquadGoalQuestCard from "@/components/dashboard/SquadGoalQuestCard";
+import { useUserAirdrop, UserAirdropData as UserAirdropHookData } from '@/hooks/useUserAirdrop'; // Explicitly import type
 
 // Dynamically import WalletMultiButton
 const WalletMultiButtonDynamic = dynamic(
@@ -66,15 +67,15 @@ const pointActivities = [
 ];
 
 interface UserData {
-  points: number;
+  points: number | null;
+  initialAirdropAmount?: number | null;
   referralCode?: string;
-  completedActions: string[];
-  airdropAmount?: number;
+  completedActions?: string[];
+  xUsername?: string;
+  squadId?: string;
   activeReferralBoosts?: ReferralBoost[];
   referralsMadeCount?: number;
-  xUsername?: string;
   highestAirdropTierLabel?: string;
-  squadId?: string;
   walletAddress?: string;
 }
 
@@ -109,14 +110,14 @@ export default function HomePage() {
     // State
     typedAddress,
     setTypedAddress,
-    airdropCheckResult,
+    airdropCheckResultForTyped,
     setAirdropCheckResult,
     isCheckingAirdrop,
     setIsCheckingAirdrop,
     isRewardsActive,
     isActivatingRewards,
     userData,
-    setUserData,
+    userAirdropData,
     mySquadData,
     isFetchingSquad,
     userCheckedNoSquad,
@@ -160,16 +161,14 @@ export default function HomePage() {
       return;
     }
     setIsCheckingAirdrop(true);
-    setAirdropCheckResult(null); 
+    setAirdropCheckResult(null);
     try {
       const response = await fetch(`/api/check-airdrop?address=${encodeURIComponent(addressToCheck)}`);
-      // Attempt to parse JSON only when the response content-type is JSON.
       let data: any;
       const contentType = response.headers.get("content-type");
       if (contentType && contentType.includes("application/json")) {
         data = await response.json();
       } else {
-        // Fallback to plain text so we can surface a meaningful error message
         const text = await response.text();
         data = { error: text };
       }
@@ -487,9 +486,9 @@ export default function HomePage() {
                 {/* Airdrop Snapshot Horizontal */}
                 {(authStatus === "authenticated" && wallet.connected && isRewardsActive && userData && hasSufficientDefai === true) && (
                   <AirdropSnapshotHorizontal 
-                    initialAirdropAllocation={userData.airdropAmount ?? null}
+                    initialAirdropAllocation={userData.initialAirdropAmount ?? null}
                     defaiBalance={defaiBalance} 
-                    userPoints={userData.points}
+                    userPoints={userData.points ?? null}
                     totalCommunityPoints={totalCommunityPoints} 
                     airdropPoolSize={airdropPoolSize}
                     snapshotDateString={snapshotDateString}
@@ -647,16 +646,16 @@ export default function HomePage() {
                     {isCheckingAirdrop ? '...' : 'Check'}
                   </button>
                 </div>
-                {airdropCheckResult !== null && (
+                {airdropCheckResultForTyped !== null && (
                   <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg text-center text-sm shadow-sm">
-                    {typeof airdropCheckResult === 'number' ? (
-                        airdropCheckResult > 0 ? (
-                          <p>Eligible: <span className="font-bold text-green-600">{formatPoints(airdropCheckResult)} {AIR.LABEL}</span>!</p>
+                    {typeof airdropCheckResultForTyped === 'number' ? (
+                        airdropCheckResultForTyped > 0 ? (
+                          <p>Eligible: <span className="font-bold text-green-600">{formatPoints(airdropCheckResultForTyped)} {AIR.LABEL}</span>!</p>
                         ) : (
                           <p className="text-muted-foreground">Not on initial list. Earn {AIR.LABEL} for future rewards!</p>
                         )
                       ) : (
-                        <p className="text-red-600">{airdropCheckResult}</p>
+                        <p className="text-red-600">{airdropCheckResultForTyped}</p>
                       )
                     }
                   </div>

@@ -28,10 +28,24 @@ export async function middleware(request: NextRequest) {
 
   // Redirect non-admin access to admin pages
   if (pathname.startsWith('/admin')) {
-    if (!token || (token.role !== 'admin' && (token as any).user?.role !== 'admin')) {
+    console.log('[Middleware] Admin route check - Full Token:', JSON.stringify(token, null, 2));
+    console.log('[Middleware] Token role:', token?.role);
+    console.log('[Middleware] Token user:', token?.user);
+    console.log('[Middleware] Token dbId:', token?.dbId);
+    
+    // Check if token exists and has admin role
+    const isAdmin = token && (
+      token.role === 'admin' || 
+      (token as any)?.user?.role === 'admin' ||
+      (token as any)?.role === 'admin'
+    );
+    
+    if (!isAdmin) {
+      console.log('[Middleware] Access denied - Not admin');
       const url = new URL('/', request.url)
       return NextResponse.redirect(url)
     }
+    console.log('[Middleware] Admin access granted');
     return NextResponse.next()
   }
 

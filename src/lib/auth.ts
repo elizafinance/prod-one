@@ -147,12 +147,36 @@ export const authOptions: NextAuthOptions = {
       return false;
     },
     async jwt({ token, user }: { token: JWT; user?: any }) {
+      console.log('[NextAuth JWT] Received token:', JSON.stringify(token, null, 2));
+      console.log('[NextAuth JWT] Received user:', JSON.stringify(user, null, 2));
+      
       if (user?.xId) token.xId = user.xId;
       if (user?.dbId) token.dbId = user.dbId;
       if (user?.walletAddress) token.walletAddress = user.walletAddress;
       if (user?.name) token.name = user.name;
       if (user?.email) token.email = user.email;
       if (user?.image) token.picture = user.image;
+      if (user?.role) token.role = user.role;
+
+      // If we have a dbId, fetch the latest role from the database
+      if (token.dbId) {
+        try {
+          const { db } = await connectToDatabase();
+          const usersCollection = db.collection<UserDocument>('users');
+          const { ObjectId } = await import('mongodb');
+          if (ObjectId.isValid(token.dbId)) {
+            const userFromDb = await usersCollection.findOne({ _id: new ObjectId(token.dbId) });
+            if (userFromDb) {
+              token.role = userFromDb.role || 'user';
+              console.log('[NextAuth JWT] Updated role from DB:', token.role);
+            }
+          }
+        } catch (error) {
+          console.error("[NextAuth JWT] Error fetching user role:", error);
+        }
+      }
+
+      console.log('[NextAuth JWT] Final token:', JSON.stringify(token, null, 2));
       return token;
     },
     async session({ session, token }: { session: any; token: JWT }) {
@@ -163,6 +187,7 @@ export const authOptions: NextAuthOptions = {
         session.user.name = token.name as string || null;
         session.user.email = token.email as string || null;
         session.user.image = token.picture as string || null;
+        session.user.role = token.role as string || 'user';
 
         if (token.dbId && typeof token.dbId === 'string') {
           try {
@@ -173,14 +198,17 @@ export const authOptions: NextAuthOptions = {
               const userFromDb = await usersCollection.findOne({ _id: new ObjectId(token.dbId) });
               if (userFromDb) {
                 session.user.role = userFromDb.role || 'user';
+                token.role = userFromDb.role || 'user';
               }
             }
           } catch (error) {
             console.error("[NextAuth Session] Error fetching user role:", error);
             session.user.role = 'user';
+            token.role = 'user';
           }
         } else {
           session.user.role = 'user';
+          token.role = 'user';
         }
       }
       return session;

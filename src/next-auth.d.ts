@@ -13,6 +13,8 @@ declare module 'next-auth' {
       dbId?: string | null;
       /** The user's wallet address. */
       walletAddress?: string | null;
+      role?: string | null;
+      points?: number | null;
     } & DefaultSession['user']; // Combine with default user properties (name, email, image)
   }
 
@@ -24,6 +26,8 @@ declare module 'next-auth' {
     xId?: string | null;
     dbId?: string | null;
     walletAddress?: string | null;
+    role?: string | null;
+    points?: number | null;
   }
 }
 
@@ -34,5 +38,7 @@ declare module 'next-auth/jwt' {
     xId?: string | null;
     dbId?: string | null;
     walletAddress?: string | null;
+    role?: string | null;
+    points?: number | null;
   }
 } 

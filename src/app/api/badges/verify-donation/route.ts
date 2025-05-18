@@ -4,6 +4,8 @@ import { connectToDatabase, UserDocument } from '@/lib/mongodb';
 import { withAuth } from '@/middleware/authGuard';
 import { createNotification } from '@/lib/notificationUtils';
 import { withRateLimit } from '@/middleware/rateLimiter';
+import { getPointsService, AwardPointsOptions } from '@/services/points.service';
+import { AIR } from '@/config/points.config';
 
 // The donation amount required for the badge (0.1 SOL in lamports)
 const REQUIRED_DONATION_AMOUNT = 0.1 * LAMPORTS_PER_SOL;
@@ -120,6 +122,7 @@ const baseHandler = withAuth(async (request: Request, session) => {
     // Connect to database and update the user's badges
     const { db } = await connectToDatabase();
     const usersCollection = db.collection<UserDocument>('users');
+    const pointsService = await getPointsService();
     
     // Get the user
     const user = await usersCollection.findOne({ walletAddress: userWalletAddress });
@@ -139,18 +142,37 @@ const baseHandler = withAuth(async (request: Request, session) => {
     
     // Add the badge to the user
     const earnedBadgeIds = user.earnedBadgeIds || [];
+    const pointsToAward = AIR.GENEROUS_DONOR_BADGE_POINTS;
     
     console.log(`[VerifyDonation API] Updating user ${userWalletAddress} with badge and points`);
+    
+    // Update earned badges directly
     await usersCollection.updateOne(
       { walletAddress: userWalletAddress },
       { 
         $set: { 
           earnedBadgeIds: [...earnedBadgeIds, DONATION_BADGE_ID],
           updatedAt: new Date()
-        },
-        $inc: { points: 250 } // Also give them 250 points for the donation
+        }
+        // Points will be handled by PointsService
       }
     );
+
+    // Award points using PointsService
+    const awardOptions: AwardPointsOptions = {
+        reason: `badge:${DONATION_BADGE_ID}`,
+        metadata: { transactionSignature },
+        actionType: DONATION_BADGE_ID // Using badge ID as action type for consistency
+    };
+    const updatedUserWithPoints = await pointsService.addPoints(userWalletAddress, pointsToAward, awardOptions);
+
+    if (!updatedUserWithPoints) {
+        // This would indicate an issue with PointsService or user disappearing mid-process
+        console.error(`[VerifyDonation API] Failed to award points via PointsService for user ${userWalletAddress}`);
+        // Decide on error handling: proceed without points, or error out?
+        // For now, error out if points service fails to reflect the issue.
+        return NextResponse.json({ error: 'Failed to update user points for donation badge.' }, { status: 500 });
+    }
     
     // Create a notification for the user
     await createNotification(
@@ -158,7 +180,7 @@ const baseHandler = withAuth(async (request: Request, session) => {
       userWalletAddress,
       'badge_earned',
       'Badge Earned: Generous Donor!',
-      `You earned the ✨ Generous Donor badge for your SOL donation! +250 points added to your profile.`,
+      `You earned the ✨ Generous Donor badge for your SOL donation! +${pointsToAward} ${AIR.LABEL} added to your profile.`,
       `/profile/${userWalletAddress}?section=badges`,
       undefined,
       undefined,
@@ -167,7 +189,7 @@ const baseHandler = withAuth(async (request: Request, session) => {
       undefined,
       undefined,
       undefined,
-      250,
+      pointsToAward,
       'points',
       DONATION_BADGE_ID
     );
@@ -175,9 +197,9 @@ const baseHandler = withAuth(async (request: Request, session) => {
     console.log(`[VerifyDonation API] Successfully awarded badge to ${userWalletAddress}`);
     // Return success
     return NextResponse.json({
-      message: 'Congratulations! You earned the Generous Donor badge and 250 points!',
+      message: `Congratulations! You earned the Generous Donor badge and ${pointsToAward} ${AIR.LABEL}!`,
       badgeId: DONATION_BADGE_ID,
-      pointsAwarded: 250
+      pointsAwarded: pointsToAward
     });
     
   } catch (error) {

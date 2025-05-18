@@ -5,7 +5,8 @@ import Link from 'next/link';
 import { useWallet } from '@solana/wallet-adapter-react'; // For "You are here" highlight
 import GlowingBadge from '@/components/GlowingBadge';
 import UserAvatar from '@/components/UserAvatar';
-import { TOKEN_LABEL_POINTS } from '@/lib/labels';
+import { AIR } from '@/config/points.config'; // Import AIR config
+import { formatPoints } from '@/lib/utils'; // Import formatPoints
 
 interface LeaderboardEntry {
   walletAddress: string;
@@ -137,7 +138,7 @@ export default function LeaderboardPage() {
                   <th className="text-left py-4 px-4 sm:px-6 font-semibold text-muted-foreground tracking-wider uppercase text-sm">Rank</th>
                   <th className="text-left py-4 px-4 sm:px-6 font-semibold text-muted-foreground tracking-wider uppercase text-sm">Contender</th>
                   <th className="text-left py-4 px-4 sm:px-6 font-semibold text-muted-foreground tracking-wider uppercase text-sm">Tier & Badges</th>
-                  <th className="text-right py-4 px-4 sm:px-6 font-semibold text-muted-foreground tracking-wider uppercase text-sm">{TOKEN_LABEL_POINTS}</th>
+                  <th className="text-right py-4 px-4 sm:px-6 font-semibold text-muted-foreground tracking-wider uppercase text-sm">{AIR.LABEL}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
@@ -208,7 +209,7 @@ export default function LeaderboardPage() {
                         </div>
                       </td>
                       <td className="text-right py-4 px-4 sm:px-6 font-bold text-lg text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-pink-600 align-middle">
-                        {entry.points.toLocaleString()}
+                        {formatPoints(entry.points)}
                       </td>
                     </tr>
                   );

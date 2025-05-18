@@ -68,17 +68,20 @@ export async function connectToDatabase(): Promise<{ client: MongoClient; db: Db
 
 export interface UserDocument {
   _id?: ObjectId; // Prefer ObjectId, but main had 'any'
+  auth0Id?: string; 
   walletAddress?: string;
-  xUserId: string;
+  xUserId?: string; 
   xUsername?: string;
   xProfileImageUrl?: string;
-  points: number;
-  referralCode?: string;
-  referredBy?: string;
-  completedActions?: string[];
-  highestAirdropTierLabel?: string;
+  email?: string;
+  points?: number;
+  referralCode?: string; // This user's own referral code
+  referredBy?: string; // Wallet address or ID of the user who referred THIS user
+  referredByCode?: string; // The actual referral code that this user used to sign up
   referralsMadeCount?: number;
   activeReferralBoosts?: ReferralBoost[];
+  completedActions?: string[];
+  highestAirdropTierLabel?: string;
   squadId?: string; 
   earnedBadgeIds?: string[];
   role?: 'user' | 'admin';
@@ -97,12 +100,14 @@ export interface ReferralBoost {
 }
 
 export interface ActionDocument {
-  _id?: ObjectId; // Prefer ObjectId
-  walletAddress: string;
-  actionType: string; 
+  _id?: ObjectId;
+  walletAddress: string; // Can be the user's primary wallet or X ID if no wallet yet
+  actionType: string; // e.g., 'initial_connection', 'shared_on_x', 'referral_bonus'
   pointsAwarded: number;
-  timestamp?: Date;
-  notes?: string;
+  timestamp: Date;
+  notes?: string; // Optional notes, like which referral code was used, or admin adjustment reason
+  metadata?: Record<string, any>; // For any other relevant data, e.g. { sharedUrl: '...', platform: 'X' }
+  // Deprecated fields, kept for potential backward compatibility if old records exist
 }
 
 export interface SquadDocument {

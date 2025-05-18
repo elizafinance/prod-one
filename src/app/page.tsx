@@ -23,7 +23,8 @@ import DeFAILogo from '@/components/DeFAILogo';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import AirdropInfoDisplay from "@/components/airdrop/AirdropInfoDisplay";
-import { TOKEN_LABEL_AIR, TOKEN_LABEL_POINTS } from '@/lib/labels';
+import { AIR } from '@/config/points.config'; // Import AIR config
+import { formatPoints } from '@/lib/utils'; // Import formatPoints
 import AirdropSnapshotHorizontal from "@/components/dashboard/AirdropSnapshotHorizontal";
 import DashboardActionRow from "@/components/layout/DashboardActionRow";
 import MiniSquadCard from "@/components/dashboard/MiniSquadCard";
@@ -48,21 +49,20 @@ const ShareIcon = () => <span>🔗</span>; // For Share on X specific button
 
 // Define activities for the points table display
 const pointActivities = [
-  { action: "Log in with X (First time)", points: 100, id: 'initial_connection' },
-  { action: "Connect Wallet (First time)", points: 100, id: 'wallet_connected_first_time' }, // Assuming you have this from previous step
-  { action: `Share Your Profile on X (Earns Referral Boost!)`, points: "🚀 Boost", id: 'shared_milestone_profile_on_x' },
-  { action: `Share Airdrop Result on X`, points: 50, id: 'shared_on_x' },
-  { action: `Follow @DeFAIRewards on X`, points: 30, id: 'followed_on_x' },
-  { action: `Join DeFAIRewards Telegram`, points: 25, id: 'joined_telegram' },
-  { action: `Refer a Friend (they connect wallet after X login)`, points: 20, id: 'referral_bonus' },
-  { action: `Airdrop Tier: Bronze (>10k ${TOKEN_LABEL_AIR})`, points: 50, id: 'airdrop_tier_bronze' },
-  { action: `Airdrop Tier: Silver (>100k ${TOKEN_LABEL_AIR})`, points: 150, id: 'airdrop_tier_silver' },
-  { action: `Airdrop Tier: Gold (>1M ${TOKEN_LABEL_AIR})`, points: 300, id: 'airdrop_tier_gold' },
-  { action: `Airdrop Tier: Diamond (>10M ${TOKEN_LABEL_AIR})`, points: 500, id: 'airdrop_tier_diamond' },
-  { action: `Airdrop Tier: Master (>100M ${TOKEN_LABEL_AIR})`, points: 1000, id: 'airdrop_tier_master' },
-  { action: `Airdrop Tier: Grandmaster (>500M ${TOKEN_LABEL_AIR})`, points: 5000, id: 'airdrop_tier_grandmaster' },
-  { action: `Airdrop Tier: Legend (1B ${TOKEN_LABEL_AIR})`, points: 10000, id: 'airdrop_tier_legend' },
-  // Add more activities here as you define them
+  { action: `Log in with X (First time)`, points: AIR.INITIAL_LOGIN, id: 'initial_connection' },
+  { action: `Connect Wallet (First time)`, points: AIR.WALLET_CONNECT_FIRST_TIME, id: 'wallet_connected_first_time' },
+  { action: `Share Your Profile on X (Earns Referral Boost!)`, pointsString: "🚀 Boost", points: AIR.PROFILE_SHARE_ON_X, id: 'shared_milestone_profile_on_x' }, // points for calculation, pointsString for display
+  { action: `Share Airdrop Result on X`, points: AIR.AIRDROP_RESULT_SHARE_ON_X, id: 'shared_on_x' },
+  { action: `Follow @DeFAIRewards on X`, points: AIR.FOLLOW_ON_X, id: 'followed_on_x' },
+  { action: `Join DeFAIRewards Telegram`, points: AIR.JOIN_TELEGRAM, id: 'joined_telegram' },
+  { action: `Refer a Friend (they connect wallet after X login)`, points: AIR.REFERRAL_BONUS_FOR_REFERRER, id: 'referral_bonus' },
+  { action: `Airdrop Tier: Bronze (>10k ${AIR.LABEL})`, points: AIR.AIRDROP_TIER_BRONZE_POINTS, id: 'airdrop_tier_bronze' },
+  { action: `Airdrop Tier: Silver (>100k ${AIR.LABEL})`, points: AIR.AIRDROP_TIER_SILVER_POINTS, id: 'airdrop_tier_silver' },
+  { action: `Airdrop Tier: Gold (>1M ${AIR.LABEL})`, points: AIR.AIRDROP_TIER_GOLD_POINTS, id: 'airdrop_tier_gold' },
+  { action: `Airdrop Tier: Diamond (>10M ${AIR.LABEL})`, points: AIR.AIRDROP_TIER_DIAMOND_POINTS, id: 'airdrop_tier_diamond' },
+  { action: `Airdrop Tier: Master (>100M ${AIR.LABEL})`, points: AIR.AIRDROP_TIER_MASTER_POINTS, id: 'airdrop_tier_master' },
+  { action: `Airdrop Tier: Grandmaster (>500M ${AIR.LABEL})`, points: AIR.AIRDROP_TIER_GRANDMASTER_POINTS, id: 'airdrop_tier_grandmaster' },
+  { action: `Airdrop Tier: Legend (1B ${AIR.LABEL})`, points: AIR.AIRDROP_TIER_LEGEND_POINTS, id: 'airdrop_tier_legend' },
 ];
 
 interface UserData {
@@ -176,7 +176,7 @@ export default function HomePage() {
       if (response.ok) {
         setAirdropCheckResult(data.AIRDROP);
         if (typeof data.AIRDROP === 'number') {
-            toast.success(`This address qualifies for ${data.AIRDROP.toLocaleString()} $AIR.`);
+            toast.success(`This address qualifies for ${formatPoints(data.AIRDROP)} ${AIR.LABEL}.`);
         } else {
             toast.info(data.error || "Airdrop status unknown.");
             setAirdropCheckResult("Eligibility status unclear.");
@@ -473,7 +473,7 @@ export default function HomePage() {
                     </div>
                   </div>
                   <p className="mt-3 text-muted-foreground max-w-xl mx-auto lg:mx-0 font-sans">
-                    Welcome to DEFAI Rewards. Check eligibility, activate your account, complete actions to earn {TOKEN_LABEL_POINTS}, and climb the leaderboard!
+                    Welcome to DEFAI Rewards. Check eligibility, activate your account, complete actions to earn {AIR.LABEL}, and climb the leaderboard!
                   </p>
                 
                 </div>
@@ -502,7 +502,7 @@ export default function HomePage() {
                   <div className="p-6 bg-white/60 backdrop-blur-md shadow-lg rounded-xl border border-gray-200/50 text-center">
                     <h3 className="text-xl font-semibold mb-2">Activate Your Account</h3>
                     <p className="text-sm text-muted-foreground mb-4">
-                      Connect your X account and wallet, and ensure you hold enough DEFAI to see your full airdrop snapshot and earn {TOKEN_LABEL_POINTS}.
+                      Connect your X account and wallet, and ensure you hold enough DEFAI to see your full airdrop snapshot and earn {AIR.LABEL}.
                     </p>
                     {/* Consider adding a primary CTA button here if appropriate */}
                   </div>
@@ -513,7 +513,7 @@ export default function HomePage() {
                   <Accordion type="single" collapsible className="w-full bg-white/60 backdrop-blur-md shadow-lg rounded-xl border border-gray-200/50 p-1 md:p-2">
                     <AccordionItem value="item-1">
                       <AccordionTrigger className="px-4 py-3 hover:no-underline">
-                        <h3 className="text-lg font-semibold text-foreground">How to Earn More {TOKEN_LABEL_POINTS}</h3>
+                        <h3 className="text-lg font-semibold text-foreground">How to Earn More {AIR.LABEL}</h3>
                       </AccordionTrigger>
                       <AccordionContent className="px-4 pb-4">
                         <ul className="space-y-1.5">
@@ -531,7 +531,7 @@ export default function HomePage() {
                                   {activity.action}
                                 </span>
                                 <span className={`font-semibold text-sm ${isEffectivelyCompleted ? 'text-muted-foreground line-through' : (typeof activity.points === 'number' ? 'text-purple-600' : 'text-yellow-500')}`}>
-                                  {typeof activity.points === 'number' ? `${activity.points} ${TOKEN_LABEL_POINTS}` : activity.points}
+                                  {activity.pointsString ? activity.pointsString : `${formatPoints(activity.points)} ${AIR.LABEL}`}
                                 </span>
                               </li>
                             );
@@ -628,7 +628,7 @@ export default function HomePage() {
                 </h2>
               </div>
               <p className="relative z-10 mt-3 text-sm text-muted-foreground max-w-md mx-auto font-sans">
-                Welcome to DEFAI Rewards. Check eligibility, activate your account, complete actions to earn {TOKEN_LABEL_POINTS}, and climb the leaderboard!
+                Welcome to DEFAI Rewards. Check eligibility, activate your account, complete actions to earn {AIR.LABEL}, and climb the leaderboard!
               </p>
             </div>
             
@@ -653,9 +653,9 @@ export default function HomePage() {
                   <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg text-center text-sm shadow-sm">
                     {typeof airdropCheckResult === 'number' ? (
                         airdropCheckResult > 0 ? (
-                          <p>Eligible: <span className="font-bold text-green-600">{airdropCheckResult.toLocaleString()} {TOKEN_LABEL_AIR}</span>!</p>
+                          <p>Eligible: <span className="font-bold text-green-600">{formatPoints(airdropCheckResult)} {AIR.LABEL}</span>!</p>
                         ) : (
-                          <p className="text-muted-foreground">Not on initial list. Earn {TOKEN_LABEL_POINTS} for future rewards!</p>
+                          <p className="text-muted-foreground">Not on initial list. Earn {AIR.LABEL} for future rewards!</p>
                         )
                       ) : (
                         <p className="text-red-600">{airdropCheckResult}</p>
@@ -671,7 +671,7 @@ export default function HomePage() {
                 <div className="w-full my-4 p-4 bg-blue-50 border border-blue-200 rounded-lg text-center shadow-sm">
                     <h3 className="text-md font-semibold text-blue-700 mb-2">Hold DeFAI Tokens</h3>
                     <p className="text-xs text-foreground mb-3">
-                    To earn {TOKEN_LABEL_POINTS}, hold {REQUIRED_DEFAI_AMOUNT} $DeFAI in wallet ({wallet.publicKey?.toBase58().substring(0,4)}...). 
+                    To earn {AIR.LABEL}, hold {REQUIRED_DEFAI_AMOUNT} $DeFAI in wallet ({wallet.publicKey?.toBase58().substring(0,4)}...). 
                     </p>
                     <Link href="https://dexscreener.com/solana/3jiwexdwzxjva2yd8aherfsrn7a97qbwmdz8i4q6mh7y" target="_blank" rel="noopener noreferrer" className="inline-block">
                         <Button size="sm" className="bg-[#2B96F1] hover:bg-blue-600 text-white"><ChartIcon /> Buy DeFAI</Button>
@@ -716,7 +716,7 @@ export default function HomePage() {
                   </div>
                 )}
                 <div className="w-full mt-3">
-                    <h3 className="text-lg font-semibold text-foreground mb-2 text-center">How to Earn More {TOKEN_LABEL_POINTS}</h3>
+                    <h3 className="text-lg font-semibold text-foreground mb-2 text-center">How to Earn More {AIR.LABEL}</h3>
                     <div className="bg-card p-2.5 rounded-lg shadow border border-border">
                         <ul className="space-y-1">
                         {pointActivities.map((activity) => {
@@ -733,7 +733,7 @@ export default function HomePage() {
                                 {activity.action}
                                 </span>
                                 <span className={`font-semibold text-xs ${isEffectivelyCompleted ? 'text-muted-foreground line-through' : (typeof activity.points === 'number' ? 'text-purple-600' : 'text-yellow-500')}`}>
-                                {typeof activity.points === 'number' ? `${activity.points} ${TOKEN_LABEL_POINTS}` : activity.points}
+                                {activity.pointsString ? activity.pointsString : `${formatPoints(activity.points)} ${AIR.LABEL}`}
                                 </span>
                             </li>
                             );
@@ -766,7 +766,7 @@ export default function HomePage() {
             </DialogDescription>
           </DialogHeader>
           <div className="py-4 space-y-3 text-sm text-foreground">
-            <p>✨ <span className="font-semibold">Earn {TOKEN_LABEL_POINTS}:</span> Connect your wallet, follow us on X, join Telegram, and share your profile/airdrop results to earn DeFAI {TOKEN_LABEL_POINTS}.</p>
+            <p>✨ <span className="font-semibold">Earn {AIR.LABEL}:</span> Connect your wallet, follow us on X, join Telegram, and share your profile/airdrop results to earn DeFAI {AIR.LABEL}.</p>
             <p>🚀 <span className="font-semibold">Refer Friends:</span> Share your unique referral link! You earn points when your friends connect their wallet after logging in via your link.</p>
             <p>🛡️ <span className="font-semibold">Join Squads:</span> Team up with others in Squads to boost your points potential and compete on the leaderboard.</p>
             <p>💰 <span className="font-semibold">Check Airdrop:</span> Use the checker to see if your wallet is eligible for the $AIR token airdrop.</p>

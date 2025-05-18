@@ -50,3 +50,15 @@ export const isValidPublicKey = (key: string) => {
   }
   return true;
 };
+
+/**
+ * Formats a number of points for display, typically using locale-specific thousands separators.
+ * @param points The number of points to format.
+ * @returns A string representation of the formatted points.
+ */
+export function formatPoints(points: number | null | undefined): string {
+  if (points === null || points === undefined) {
+    return '0'; // Or '-', or whatever placeholder is preferred for null/undefined points
+  }
+  return points.toLocaleString();
+}

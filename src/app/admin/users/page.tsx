@@ -173,10 +173,22 @@ export default function AdminUsersPage() {
     }
   };
 
+  const handleUserUpdate = (updatedUser: FullUserDetail) => {
+    setUsers(prevUsers => 
+      prevUsers.map(user => 
+        user.walletAddress === updatedUser.walletAddress ? { ...user, ...updatedUser } : user
+      )
+    );
+    // Optionally, if the modal is still open with this user, update selectedUser as well
+    if (selectedUser && selectedUser.walletAddress === updatedUser.walletAddress) {
+      setSelectedUser(prevSelected => prevSelected ? { ...prevSelected, ...updatedUser } : null);
+    }
+  };
+
   const handleModalClose = () => {
     setIsModalOpen(false);
     setSelectedUser(null);
-    fetchUsers();
+    // fetchUsers(); // Replaced by local update via handleUserUpdate, or can be kept if full refresh is desired after any modal interaction
   };
 
   const handleFilterChange = () => {
@@ -315,9 +327,10 @@ export default function AdminUsersPage() {
       )}
       {isModalOpen && selectedUser && (
         <UserDetailsModal
-          user={selectedUser} // This should be the FullUserDetail for the modal
+          user={selectedUser}
           isOpen={isModalOpen}
           onClose={handleModalClose}
+          onUserUpdate={handleUserUpdate}
         />
       )}
       {/* Render the ConfirmationModal */}

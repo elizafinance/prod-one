@@ -1,131 +1,89 @@
 import { NextResponse } from 'next/server';
-import { connectToDatabase, UserDocument, ActionDocument, SquadDocument } from '@/lib/mongodb';
+import { connectToDatabase, UserDocument, ActionDocument, SquadDocument } from '@/lib/mongodb'; // Kept for direct DB access if needed, though PointsService abstracts some
 import { withAuth } from '@/middleware/authGuard';
 import { withRateLimit } from '@/middleware/rateLimiter';
-import { randomBytes } from 'crypto'; // For generating referral code if user is new
-import { Db } from 'mongodb'; // Import Db type
-import { rabbitmqService } from '@/services/rabbitmq.service';
-import { rabbitmqConfig } from '@/config/rabbitmq.config';
+// import { randomBytes } from 'crypto'; // Not used here
+// import { Db } from 'mongodb'; // Not directly used here
+import { getPointsService, AwardPointsOptions } from '@/services/points.service';
+import { AIR, ACTION_TYPE_POINTS } from '@/config/points.config';
 
 // Placeholder for your database connection and logic
 // import { connectToDatabase, User, Action } from '@/lib/mongodb'; // Example
 
 interface RequestBody {
-  walletAddress?: string; // Made optional if session provides it
+  walletAddress?: string; // Optional if session provides it
   xUserId?: string; // If action is tied to X user not wallet
-  actionType: 'shared_on_x' | 'followed_on_x' | 'joined_telegram';
+  actionType: keyof typeof ACTION_TYPE_POINTS; // Use keys from our config for type safety
 }
 
-// Define points for each action
-const POINTS_FOR_ACTION: Record<RequestBody['actionType'], number> = {
-  'shared_on_x': 50,
-  'followed_on_x': 30,
-  'joined_telegram': 25, // Points for joining Telegram
-};
+// Points for each action are now primarily managed by ACTION_TYPE_POINTS in points.config.ts
+// const POINTS_FOR_ACTION: Record<RequestBody['actionType'], number> = { ... }; // Redundant
 
 // Define actions that should only award points once
-const ONE_TIME_ACTIONS: RequestBody['actionType'][] = ['followed_on_x', 'joined_telegram', 'shared_on_x']; // shared_on_x can be one-time or repeatable with daily/weekly limits (more complex)
+const ONE_TIME_ACTIONS: Array<keyof typeof ACTION_TYPE_POINTS> = ['followed_on_x', 'joined_telegram', 'shared_on_x']; // shared_on_x might be complex
 
 const baseHandler = withAuth(async (request: Request, session) => {
   try {
     const body: RequestBody = await request.json();
-    // Prioritize walletAddress from session if available and action is wallet-based
-    const walletAddress = session.user.walletAddress || body.walletAddress;
+    const walletAddress = session.user.walletAddress; // PointsService requires a walletAddress
     const xUserId = session.user.xId || body.xUserId;
     const { actionType } = body;
 
-    if (!walletAddress && !xUserId) {
-      return NextResponse.json({ error: 'User identifier (walletAddress or xUserId) is required' }, { status: 400 });
+    if (!walletAddress) {
+        // If no wallet address in session, this action cannot proceed via PointsService as designed
+        // This indicates a potential flow issue if social actions are logged before wallet connection
+        // and PointsService strictly requires walletAddress.
+        // For now, we must have a walletAddress to use PointsService.
+        return NextResponse.json({ error: 'User walletAddress is required to log this action' }, { status: 400 });
     }
-    if (!actionType || !POINTS_FOR_ACTION[actionType]) {
+
+    if (!actionType || !ACTION_TYPE_POINTS[actionType]) {
       return NextResponse.json({ error: 'Invalid or missing action type' }, { status: 400 });
     }
 
-    const { db } = await connectToDatabase();
+    const { db } = await connectToDatabase(); // For direct user check before PointsService
     const usersCollection = db.collection<UserDocument>('users');
-    const actionsCollection = db.collection<ActionDocument>('actions');
-    const squadsCollection = db.collection<SquadDocument>('squads');
-
-    // Find user by walletAddress or xUserId, depending on action context
-    // For simplicity, let's assume walletAddress is the primary link for points here.
-    // If xUserId actions can occur without a linked wallet, user lookup needs to be more flexible.
-    if (!walletAddress) {
-        return NextResponse.json({ error: 'Wallet address is required for this action' }, { status: 400 });
-    }
-    let user = await usersCollection.findOne({ walletAddress });
+    const user = await usersCollection.findOne({ walletAddress });
 
     if (!user) {
       return NextResponse.json({ error: 'User not found. Please ensure account is activated.' }, { status: 404 });
     }
 
-    const completedActions = user.completedActions || [];
-    let pointsAwarded = 0;
+    const pointsToAward = ACTION_TYPE_POINTS[actionType];
     let alreadyRecorded = false;
 
-    if (ONE_TIME_ACTIONS.includes(actionType) && completedActions.includes(actionType)) {
+    if (ONE_TIME_ACTIONS.includes(actionType) && user.completedActions?.includes(actionType)) {
       alreadyRecorded = true;
-    } else {
-      pointsAwarded = POINTS_FOR_ACTION[actionType];
     }
 
     if (alreadyRecorded) {
       return NextResponse.json({ message: `Action '${actionType}' already recorded. No new points awarded.`, currentPoints: user.points });
     }
     
-    const updatedPoints = (user.points || 0) + pointsAwarded;
-    const updatedCompletedActions = [...completedActions];
-    if (!completedActions.includes(actionType)) {
-      updatedCompletedActions.push(actionType);
+    if (pointsToAward === 0 && !alreadyRecorded) {
+        // If pointsToAward is 0, we might still want to record the action as completed, but not call PointsService
+        // For now, let's assume 0 point actions are not sent here or PointsService handles it.
+        // Or, we can just log it without awarding points through the service.
+        // This part needs clarification based on desired behavior for 0-point actions.
     }
 
-    // Update user document
-    await usersCollection.updateOne(
-      { walletAddress }, // Query by walletAddress
-      { $set: { points: updatedPoints, completedActions: updatedCompletedActions, updatedAt: new Date() } }
-    );
+    const pointsService = await getPointsService();
+    const awardOptions: AwardPointsOptions = {
+        reason: `action:${actionType}`,
+        metadata: { xUserId: xUserId }, // Log xUserId if available
+        actionType: actionType, // Pass the specific actionType for completedActions logic
+    };
 
-    // This is the merged squad points update logic from squad-goals
-    if (user.squadId && pointsAwarded > 0) {
-      console.log(`[Log Social Action] Updating squad points for squad ${user.squadId} by ${pointsAwarded}`);
-      const squadUpdateResult = await squadsCollection.updateOne(
-        { squadId: user.squadId },
-        { 
-          $inc: { totalSquadPoints: pointsAwarded },
-          $set: { updatedAt: new Date() }
-        }
-      );
-      console.log(`[Log Social Action] Squad points update result: matched ${squadUpdateResult.matchedCount}, modified ${squadUpdateResult.modifiedCount}`);
-      if (squadUpdateResult.modifiedCount > 0) {
-        try {
-          await rabbitmqService.publishToExchange(
-            rabbitmqConfig.eventsExchange,
-            rabbitmqConfig.routingKeys.squadPointsUpdated,
-            {
-              squadId: user.squadId,
-              pointsChange: pointsAwarded,
-              reason: `social_action:${actionType}`,
-              timestamp: new Date().toISOString(),
-              responsibleUserId: user.walletAddress
-            }
-          );
-          console.log(`[Log Social Action] Published squad.points.updated for squad ${user.squadId}`);
-        } catch (publishError) {
-          console.error(`[Log Social Action] Failed to publish squad.points.updated for squad ${user.squadId}:`, publishError);
-        }
-      }
+    const updatedUser = await pointsService.addPoints(walletAddress, pointsToAward, awardOptions);
+
+    if (!updatedUser) {
+        // Handle case where PointsService returns null (e.g., user not found, though checked above)
+        return NextResponse.json({ error: 'Failed to process action via PointsService' }, { status: 500 });
     }
-
-    // Log the action itself
-    await actionsCollection.insertOne({
-      walletAddress, // Use the resolved walletAddress
-      actionType,
-      pointsAwarded,
-      timestamp: new Date(),
-    });
 
     return NextResponse.json({ 
-      message: `Action '${actionType}' logged successfully. +${pointsAwarded} points.`, 
-      newPointsTotal: updatedPoints 
+      message: `Action '${actionType}' logged successfully. +${pointsToAward} points.`, 
+      newPointsTotal: updatedUser.points 
     });
 
   } catch (error) {

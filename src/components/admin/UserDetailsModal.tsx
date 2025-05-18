@@ -8,10 +8,10 @@ interface UserDetailsModalProps {
   user: FullUserDetail;
   isOpen: boolean;
   onClose: () => void;
-  // onUserUpdate: (updatedUser: FullUserDetail) => void; // Optional: for more granular updates
+  onUserUpdate?: (updatedUser: FullUserDetail) => void; // Add the onUserUpdate prop
 }
 
-export default function UserDetailsModal({ user, isOpen, onClose }: UserDetailsModalProps) {
+export default function UserDetailsModal({ user, isOpen, onClose, onUserUpdate }: UserDetailsModalProps) { // Destructure onUserUpdate
   const [activeTab, setActiveTab] = useState('details');
   const [newPoints, setNewPoints] = useState<number | string>(user.points || 0);
   const [newRole, setNewRole] = useState<string>(user.role || 'user');
@@ -78,7 +78,10 @@ export default function UserDetailsModal({ user, isOpen, onClose }: UserDetailsM
       const data = await res.json();
       if (res.ok) {
         toast.success(data.message || 'User updated successfully');
-        onClose(); // This will also trigger a refresh in the parent
+        if (data.user && onUserUpdate) { // Check if onUserUpdate is provided
+          onUserUpdate(data.user as FullUserDetail); // Call it with the updated user data from API response
+        }
+        onClose(); // Close modal (parent might still refetch if onUserUpdate doesn't fully cover its needs)
       } else {
         toast.error(data.error || 'Failed to update user');
       }

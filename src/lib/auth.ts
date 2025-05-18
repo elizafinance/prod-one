@@ -4,10 +4,11 @@ import { JWT } from "next-auth/jwt";
 import TwitterProvider from "next-auth/providers/twitter";
 import { connectToDatabase, UserDocument, ActionDocument } from "@/lib/mongodb"; // Assuming mongodb.ts is also in @/lib
 import { randomBytes } from 'crypto';
-import { Db } from 'mongodb';
+import { Db, ObjectId } from 'mongodb';
 import type { NextAuthOptions } from "next-auth"; // This import might vary based on NextAuth version
+import { AIR } from '@/config/points.config'; // Import AIR constants
 
-const POINTS_INITIAL_CONNECTION = 100;
+// const POINTS_INITIAL_CONNECTION = 100; // Replaced by AIR.INITIAL_LOGIN
 
 async function generateUniqueReferralCode(db: Db, length = 8): Promise<string> {
   const usersCollection = db.collection<UserDocument>('users');
@@ -88,7 +89,7 @@ export const authOptions: NextAuthOptions = {
               walletAddress: determinedWalletAddress,
               xUsername: xUsername,
               xProfileImageUrl: xProfileImageUrl,
-              points: POINTS_INITIAL_CONNECTION,
+              points: AIR.INITIAL_LOGIN, // Use AIR constant
               referralCode: newReferralCode,
               completedActions: ['initial_connection'],
               createdAt: new Date(),
@@ -105,7 +106,7 @@ export const authOptions: NextAuthOptions = {
             await actionsCollection.insertOne({
                 walletAddress: actionIdentifier, 
                 actionType: 'initial_connection',
-                pointsAwarded: POINTS_INITIAL_CONNECTION,
+                pointsAwarded: AIR.INITIAL_LOGIN, // Use AIR constant
                 timestamp: new Date(),
                 notes: `New user via X login: ${xUserId}`
             });

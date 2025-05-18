@@ -9,7 +9,6 @@ export async function middleware(request: NextRequest) {
   // Public paths
   const publicPaths = [
     '/leaderboard',
-    '/admin/login',
   ]
 
   // Allow public routes and Next.js internals
@@ -28,13 +27,11 @@ export async function middleware(request: NextRequest) {
   }
 
   // Redirect non-admin access to admin pages
-  if (pathname.startsWith('/admin') && pathname !== '/admin/login') {
+  if (pathname.startsWith('/admin')) {
     if (!token || (token.role !== 'admin' && (token as any).user?.role !== 'admin')) {
-      const url = new URL('/admin/login', request.url)
-      url.searchParams.set('callbackUrl', pathname)
+      const url = new URL('/', request.url)
       return NextResponse.redirect(url)
     }
-    // allow admin access
     return NextResponse.next()
   }
 

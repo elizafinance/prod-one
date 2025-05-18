@@ -5,6 +5,7 @@ import { useSession } from 'next-auth/react';
 import { toast } from 'sonner';
 import { Document, ObjectId } from 'mongodb';
 import UserDetailsModal from '@/components/admin/UserDetailsModal';
+import ConfirmationModal from '@/components/admin/ConfirmationModal';
 
 export interface UserRow {
   walletAddress: string;
@@ -64,6 +65,11 @@ export default function AdminUsersPage() {
   const [selectedUser, setSelectedUser] = useState<FullUserDetail | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
+  // State for purge confirmation modal
+  const [isPurgeConfirmModalOpen, setIsPurgeConfirmModalOpen] = useState(false);
+  const [userToPurge, setUserToPurge] = useState<UserRow | null>(null); // Store the whole user object or just wallet
+  const [isPurging, setIsPurging] = useState(false); // Loading state for purge action
+
   // New state for filters
   const [roleFilter, setRoleFilter] = useState(''); // e.g., 'admin', 'user', or '' for all
   const [squadIdFilter, setSquadIdFilter] = useState('');
@@ -112,14 +118,27 @@ export default function AdminUsersPage() {
     setLoading(false);
   };
 
-  const handlePurge = async (wallet: string) => {
-    if (!window.confirm(`Purge user ${wallet.substring(0,6)}...? This cannot be undone.`)) return;
+  // Opens the confirmation modal
+  const initiatePurge = (user: UserRow) => {
+    if (!user || !user.walletAddress) {
+      toast.error('Cannot purge user: Wallet address is missing.');
+      return;
+    }
+    setUserToPurge(user);
+    setIsPurgeConfirmModalOpen(true);
+  };
+
+  // Actual purge logic, called on confirm from modal
+  const executePurge = async () => {
+    if (!userToPurge || !userToPurge.walletAddress) return;
+
+    setIsPurging(true);
     try {
-      const res = await fetch(`/api/admin/users?wallet=${wallet}`, { method: 'DELETE' });
+      const res = await fetch(`/api/admin/users?wallet=${encodeURIComponent(userToPurge.walletAddress)}`, { method: 'DELETE' });
       const data = await res.json();
       if (res.ok) {
-        toast.success('User purged');
-        fetchUsers();
+        toast.success(`User ${userToPurge.xUsername || userToPurge.walletAddress.substring(0,6)}... purged`);
+        fetchUsers(); // Refresh the user list
       } else {
         toast.error(data.error || 'Failed to purge user');
       }
@@ -127,6 +146,9 @@ export default function AdminUsersPage() {
       toast.error('Error purging user');
       console.error(err);
     }
+    setIsPurging(false);
+    setIsPurgeConfirmModalOpen(false);
+    setUserToPurge(null);
   };
 
   const handleViewDetails = async (wallet: string) => {
@@ -265,7 +287,7 @@ export default function AdminUsersPage() {
                         Details
                       </button>
                       <button
-                        onClick={() => handlePurge(u.walletAddress)}
+                        onClick={() => initiatePurge(u)}
                         className="text-red-600 hover:underline text-xs"
                       >
                         Purge
@@ -296,6 +318,27 @@ export default function AdminUsersPage() {
           user={selectedUser} // This should be the FullUserDetail for the modal
           isOpen={isModalOpen}
           onClose={handleModalClose}
+        />
+      )}
+      {/* Render the ConfirmationModal */}
+      {isPurgeConfirmModalOpen && userToPurge && (
+        <ConfirmationModal
+          isOpen={isPurgeConfirmModalOpen}
+          onClose={() => {
+            setIsPurgeConfirmModalOpen(false);
+            setUserToPurge(null);
+          }}
+          onConfirm={executePurge}
+          title="Confirm User Purge"
+          message={
+            <p>
+              Are you sure you want to purge user{' '}
+              <strong className="font-mono">{userToPurge.xUsername || userToPurge.walletAddress.substring(0, 8)}...</strong>?
+              This action cannot be undone.
+            </p>
+          }
+          confirmButtonText="Purge User"
+          isConfirming={isPurging}
         />
       )}
     </main>

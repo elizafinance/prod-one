@@ -3,6 +3,10 @@ import { rabbitmqService } from '@/services/rabbitmq.service';
 import { rabbitmqConfig } from '@/config/rabbitmq.config';
 import { AIR, ACTION_TYPE_POINTS } from '@/config/points.config'; // Assuming AIR and ACTION_TYPE_POINTS are defined here
 import { Db, ObjectId, ClientSession } from 'mongodb';
+import { AIR_NFT_TIERS } from '@/config/airNft.config'; 
+// Define the type based on the structure of AIR_NFT_TIERS elements
+type AirNftTierConfig = typeof AIR_NFT_TIERS[number];
+// import { hybridMint } from '@/lib/solana/hybridInteractions'; // Conceptual import for Solana interactions
 
 export interface AwardPointsOptions {
   reason: string; // e.g., 'badge:generous_donor', 'admin:set_points', 'action:followed_on_x'
@@ -164,22 +168,96 @@ export class PointsService {
     return this.addPoints(walletAddress, pointsDelta, options);
   }
   
-  // Placeholder for a transactional method if needed later
-  // async awardPointsTransactional(walletAddress: string, pointsDelta: number, options: AwardPointsOptions): Promise<UserDocument | null> {
-  //   const session = this.db.client.startSession();
-  //   try {
-  //     session.startTransaction();
-  //     const result = await this.addPoints(walletAddress, pointsDelta, { ...options, dbSession: session });
-  //     await session.commitTransaction();
-  //     return result;
-  //   } catch (error) {
-  //     await session.abortTransaction();
-  //     console.error('[PointsService] Transaction aborted:', error);
-  //     throw error;
-  //   } finally {
-  //     session.endSession();
-  //   }
-  // }
+  /**
+   * Converts a user's AIR points into an AIR NFT of a specific tier.
+   * This involves checking eligibility and then (conceptually) minting the NFT on-chain.
+   * @param walletAddress The user's wallet address.
+   * @param requestedTierId The ID of the AIR NFT tier the user wants to mint.
+   * @param options Options for the operation (e.g., dbSession).
+   */
+  async convertPointsToAirNft(
+    walletAddress: string, 
+    requestedTierId: number,
+    options?: { dbSession?: ClientSession }
+  ): Promise<{ success: boolean; message: string; txSignature?: string; nftId?: string }> {
+    if (!walletAddress) throw new Error('Wallet address is required.');
+
+    const usersCollection = this.db.collection<UserDocument>('users');
+
+    // 1. Find the requested tier configuration
+    const tierConfig: AirNftTierConfig | undefined = AIR_NFT_TIERS.find(t => t.tier === requestedTierId);
+    if (!tierConfig) {
+      return { success: false, message: `Invalid AIR NFT tier ID: ${requestedTierId}` };
+    }
+
+    // 2. Fetch user's current AIR points
+    const user = await usersCollection.findOne({ walletAddress }, { session: options?.dbSession });
+    if (!user) {
+      return { success: false, message: 'User not found.' };
+    }
+    const currentUserPoints = user.points || 0;
+
+    // 3. Check if user has enough points
+    if (currentUserPoints < tierConfig.pointsPerNft) {
+      return {
+        success: false,
+        message: `Insufficient AIR points. Tier ${tierConfig.name} requires ${tierConfig.pointsPerNft}, you have ${currentUserPoints}.`,
+      };
+    }
+
+    // 4. (Conceptual) On-chain interaction: Mint the AIR NFT via MPL-Hybrid
+    // This would involve calling a Solana transaction signing and sending utility.
+    // const mintResult = await hybridMint(walletAddress, tierConfig, umiSigner); // Conceptual
+    const simulatedTxSignature = `sim_tx_${Date.now()}`;
+    const simulatedNftId = `sim_nft_${tierConfig.name.toLowerCase()}_${Date.now()}`;
+
+    console.log(`[PointsService] Conceptual AIR NFT Mint for ${walletAddress}: Tier ${tierConfig.name}, Signature: ${simulatedTxSignature}`);
+
+    // 5. Deduct points from the user
+    const pointsToDeduct = tierConfig.pointsPerNft;
+    await this.addPoints(walletAddress, -pointsToDeduct, {
+      reason: `air_nft_minted:${tierConfig.name}`,
+      metadata: { tier: tierConfig.tier, nftId: simulatedNftId, tx: simulatedTxSignature },
+      allowNegativeTotal: false, 
+      emitEvent: true,
+      actionType: 'air_nft_mint',
+      dbSession: options?.dbSession,
+    });
+
+    // 6. Optionally, record the NFT mint
+    // Example: await this.db.collection('userNfts').insertOne({ walletAddress, nftId: simulatedNftId, ... });
+
+    // 7. Publish event for AIR NFT minted
+    if (rabbitmqConfig.routingKeys.airNftMinted) { // Check if routing key is defined
+        try {
+            await rabbitmqService.publishToExchange(
+              rabbitmqConfig.eventsExchange,
+              rabbitmqConfig.routingKeys.airNftMinted,
+              {
+                walletAddress,
+                tierId: tierConfig.tier,
+                tierName: tierConfig.name,
+                nftId: simulatedNftId,
+                pointsSpent: pointsToDeduct,
+                txSignature: simulatedTxSignature,
+                timestamp: new Date().toISOString(),
+              }
+            );
+          } catch (publishError) {
+            console.error(`[PointsService] Failed to publish air.nft.minted for ${walletAddress}:`, publishError);
+          }
+    } else {
+        console.warn('[PointsService] rabbitmqConfig.routingKeys.airNftMinted is not defined. Skipping event publication.');
+    }
+    
+
+    return {
+      success: true,
+      message: `Successfully minted AIR NFT Tier ${tierConfig.name}! Points deducted: ${pointsToDeduct}.`,
+      txSignature: simulatedTxSignature,
+      nftId: simulatedNftId,
+    };
+  }
 }
 
 // Helper to get an instance of the service

@@ -10,6 +10,7 @@ export const rabbitmqConfig = {
     questActivated: 'quest.status.activated',        // When a quest becomes active
     questExpired: 'quest.status.expired',            // When a quest expires
     questCompletedManually: 'quest.status.completed', // When a quest is manually marked as complete
+    airNftMinted: 'air.nft.minted',                  // When a user successfully mints an AIR NFT
     // Add more routing keys as needed for other events
   },
   // ... other RabbitMQ configurations like queues, prefetch counts, etc.

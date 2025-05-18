@@ -28,24 +28,24 @@ const AIRDROP_THRESHOLDS = [
 ];
 
 async function generateUniqueReferralCode(db: Db, length = 8): Promise<string> {
-    const usersCollection = db.collection<UserDocument>('users');
-    let referralCode = '';
-    let isUnique = false;
-    let attempts = 0;
-    const maxAttempts = 10;
-    while (!isUnique && attempts < maxAttempts) {
-      referralCode = randomBytes(Math.ceil(length / 2)).toString('hex').slice(0, length);
-      const existingUser = await usersCollection.findOne({ referralCode });
-      if (!existingUser) {
-        isUnique = true;
-      }
-      attempts++;
+  const usersCollection = db.collection<UserDocument>('users');
+  let referralCode = '';
+  let isUnique = false;
+  let attempts = 0;
+  const maxAttempts = 10;
+  while (!isUnique && attempts < maxAttempts) {
+    referralCode = randomBytes(Math.ceil(length / 2)).toString('hex').slice(0, length);
+    const existingUser = await usersCollection.findOne({ referralCode });
+    if (!existingUser) {
+      isUnique = true;
     }
-    if (!isUnique) {
+    attempts++;
+  }
+  if (!isUnique) {
       console.warn(`Could not generate unique referral code in activate-rewards after ${maxAttempts} attempts.`);
-      return referralCode + randomBytes(2).toString('hex'); 
-    }
-    return referralCode;
+    return referralCode + randomBytes(2).toString('hex'); 
+  }
+  return referralCode;
 }
 
 // Helper to determine if referral boost should be applied
@@ -71,11 +71,11 @@ export async function POST(request: NextRequest) {
         const { walletAddress, referredByCode, squadInviteIdFromUrl } = await request.json();
 
         if (!walletAddress || typeof walletAddress !== 'string') {
-            return NextResponse.json({ error: 'Wallet address is required' }, { status: 400 });
-        }
+      return NextResponse.json({ error: 'Wallet address is required' }, { status: 400 });
+    }
 
-        const { db } = await connectToDatabase();
-        const usersCollection = db.collection<UserDocument>('users');
+    const { db } = await connectToDatabase();
+    const usersCollection = db.collection<UserDocument>('users');
         const pointsService = await getPointsService();
 
         let user = await usersCollection.findOne({ _id: new ObjectId(userDbId) });
@@ -166,15 +166,15 @@ export async function POST(request: NextRequest) {
                 user.referredByCode = referredByCode as string; // Assert type after assignment or ensure `referredByCode` is string
 
                 // Publish referral success event
-                try {
-                    await rabbitmqService.publishToExchange(
-                        rabbitmqConfig.eventsExchange,
+                        try {
+                            await rabbitmqService.publishToExchange(
+                                rabbitmqConfig.eventsExchange,
                         rabbitmqConfig.routingKeys.userReferredSuccess,
                         {
                             referrerWalletAddress: referrer.walletAddress,
                             referredUserWalletAddress: walletAddress,
                             pointsAwardedToReferrer: pointsForReferrer,
-                            timestamp: new Date().toISOString(),
+                                    timestamp: new Date().toISOString(),
                             boostApplied: boostAppliedDetails
                         }
                     );

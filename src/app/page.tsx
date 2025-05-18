@@ -161,7 +161,7 @@ export default function HomePage() {
       return;
     }
     setIsCheckingAirdrop(true);
-    setAirdropCheckResult(null);
+    setAirdropCheckResult(null); 
     try {
       const response = await fetch(`/api/check-airdrop?address=${encodeURIComponent(addressToCheck)}`);
       let data: any;

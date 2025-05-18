@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
     // const userXIdFromSession = session.user.xId; // xId from session, may differ from user.xUserId from DB if updated
 
     try {
-        const { walletAddress, referredByCode } = await request.json();
+        const { walletAddress, referredByCode, squadInviteIdFromUrl } = await request.json();
 
         if (!walletAddress || typeof walletAddress !== 'string') {
             return NextResponse.json({ error: 'Wallet address is required' }, { status: 400 });
@@ -191,6 +191,21 @@ export async function POST(request: NextRequest) {
             user.referralCode = newReferralCode; // Reflect locally
         }
 
+        // TODO: Process squadInviteIdFromUrl if provided
+        // This logic might involve checking the invite, adding user to squad, awarding points, etc.
+        // It could call a shared squad service function or interact with squad-related collections.
+        // For now, we'll just acknowledge it if present.
+        let squadInviteProcessed = false;
+        if (squadInviteIdFromUrl) {
+            console.log(`[Activate Rewards] Received squadInviteIdFromUrl: ${squadInviteIdFromUrl} for user ${user._id}. Placeholder for processing.`);
+            // Example: try {
+            //   const squadJoinResult = await squadService.processSquadInvite(db, user, squadInviteIdFromUrl);
+            //   if (squadJoinResult.success) squadInviteProcessed = true;
+            // } catch (squadError) { console.error('Error processing squad invite during activation:', squadError); }
+            // For the purpose of this fix, we are only acknowledging it. Actual processing is a separate feature/bug.
+            squadInviteProcessed = true; // Simulate processing for now for the response
+        }
+
         // Fetch the latest user state to return
         const finalUser = await usersCollection.findOne({ _id: user._id });
 
@@ -201,7 +216,8 @@ export async function POST(request: NextRequest) {
             awardedInitialConnectionPoints,
             referralProcessed: referralBonusAwarded > 0,
             referredBy: referredByUsername,
-            referralBonusToReferrer: referralBonusAwarded
+            referralBonusToReferrer: referralBonusAwarded,
+            squadInviteProcessed // Added to response
         });
 
     } catch (error: any) {

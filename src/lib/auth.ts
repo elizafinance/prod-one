@@ -61,10 +61,15 @@ export const authOptions: NextAuthOptions = {
           const usersCollection = db.collection<UserDocument>('users');
           const actionsCollection = db.collection<ActionDocument>('actions');
 
-          const xUserId = String(twitterProfile.id_str || user.id);
+          const xUserId = String(
+            twitterProfile.id_str ??         // Original
+            (profile as any).id ??           // OAuth 2.0 spec (often numeric)
+            account?.providerAccountId ?? // Always present from provider
+            user.id                          // NextAuth user.id (fallback)
+          );
 
           if (!xUserId || xUserId === "undefined") { 
-            console.error(`[NextAuth SignIn] Critical: X User ID not found or invalid in profile. Denying access. Profile data:`, JSON.stringify(twitterProfile, null, 2));
+            console.error(`[NextAuth SignIn] Critical: X User ID not found or invalid in profile. Denying access. Profile data:`, JSON.stringify(profile, null, 2), JSON.stringify(user, null, 2), JSON.stringify(account, null, 2));
             return false;
           }
 
@@ -72,73 +77,91 @@ export const authOptions: NextAuthOptions = {
           (user as any).xId = xUserId;
           let determinedWalletAddress: string | undefined = undefined;
 
-          let dbUser = await usersCollection.findOne({ xUserId });
+          // Convert findOne + insertOne to a single findOneAndUpdate with upsert
+          const xUsername = twitterProfile.screen_name || user.name || undefined;
+          let rawProfileImageUrl = twitterProfile.profile_image_url_https || user.image || undefined;
+          if (rawProfileImageUrl && !(rawProfileImageUrl.startsWith('http://') || rawProfileImageUrl.startsWith('https://'))) {
+              rawProfileImageUrl = undefined; // Or use a default placeholder if preferred
+          }
+          const xProfileImageUrl = rawProfileImageUrl;
 
-          if (!dbUser) {
-            const newReferralCode = await generateUniqueReferralCode(db);
-            const xUsername = twitterProfile.screen_name || user.name || undefined;
-            let rawProfileImageUrl = twitterProfile.profile_image_url_https || user.image || undefined;
-            if (rawProfileImageUrl && !(rawProfileImageUrl.startsWith('http://') || rawProfileImageUrl.startsWith('https://'))) {
-                rawProfileImageUrl = undefined;
-            }
-            const xProfileImageUrl = rawProfileImageUrl;
+          const updateOnInsert = {
+            xUserId: xUserId,
+            walletAddress: undefined, // Wallet is linked in a separate step
+            xUsername: xUsername,
+            xProfileImageUrl: xProfileImageUrl,
+            points: AIR.INITIAL_LOGIN,
+            referralCode: await generateUniqueReferralCode(db), // Generate code for new users
+            completedActions: ['initial_connection'],
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            role: 'user' // Default role
+          };
 
-            determinedWalletAddress = undefined; 
-            const newUserDocData: Omit<UserDocument, '_id'> & { walletAddress?: string | undefined } = {
-              xUserId: xUserId,
-              walletAddress: determinedWalletAddress,
+          const updateOnMatch = {
+            $set: {
               xUsername: xUsername,
               xProfileImageUrl: xProfileImageUrl,
-              points: AIR.INITIAL_LOGIN, // Use AIR constant
-              referralCode: newReferralCode,
-              completedActions: ['initial_connection'],
-              createdAt: new Date(),
               updatedAt: new Date(),
-            };
-
-            const result = await usersCollection.insertOne(newUserDocData as UserDocument);
-            if (!result.insertedId) {
-                console.error(`[NextAuth SignIn] Critical: Failed to insert new user for xUserId: ${xUserId}`);
-                return false; 
             }
+          };
 
-            const actionIdentifier = determinedWalletAddress || xUserId; 
+          const dbUserResult = await usersCollection.findOneAndUpdate(
+            { xUserId: xUserId },
+            { 
+              $setOnInsert: updateOnInsert,
+              $set: { // Fields to update if user exists
+                xUsername: xUsername,
+                xProfileImageUrl: xProfileImageUrl,
+                updatedAt: new Date(),
+              }
+            },
+            { 
+              upsert: true, 
+              returnDocument: 'after' // Returns the new or updated document
+            }
+          );
+
+          if (!dbUserResult || !dbUserResult.value) {
+            console.error(`[NextAuth SignIn] Critical: Failed to upsert user for xUserId: ${xUserId}`);
+            return false;
+          }
+          
+          const dbUser = dbUserResult.value;
+
+          // If the user was just inserted, record the initial_connection action
+          // We can check if createdAt is very recent or if specific fields match the $setOnInsert values
+          // A more direct way is to see if the document returned from findOneAndUpdate has the properties from $setOnInsert
+          // For simplicity, we check if the points are exactly AIR.INITIAL_LOGIN and completedActions has only 'initial_connection'
+          // This assumes points are not reset to initial_login value otherwise.
+          // A more robust check would be if dbUserResult.lastErrorObject?.upserted exists and is true,
+          // but that depends on the MongoDB driver version and return.
+          // Let's check if the `createdAt` and `updatedAt` are the same, which is a good indicator of a new insert.
+          const wasInserted = dbUser.createdAt.getTime() === dbUser.updatedAt.getTime() && dbUser.points === AIR.INITIAL_LOGIN;
+
+          if (wasInserted) {
+            // Record action for new user
             await actionsCollection.insertOne({
-                walletAddress: actionIdentifier, 
+                walletAddress: xUserId, // Use xUserId as identifier before wallet link
                 actionType: 'initial_connection',
-                pointsAwarded: AIR.INITIAL_LOGIN, // Use AIR constant
+                pointsAwarded: AIR.INITIAL_LOGIN,
                 timestamp: new Date(),
                 notes: `New user via X login: ${xUserId}`
             });
-            (user as any).dbId = result.insertedId.toHexString();
-            (user as any).walletAddress = determinedWalletAddress; 
-          } else {
-            (user as any).dbId = dbUser._id!.toHexString();
-            determinedWalletAddress = dbUser.walletAddress || undefined;
-            (user as any).walletAddress = determinedWalletAddress;
-
-            const xUsername = twitterProfile.screen_name || user.name || undefined;
-            let rawProfileImageUrl = twitterProfile.profile_image_url_https || user.image || undefined;
-            if (rawProfileImageUrl && !(rawProfileImageUrl.startsWith('http://') || rawProfileImageUrl.startsWith('https://'))) {
-                rawProfileImageUrl = dbUser.xProfileImageUrl; 
-            }
-            const xProfileImageUrl = rawProfileImageUrl;
-            
-            const updateData: Partial<UserDocument> = {
-              xUsername: xUsername,
-              xProfileImageUrl: xProfileImageUrl,
-              updatedAt: new Date(),
-            };
-            if (determinedWalletAddress && !dbUser.walletAddress) {
-                updateData.walletAddress = determinedWalletAddress;
-            } else if (!determinedWalletAddress && dbUser.walletAddress) {
-                updateData.walletAddress = dbUser.walletAddress;
-            }
-            await usersCollection.updateOne({ xUserId }, { $set: updateData });
           }
+          
+          (user as any).dbId = dbUser._id!.toHexString();
+          (user as any).walletAddress = dbUser.walletAddress || undefined; // Wallet address from DB (might be undefined)
+          (user as any).role = dbUser.role || 'user';
+
           return true; 
         } catch (error: any) { 
           console.error(`[NextAuth SignIn] Error during signIn callback for xUserId ${(user as any)?.xId || 'UNKNOWN'}: `, error);
+          if (error.code === 11000) { // Handle duplicate key error for referralCode, though upsert for xUserId should prevent most.
+            console.error("[NextAuth SignIn] Duplicate key error during user upsert, likely referralCode collision. The upsert should handle xUserId collision.", error);
+            // If generateUniqueReferralCode is the source of E11000, it needs its own retry or ensure the upsert doesn't fail due to it.
+            // For now, just log and deny access. A more robust solution might retry generating referral code or the whole operation.
+          }
           return false; 
         }
       }

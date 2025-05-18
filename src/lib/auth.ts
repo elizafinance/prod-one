@@ -2,6 +2,8 @@
 
 import { JWT } from "next-auth/jwt";
 import TwitterProvider from "next-auth/providers/twitter";
+import GoogleProvider from "next-auth/providers/google";
+import CredentialsProvider from "next-auth/providers/credentials";
 import { connectToDatabase, UserDocument, ActionDocument } from "@/lib/mongodb"; // Assuming mongodb.ts is also in @/lib
 import { randomBytes } from 'crypto';
 import { Db } from 'mongodb';
@@ -42,18 +44,45 @@ export const authOptions: NextAuthOptions = {
       clientId: process.env.X_CLIENT_ID!,
       clientSecret: process.env.X_CLIENT_SECRET!,
     }),
+    GoogleProvider({
+      clientId: process.env.GOOGLE_CLIENT_ID!,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+    }),
+    CredentialsProvider({
+      name: "Admin Credentials",
+      credentials: {
+        username: { label: "Username", type: "text", placeholder: "admin" },
+        password: { label: "Password", type: "password" },
+      },
+      async authorize(credentials) {
+        if (!credentials) return null;
+        const { username, password } = credentials;
+        if (
+          username === process.env.ADMIN_USERNAME &&
+          password === process.env.ADMIN_PASSWORD
+        ) {
+          // Return a minimal user object; role propagated in callbacks
+          return {
+            id: `admin-${username}`,
+            name: username,
+            email: `${username}@local`,
+            role: "admin",
+          } as any;
+        }
+        return null;
+      },
+    }),
   ],
   session: {
     strategy: "jwt",
   },
   callbacks: {
-    async signIn({ user, account, profile }: any) { // Reverted to any
-      console.log(`[NextAuth SignIn] Callback triggered. Timestamp: ${new Date().toISOString()}`);
-      // console.log("[NextAuth SignIn] Received data:", JSON.stringify({ user, account, profile }, null, 2));
+    async signIn({ user, account, profile }: any) {
+      console.log(`[NextAuth SignIn] Callback triggered. Provider: ${account?.provider}. Timestamp: ${new Date().toISOString()}`);
 
+      // --- Twitter login (existing flow) ---
       if (account?.provider === "twitter" && profile) {
         const twitterProfile = profile as TwitterProfile;
-        // console.log("[NextAuth SignIn] Processing Twitter profile:", JSON.stringify(twitterProfile, null, 2));
 
         try {
           const { db } = await connectToDatabase();
@@ -61,7 +90,6 @@ export const authOptions: NextAuthOptions = {
           const actionsCollection = db.collection<ActionDocument>('actions');
 
           const xUserId = String(twitterProfile.id_str || user.id);
-          // console.log("[NextAuth SignIn] Extracted xUserId (ensured string):", xUserId);
 
           if (!xUserId || xUserId === "undefined") { 
             console.error(`[NextAuth SignIn] Critical: X User ID not found or invalid in profile. Denying access. Profile data:`, JSON.stringify(twitterProfile, null, 2));
@@ -73,10 +101,8 @@ export const authOptions: NextAuthOptions = {
           let determinedWalletAddress: string | undefined = undefined;
 
           let dbUser = await usersCollection.findOne({ xUserId });
-          // console.log(`[NextAuth SignIn] MongoDB findOne result for xUserId ${xUserId}:`, JSON.stringify(dbUser, null, 2));
 
           if (!dbUser) {
-            // console.log(`[NextAuth SignIn] User not found in DB, creating new user for xUserId: ${xUserId}`);
             const newReferralCode = await generateUniqueReferralCode(db);
             const xUsername = twitterProfile.screen_name || user.name || undefined;
             let rawProfileImageUrl = twitterProfile.profile_image_url_https || user.image || undefined;
@@ -115,7 +141,6 @@ export const authOptions: NextAuthOptions = {
             (user as any).dbId = result.insertedId.toHexString();
             (user as any).walletAddress = determinedWalletAddress; 
           } else {
-            // console.log(`[NextAuth SignIn] User found in DB, updating for xUserId: ${xUserId}`);
             (user as any).dbId = dbUser._id!.toHexString();
             determinedWalletAddress = dbUser.walletAddress || undefined;
             (user as any).walletAddress = determinedWalletAddress;
@@ -139,63 +164,78 @@ export const authOptions: NextAuthOptions = {
             }
             await usersCollection.updateOne({ xUserId }, { $set: updateData });
           }
-          // console.log(`[NextAuth SignIn] Sign-in successful for xUserId ${xUserId}. User object for JWT:`, JSON.stringify(user, null, 2));
           return true; 
         } catch (error: any) { 
           console.error(`[NextAuth SignIn] Error during signIn callback for xUserId ${(user as any)?.xId || 'UNKNOWN'}: `, error);
           return false; 
         }
       }
-      console.log("[NextAuth SignIn] Account provider not Twitter or no profile. Denying.");
+
+      // --- Google login (admin) ---
+      if (account?.provider === "google") {
+        const adminEmailsRaw = process.env.ADMIN_EMAILS || "";
+        const allowedEmails = adminEmailsRaw.split(",").map((e) => e.trim().toLowerCase()).filter(Boolean);
+        // If ADMIN_EMAILS is not set, allow any google account – adjust as needed
+        if (allowedEmails.length === 0 || (user?.email && allowedEmails.includes(user.email.toLowerCase()))) {
+          (user as any).role = "admin";
+          return true;
+        }
+        console.warn(`[NextAuth SignIn] Google sign-in denied for email ${user?.email}`);
+        return false;
+      }
+
+      // --- Credentials login (admin) ---  
+      if (account?.provider === "credentials") {
+        // authorize already validated; just ensure role flag present
+        if (!user.role) {
+          (user as any).role = "admin";
+        }
+        return true;
+      }
+
+      console.log(`[NextAuth SignIn] Account provider ${account?.provider} not allowed.`);
       return false;
     },
-    async jwt({ token, user }: { token: JWT; user?: any }) { // Reverted user to any
-      // console.log("[NextAuth JWT] Received token:", token, "User:", user);
+    async jwt({ token, user }: { token: JWT; user?: any }) {
       if (user?.xId) token.xId = user.xId;
       if (user?.dbId) token.dbId = user.dbId;
       if (user?.walletAddress) token.walletAddress = user.walletAddress;
-      // Also pass standard fields if they were on the user object from signIn
       if (user?.name) token.name = user.name;
       if (user?.email) token.email = user.email;
-      if (user?.image) token.picture = user.image; // NextAuth uses 'picture' in JWT for image
-
-      // console.log("[NextAuth JWT] Returning token:", token);
+      if (user?.image) token.picture = user.image;
+      if (user?.role) token.role = user.role;
       return token;
     },
-    async session({ session, token }: { session: any; token: JWT }) { // Reverted session to any
-      // console.log("[NextAuth Session] Received session:", session, "Token:", token);
+    async session({ session, token }: { session: any; token: JWT }) {
       if (session.user) {
-        // Assign from token to session.user, aligning with next-auth.d.ts
         session.user.xId = token.xId as string || null;
         session.user.dbId = token.dbId as string || null;
         session.user.walletAddress = token.walletAddress as string || null;
         session.user.name = token.name as string || null;
         session.user.email = token.email as string || null;
-        session.user.image = token.picture as string || null; // Use token.picture for image
+        session.user.image = token.picture as string || null;
 
-        if (token.dbId && typeof token.dbId === 'string') {
+        if (token.role) {
+          session.user.role = token.role as string;
+        } else if (token.dbId && typeof token.dbId === 'string') {
           try {
             const { db } = await connectToDatabase();
             const usersCollection = db.collection<UserDocument>('users');
-            const { ObjectId } = await import('mongodb'); 
-
+            const { ObjectId } = await import('mongodb');
             if (ObjectId.isValid(token.dbId)) {
               const userFromDb = await usersCollection.findOne({ _id: new ObjectId(token.dbId) });
               if (userFromDb) {
                 session.user.role = userFromDb.role || 'user';
               }
-            } else {
-              session.user.role = 'user'; 
             }
           } catch (error) {
             console.error("[NextAuth Session] Error fetching user role:", error);
             session.user.role = 'user';
           }
         } else {
-          session.user.role = 'user';
+          session.user.role = session.user.role || 'user';
         }
       }
-      // console.log("[NextAuth Session] Returning session:", session);
       return session;
     },
   },

@@ -54,7 +54,7 @@ export default function LeaderboardPage() {
       setIsLoading(true);
       setError(null);
       try {
-        const response = await fetch('/api/users/leaderboard');
+        const response = await fetch('/api/users/leaderboard?limit=all');
         if (!response.ok) {
           throw new Error('Failed to fetch leaderboard data. Please try again soon!');
         }
@@ -179,7 +179,11 @@ export default function LeaderboardPage() {
                   const tierStyle = tierStyles[tierStyleKey] || tierStyles.default;
 
                   return (
-                    <tr key={entry.walletAddress + index + rank} className={rowClasses}>
+                    <tr
+                      key={entry.walletAddress + index + rank}
+                      className={`${rowClasses} cursor-pointer`}
+                      onClick={() => window.location.href = `/profile/${entry.walletAddress}`}
+                    >
                       <td className="py-4 px-4 sm:px-6 font-medium text-foreground align-middle">{rankDisplay}</td>
                       <td className="py-4 px-4 sm:px-6 align-middle">
                         <div className="flex items-center gap-3">

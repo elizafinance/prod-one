@@ -59,7 +59,8 @@ export default function LeaderboardPage() {
           throw new Error('Failed to fetch leaderboard data. Please try again soon!');
         }
         const data = await response.json();
-        setLeaderboard(data);
+        // API returns shape: { leaderboard: [...], currentPage, totalPages, ... }
+        setLeaderboard(data.leaderboard || []);
       } catch (err) {
         setError((err as Error).message || 'Could not load leaderboard data.');
         console.error(err);

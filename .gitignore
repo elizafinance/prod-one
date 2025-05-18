@@ -9,6 +9,9 @@
 # testing
 /coverage
 
+#backend
+backend_script.md
+
 # next.js
 /.next/
 /out/

@@ -52,8 +52,8 @@ const MyAirPanel: React.FC<MyAirPanelProps> = () => {
 
   useEffect(() => {
     fetchSnapshot();
-    fetchMyNfts();
-  }, [fetchSnapshot, fetchMyNfts]);
+    // Skipping NFT fetch until feature is live
+  }, [fetchSnapshot]);
 
   const handleMintNft = async (tierId: number) => {
     if (!session) {
@@ -89,12 +89,18 @@ const MyAirPanel: React.FC<MyAirPanelProps> = () => {
   if (!session) return <p>Please log in to see your AIR status.</p>;
 
   return (
-    <div style={{ border: '1px solid #ccc', padding: '20px', borderRadius: '8px', maxWidth: '600px' }}>
-      <h2>My AIR Status</h2>
+    <div className="max-w-3xl mx-auto bg-white shadow-md rounded-lg p-6 space-y-6">
+      {/* Placeholder Banner */}
+      <div className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-800 p-4 rounded-md">
+        <h2 className="text-lg font-semibold mb-1">Coming Soon – Placeholder Data</h2>
+        <p className="text-sm">The information below is mock data while the AIR system is being finalized. Minting and NFT ownership are disabled until launch.</p>
+      </div>
+
+      <h2 className="text-2xl font-semibold">My AIR Status</h2>
       {error && <p style={{ color: 'red' }}>Error: {error}</p>}
       
       {isLoadingSnapshot ? <p>Loading AIR snapshot...</p> : snapshot && (
-        <div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
           <p><strong>Wallet:</strong> {snapshot.wallet}</p>
           <p><strong>Current AIR Points:</strong> {snapshot.airPoints?.toLocaleString()}</p>
           <p><strong>Legacy DeFAI Balance (Snapshot):</strong> {snapshot.legacyDefai?.toLocaleString()}</p>
@@ -102,44 +108,32 @@ const MyAirPanel: React.FC<MyAirPanelProps> = () => {
         </div>
       )}
 
-      <hr style={{ margin: '20px 0' }} />
+      <hr className="my-4" />
       
-      <h3>Mint AIR NFTs</h3>
-      {snapshot && AIR_NFT_TIERS.map(tier => {
-        const canMint = snapshot.airPoints >= tier.pointsPerNft;
+      <h3 className="text-xl font-semibold mb-2">Mint AIR NFTs</h3>
+      {AIR_NFT_TIERS.map(tier => {
+        const canMint = false; // Disable minting for now
         return (
-          <div key={tier.tier} style={{ border: '1px solid #eee', padding: '10px', marginBottom: '10px' }}>
-            <h4>{tier.name} AIR NFT (Tier {tier.tier})</h4>
-            <p>Cost: {tier.pointsPerNft.toLocaleString()} AIR Points</p>
-            <p>Bonus: {tier.bonusPct * 100}% (on underlying DEFAI value)</p>
-            <p>Max Supply: {tier.cap.toLocaleString()}</p>
-            <button 
-              onClick={() => handleMintNft(tier.tier)}
-              disabled={!canMint || mintingTier === tier.tier || isLoadingSnapshot}
+          <div key={tier.tier} className="border border-border rounded-md p-4 mb-4 bg-muted/10">
+            <h4 className="font-medium mb-1">{tier.name} AIR NFT (Tier {tier.tier})</h4>
+            <p className="text-sm">Cost: {tier.pointsPerNft.toLocaleString()} AIR Points</p>
+            <p className="text-sm">Bonus: {(tier.bonusPct * 100).toFixed(0)}% (on underlying DEFAI value)</p>
+            <p className="text-sm mb-2">Max Supply: {tier.cap.toLocaleString()}</p>
+            <button
+              disabled
+              className="cursor-not-allowed bg-gray-300 text-gray-600 px-4 py-2 rounded-md text-sm"
             >
-              {mintingTier === tier.tier ? 'Processing...' : canMint ? 'Mint This NFT' : 'Insufficient Points'}
+              Mint Coming Soon
             </button>
           </div>
         );
       })}
       {mintingMessage && <p>{mintingMessage}</p>}
 
-      <hr style={{ margin: '20px 0' }} />
+      <hr className="my-4" />
 
-      <h3>My Owned AIR NFTs</h3>
-      {isLoadingNfts ? <p>Loading your NFTs...</p> : myNfts.length > 0 ? (
-        <ul>
-          {myNfts.map(nft => (
-            <li key={nft.tokenId}>
-              <strong>{nft.name} (Tier {nft.tier})</strong> - Bonus: {nft.bonusPct * 100}%
-              {nft.imageUrl && <img src={nft.imageUrl} alt={nft.name} style={{maxWidth: '50px', display: 'block'}}/>}
-              <small style={{display: 'block'}}>Token ID: {nft.tokenId}</small>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p>You do not own any AIR NFTs yet, or they are still being processed.</p>
-      )}
+      <h3 className="text-xl font-semibold mb-2">My Owned AIR NFTs</h3>
+      <p className="text-sm text-muted-foreground">NFT ownership display will be available after launch.</p>
     </div>
   );
 };

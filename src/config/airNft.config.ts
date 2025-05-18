@@ -5,21 +5,21 @@ export const AIR_NFT_TIERS = [
     tier: 1,
     name: 'Bronze',
     bonusPct: 0.10, // 10% bonus
-    cap: 2500,       // Max supply for this tier
+    cap: 3500,       // Max supply for this tier (adjusted)
     pointsPerNft: 500 // AIR points required to mint 1 NFT of this tier
   },
   {
     tier: 2,
     name: 'Silver',
     bonusPct: 0.30, // 30% bonus
-    cap: 900,
+    cap: 1200,
     pointsPerNft: 1500
   },
   {
     tier: 3,
     name: 'Gold',
     bonusPct: 0.50, // 50% bonus
-    cap: 100,
+    cap: 300,
     pointsPerNft: 3000
   },
 ] as const; // 'as const' provides stricter typing

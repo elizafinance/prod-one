@@ -110,7 +110,7 @@ export default function AppHeader() {
               </div>
             </Link>
           </div>
-          <div className="flex-1 min-w-0 ml-6">
+          <div className="flex-1 min-w-0 ml-2 sm:ml-4 md:ml-6">
             <AppNav navItems={navItems} />
           </div>
           <div className="flex items-center space-x-3 sm:space-x-4">

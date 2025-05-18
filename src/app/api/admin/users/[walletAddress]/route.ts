@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
@@ -11,25 +11,23 @@ async function logAdminAction(db: any, adminUserId: string, action: string, targ
   try {
     await auditLogsCollection.insertOne({
       timestamp: new Date(),
-      adminUserId, // ID of the admin performing the action
-      action, // e.g., 'update_user_points', 'change_user_role', 'purge_user'
-      targetEntityType, // e.g., 'user', 'squad', 'quest'
-      targetEntityId, // Wallet address, squadId, questId etc.
-      changes, // Object detailing what was changed, e.g., { points: { old: 100, new: 150 } }
-      reason, // Optional: reason for the change
+      adminUserId,
+      action, 
+      targetEntityType, 
+      targetEntityId, 
+      changes, 
+      reason, 
     });
   } catch (error) {
     console.error('Failed to log admin action:', error);
-    // Decide if this failure should block the main operation or just be logged
   }
 }
 
-
 export async function GET(
-  request: Request,
+  request: NextRequest,
   { params }: { params: { walletAddress: string } }
 ) {
-  const session: any = await (getServerSession as any)(authOptions);
+  const session: any = await getServerSession(authOptions);
   if (!session?.user?.role || session.user.role !== 'admin') {
     return NextResponse.json({ error: 'Forbidden: Requires admin privileges' }, { status: 403 });
   }
@@ -51,24 +49,20 @@ export async function GET(
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    // Fetch last 10 actions for this user
     const recentActions = await actionsCollection
       .find({ walletAddress })
       .sort({ timestamp: -1 })
       .limit(10)
       .toArray();
 
-    // Fetch last 10 notifications for this user (if userId is an ObjectId on user doc)
-    // Assuming user._id is the correct field for linking notifications.
-    // If notifications are linked by walletAddress directly, adjust the query.
     let recentNotifications: NotificationDocument[] = [];
-    if (user._id) { // Check if _id exists and is an ObjectId
+    if (user._id) { 
         recentNotifications = await notificationsCollection
-        .find({ userId: user._id.toString() }) // Use user._id if it's an ObjectId stored as string, or user._id directly
+        .find({ userId: user._id.toString() })
         .sort({ createdAt: -1 })
         .limit(10)
         .toArray() as NotificationDocument[];
-    } else if (user.id) { // Fallback if user.id is used (and is string)
+    } else if (user.id) { 
         recentNotifications = await notificationsCollection
         .find({ userId: user.id })
         .sort({ createdAt: -1 })
@@ -84,12 +78,13 @@ export async function GET(
 }
 
 export async function PATCH(
-  request: Request,
+  request: NextRequest,
   { params }: { params: { walletAddress: string } }
 ) {
-  const session: any = await (getServerSession as any)(authOptions);
-  const adminUser = session?.user as any; // For logging
-  if (!adminUser?.role || adminUser.role !== 'admin') {
+  const session: any = await getServerSession(authOptions);
+  const adminUserForLog = session?.user as any; // For logging, use existing next-auth session user
+  
+  if (!adminUserForLog?.role || adminUserForLog.role !== 'admin') {
     return NextResponse.json({ error: 'Forbidden: Requires admin privileges' }, { status: 403 });
   }
 
@@ -145,12 +140,12 @@ export async function PATCH(
       return NextResponse.json({ message: 'User found, but no changes applied (data might be the same).' }, { status: 200 });
     }
     if (result.modifiedCount === 0) {
-      return NextResponse.json({ error: 'Failed to update user or user not found' }, { status: 404 }); // Or 500 if it should have updated
+      return NextResponse.json({ error: 'Failed to update user or user not found' }, { status: 404 });
     }
 
-    // Log the admin action
-    const adminWallet = adminUser.walletAddress || adminUser.id || 'unknown_admin'; // Get admin identifier
-    await logAdminAction(db, adminWallet, 'update_user_details', 'user', walletAddress, changes, reason);
+    // Log the admin action using next-auth admin user details
+    const adminIdentifier = adminUserForLog.walletAddress || adminUserForLog.id || adminUserForLog.email || 'unknown_admin';
+    await logAdminAction(db, adminIdentifier, 'update_user_details', 'user', walletAddress, changes, reason);
 
     const updatedUser = await usersCollection.findOne({ walletAddress });
     return NextResponse.json({ message: 'User updated successfully', user: updatedUser });

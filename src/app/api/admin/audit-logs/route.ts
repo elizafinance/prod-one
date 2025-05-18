@@ -1,57 +1,55 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 import { Filter, Document } from 'mongodb';
 
-export async function GET(request: Request) {
-  const session: any = await (getServerSession as any)(authOptions);
+export async function GET(request: NextRequest) {
+  const session: any = await getServerSession(authOptions);
+
   if (!session?.user?.role || session.user.role !== 'admin') {
     return NextResponse.json({ error: 'Forbidden: Requires admin privileges' }, { status: 403 });
   }
 
-  const { db } = await connectToDatabase();
-  const auditLogsCollection = db.collection('adminAuditLogs');
-
-  const { searchParams } = new URL(request.url);
-  const page = parseInt(searchParams.get('page') || '1', 10);
-  const limit = parseInt(searchParams.get('limit') || '25', 10);
-  const skip = (page - 1) * limit;
-
-  const adminUserIdFilter = searchParams.get('adminUserId');
-  const actionFilter = searchParams.get('action');
-  const targetEntityTypeFilter = searchParams.get('targetEntityType');
-  const targetEntityIdFilter = searchParams.get('targetEntityId');
-  const startDateFilter = searchParams.get('startDate');
-  const endDateFilter = searchParams.get('endDate');
-
-  const query: Filter<Document> = {};
-
-  if (adminUserIdFilter) query.adminUserId = { $regex: adminUserIdFilter, $options: 'i' };
-  if (actionFilter) query.action = { $regex: actionFilter, $options: 'i' };
-  if (targetEntityTypeFilter) query.targetEntityType = targetEntityTypeFilter;
-  if (targetEntityIdFilter) query.targetEntityId = { $regex: targetEntityIdFilter, $options: 'i' };
-  
-  if (startDateFilter || endDateFilter) {
-    query.timestamp = {};
-    if (startDateFilter) {
-      try {
-        (query.timestamp as any).$gte = new Date(startDateFilter);
-      } catch (e) { /* ignore invalid date */ }
-    }
-    if (endDateFilter) {
-      try {
-        const ed = new Date(endDateFilter);
-        ed.setHours(23, 59, 59, 999); // Include the whole end day
-        (query.timestamp as any).$lte = ed;
-      } catch (e) { /* ignore invalid date */ }
-    }
-    // If only one date is invalid and the other is valid, the valid one will still apply.
-    // If both are invalid, timestamp query will be empty or just { $gte: null, $lte: null } effectively.
-    if (Object.keys(query.timestamp).length === 0) delete query.timestamp; // Clean up if no valid dates
-  }
-
   try {
+    const { db } = await connectToDatabase();
+    const auditLogsCollection = db.collection('adminAuditLogs');
+    const { searchParams } = new URL(request.url);
+    const page = parseInt(searchParams.get('page') || '1', 10);
+    const limit = parseInt(searchParams.get('limit') || '25', 10);
+    const skip = (page - 1) * limit;
+
+    const adminUserIdFilter = searchParams.get('adminUserId');
+    const actionFilter = searchParams.get('action');
+    const targetEntityTypeFilter = searchParams.get('targetEntityType');
+    const targetEntityIdFilter = searchParams.get('targetEntityId');
+    const startDateFilter = searchParams.get('startDate');
+    const endDateFilter = searchParams.get('endDate');
+
+    const query: Filter<Document> = {};
+
+    if (adminUserIdFilter) query.adminUserId = { $regex: adminUserIdFilter, $options: 'i' };
+    if (actionFilter) query.action = { $regex: actionFilter, $options: 'i' };
+    if (targetEntityTypeFilter) query.targetEntityType = targetEntityTypeFilter;
+    if (targetEntityIdFilter) query.targetEntityId = { $regex: targetEntityIdFilter, $options: 'i' };
+    
+    if (startDateFilter || endDateFilter) {
+      query.timestamp = {};
+      if (startDateFilter) {
+        try {
+          (query.timestamp as any).$gte = new Date(startDateFilter);
+        } catch (e) { /* ignore invalid date */ }
+      }
+      if (endDateFilter) {
+        try {
+          const ed = new Date(endDateFilter);
+          ed.setHours(23, 59, 59, 999); // Include the whole end day
+          (query.timestamp as any).$lte = ed;
+        } catch (e) { /* ignore invalid date */ }
+      }
+      if (Object.keys(query.timestamp).length === 0) delete query.timestamp;
+    }
+
     const logs = await auditLogsCollection
       .find(query)
       .sort({ timestamp: -1 })
@@ -68,8 +66,10 @@ export async function GET(request: Request) {
       totalPages: Math.ceil(totalLogs / limit),
       limit,
     });
+
   } catch (error) {
     console.error('Error fetching admin audit logs:', error);
+    // Check if it's a DB connection error or other specific error to refine status code
     return NextResponse.json({ error: 'Failed to fetch audit logs' }, { status: 500 });
   }
 } 

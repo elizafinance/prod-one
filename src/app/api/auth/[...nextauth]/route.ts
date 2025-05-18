@@ -1,12 +1,6 @@
-import NextAuth from "next-auth/next";
-import { authOptions } from "@/lib/auth"; // Import from the new location
+import NextAuth from "next-auth";
+import { authOptions } from "@/lib/auth"; // Correct path to your authOptions
 
-// All other imports like JWT, TwitterProvider, connectToDatabase, UserDocument, ActionDocument,
-// randomBytes, Db, and the interfaces like TwitterProfile, and helper functions like 
-// generateUniqueReferralCode, along with the POINTS_INITIAL_CONNECTION constant
-// are now part of src/lib/auth.ts where authOptions is defined.
-
-// Cast to any to avoid AuthOptions type mismatch due to literal type widening
-const handler = NextAuth(authOptions as any);
+const handler = NextAuth(authOptions);
 
 export { handler as GET, handler as POST }; 

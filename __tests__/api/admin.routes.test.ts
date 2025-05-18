@@ -61,10 +61,18 @@ beforeAll(async () => {
 }, 60000);
 
 afterAll(async () => {
-  await mongoClient.close();
-  await mongoServer.stop();
-  await new Promise<void>(resolve => serverInstance.close(() => resolve()));
-  await app.close(); 
+  if (mongoClient) {
+    await mongoClient.close();
+  }
+  if (mongoServer) {
+    await mongoServer.stop();
+  }
+  if (serverInstance) {
+    await new Promise<void>(resolve => serverInstance.close(() => resolve()));
+  }
+  if (app) {
+    await app.close(); 
+  }
 });
 
 beforeEach(async () => {

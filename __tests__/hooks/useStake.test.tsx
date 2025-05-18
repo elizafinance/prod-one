@@ -5,7 +5,7 @@
 import { renderHook, act } from '@testing-library/react-hooks';
 import { useStake } from '@/hooks/useStake';
 import { useAnchorProgram } from '@/hooks/useAnchorProgram';
-import { PublicKey, SystemProgram, Transaction } from '@solana/web3.js';
+import { PublicKey, SystemProgram, Transaction, TransactionInstruction } from '@solana/web3.js';
 import { BN } from '@project-serum/anchor';
 import { toast } from 'sonner';
 import * as splToken from '@solana/spl-token';
@@ -54,7 +54,11 @@ describe('useStake Hook', () => {
         stake: jest.fn().mockReturnThis(),
         accounts: jest.fn().mockReturnThis(),
         accountsStrict: jest.fn().mockReturnThis(),
-        instruction: jest.fn().mockResolvedValue({}), // Mock instruction to return a dummy object
+        instruction: jest.fn().mockResolvedValue(new TransactionInstruction({
+          keys: [],
+          programId: mockElizaProgramId, 
+          data: Buffer.alloc(0),
+        })),
       },
     };
 

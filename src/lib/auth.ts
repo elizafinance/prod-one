@@ -98,32 +98,43 @@ export const authOptions: NextAuthOptions = {
             role: 'user' // Default role
           };
 
-          const updateOnMatch = {
-            $set: {
-              xUsername: xUsername,
-              xProfileImageUrl: xProfileImageUrl,
-              updatedAt: new Date(),
-            }
-          };
-
-          const dbUserResult = await usersCollection.findOneAndUpdate(
-            { xUserId: xUserId },
-            { 
-              $setOnInsert: updateOnInsert,
-              $set: { // Fields to update if user exists
-                xUsername: xUsername,
-                xProfileImageUrl: xProfileImageUrl,
-                updatedAt: new Date(),
+          // --- Attempt the upsert with basic retry on duplicate key errors (e.g. referralCode collision) ---
+          let dbUserResult: any = null;
+          const MAX_UPSERT_ATTEMPTS = 3;
+          for (let attempt = 1; attempt <= MAX_UPSERT_ATTEMPTS; attempt++) {
+            try {
+              dbUserResult = await usersCollection.findOneAndUpdate(
+                { xUserId: xUserId },
+                {
+                  $setOnInsert: attempt === 1 ? updateOnInsert : {
+                    ...updateOnInsert,
+                    referralCode: await generateUniqueReferralCode(db) // Fresh code for retries
+                  },
+                  $set: {
+                    xUsername: xUsername,
+                    xProfileImageUrl: xProfileImageUrl,
+                    updatedAt: new Date(),
+                  },
+                },
+                {
+                  upsert: true,
+                  returnDocument: 'after', // Returns the new or updated document
+                }
+              );
+              // Success – break the retry loop
+              if (dbUserResult?.value) break;
+            } catch (upsertErr: any) {
+              if (upsertErr?.code === 11000 && attempt < MAX_UPSERT_ATTEMPTS) {
+                console.warn(`[NextAuth SignIn] Duplicate key on upsert attempt ${attempt}. Retrying with new referral code...`);
+                continue; // Retry the loop
               }
-            },
-            { 
-              upsert: true, 
-              returnDocument: 'after' // Returns the new or updated document
+              // For any other error (or final failed attempt) re-throw to outer catch
+              throw upsertErr;
             }
-          );
+          }
 
           if (!dbUserResult || !dbUserResult.value) {
-            console.error(`[NextAuth SignIn] Critical: Failed to upsert user for xUserId: ${xUserId}`);
+            console.error(`[NextAuth SignIn] Critical: Failed to upsert user for xUserId: ${xUserId} after ${MAX_UPSERT_ATTEMPTS} attempts.`);
             return false;
           }
           
@@ -157,10 +168,8 @@ export const authOptions: NextAuthOptions = {
           return true; 
         } catch (error: any) { 
           console.error(`[NextAuth SignIn] Error during signIn callback for xUserId ${(user as any)?.xId || 'UNKNOWN'}: `, error);
-          if (error.code === 11000) { // Handle duplicate key error for referralCode, though upsert for xUserId should prevent most.
-            console.error("[NextAuth SignIn] Duplicate key error during user upsert, likely referralCode collision. The upsert should handle xUserId collision.", error);
-            // If generateUniqueReferralCode is the source of E11000, it needs its own retry or ensure the upsert doesn't fail due to it.
-            // For now, just log and deny access. A more robust solution might retry generating referral code or the whole operation.
+          if (error.code === 11000) {
+            console.error("[NextAuth SignIn] Duplicate key error during user upsert after retries. Denying access.", error);
           }
           return false; 
         }

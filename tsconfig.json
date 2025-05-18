@@ -35,13 +35,13 @@
   },
   "include": [
     "next-env.d.ts",
-    "next-auth.d.ts",
+    "next-auth.d.ts.bak",
     "**/*.ts",
     "**/*.tsx",
-    ".next/types/**/*.ts",
-    "scripts/**/*.ts"
+    ".next/types/**/*.ts"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    "scripts"
   ]
 }

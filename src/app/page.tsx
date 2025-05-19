@@ -1,7 +1,6 @@
-// @ts-nocheck
 "use client";
 
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback, useMemo } from 'react';
 import { useHomePageLogic } from '@/hooks/useHomePageLogic';
 import Link from 'next/link'; // Already imported, but confirming it's here
 import { toast } from 'sonner'; // Import sonner toast
@@ -34,6 +33,8 @@ import MilestoneTimeline, { Milestone } from "@/components/dashboard/MilestoneTi
 import { CheckCircleIcon, ShareIcon, UserGroupIcon, UsersIcon } from '@heroicons/react/24/outline'; // Example, adjust as needed
 import PullToRefresh from 'react-pull-to-refresh'; // Added PullToRefresh import
 import Illustration from "@/assets/images/tits.png"; // Re-importing for onboarding
+import ClientBoundary from '@/components/ClientBoundary';
+import { AirdropSnapshotHorizontalProps } from '@/components/airdrop/AirdropSnapshotHorizontal';
 
 // Dynamically import WalletMultiButton
 const WalletMultiButtonDynamic = dynamic(
@@ -109,15 +110,19 @@ const sampleMilestonesData: Milestone[] = [
 
 interface UserData {
   points: number | null;
-  initialAirdropAmount?: number | null;
+  initialAirdropAmount: number | null;
+  initialDefai?: number | null;
+  airBasedDefai?: number | null;
+  totalDefai?: number | null;
   referralCode?: string;
   completedActions?: string[];
   xUsername?: string;
   squadId?: string;
-  activeReferralBoosts?: ReferralBoost[];
-  referralsMadeCount?: number;
-  highestAirdropTierLabel?: string;
-  walletAddress?: string;
+  activeReferralBoosts?: Array<{
+    id: string;
+    expiresAt: string;
+    multiplier: number;
+  }>;
 }
 
 interface MySquadData extends SquadDocument {}
@@ -137,6 +142,15 @@ if (isNaN(REQUIRED_DEFAI_AMOUNT)) {
   console.warn(`Invalid NEXT_PUBLIC_REQUIRED_DEFAI_AMOUNT: "${envRequiredDefaiAmount}". Defaulting to 5000.`);
   REQUIRED_DEFAI_AMOUNT = 5000;
 }
+
+interface OnboardingStepperProps {
+  currentMajorStep: Step;
+  onLogin: () => void;
+  onConnectWallet: () => void;
+  isWalletConnected: boolean;
+}
+
+type Step = 'login' | 'wallet' | 'rewards_active';
 
 export default function HomePage() {
   console.log("[HomePage] Component Rendering/Re-rendering");
@@ -185,6 +199,26 @@ export default function HomePage() {
   // Access the wallet modal controller so we can open it programmatically
   const { setVisible: setWalletModalVisible } = useWalletModal();
   const walletPromptedRef = useRef(false);
+
+  // Define step types
+  const stepMap: Record<number, Step> = {
+    0: 'login',
+    1: 'wallet',
+    2: 'rewards_active'
+  };
+
+  // Move currentMajorStep declaration before useEffect
+  const currentMajorStepNumber = authStatus === "authenticated" ? (wallet.connected ? 2 : 1) : 0;
+  const currentMajorStep = stepMap[currentMajorStepNumber];
+
+  useEffect(() => {
+    if (!walletPromptedRef.current && authStatus === "authenticated" && !wallet.connected && !wallet.connecting && currentMajorStepNumber === 1) {
+      setWalletModalVisible(true);
+      walletPromptedRef.current = true;
+    } else if (wallet.connected || wallet.connecting) {
+      walletPromptedRef.current = false;
+    }
+  }, [authStatus, wallet.connected, wallet.connecting, setWalletModalVisible, currentMajorStepNumber]);
 
   const handleInitialAirdropCheck = async () => {
     const addressToCheck = typedAddress.trim();
@@ -328,23 +362,6 @@ export default function HomePage() {
     setIsProcessingInvite(null);
   };
 
-  // Automatically prompt wallet connect modal right after X login
-  useEffect(() => {
-    if (
-      authStatus === "authenticated" &&
-      !wallet.connected &&
-      !wallet.connecting &&
-      !walletPromptedRef.current &&
-      currentMajorStep === 'wallet' 
-    ) {
-      walletPromptedRef.current = true;
-      setTimeout(() => setWalletModalVisible(true), 100);
-    }
-    if (wallet.connected) {
-      walletPromptedRef.current = false;
-    }
-  }, [authStatus, wallet.connected, wallet.connecting, setWalletModalVisible, currentMajorStep]);
-
   const airdropTokenSymbol = process.env.NEXT_PUBLIC_AIRDROP_TOKEN_SYMBOL || "AIR"; // Keep for one direct use or pass TOKEN_LABEL_AIR
   const snapshotDateString = process.env.NEXT_PUBLIC_AIRDROP_SNAPSHOT_DATE_STRING || "May 20th";
   const airdropPoolSize = parseInt(process.env.NEXT_PUBLIC_AIRDROP_POINTS_POOL_SIZE || '1000000000', 10);
@@ -390,36 +407,97 @@ export default function HomePage() {
     }
   }, [wallet.connected, wallet.publicKey, connection, setDefaiBalance]);
 
-  // Determine current onboarding step
-  let currentMajorStep: 'login' | 'wallet' | 'rewards_active' = 'login';
-  if (authStatus === "authenticated") {
-    // isRewardsActive is true when user data (which includes walletAddress) is successfully fetched.
-    // So, if isRewardsActive is true, they have connected a wallet and it's in their DB record.
-    if (isRewardsActive) { 
-      currentMajorStep = 'rewards_active';
-    } else {
-      // If X-authenticated but rewards are not active, it means they still need to connect their wallet 
-      // OR the wallet they connected previously isn't linked/found in their user record yet.
-      // The useHomePageLogic handles trying to activate rewards if a wallet is connected.
-      currentMajorStep = 'wallet';
-    }
-  }
-
   const handleRefresh = useCallback(async () => {
-    console.log("[HomePage] Pull-to-refresh triggered");
-    if (authStatus === "authenticated" && wallet.connected && session?.user?.xId && session?.user?.dbId) {
-      try {
-        // Re-fetch all primary dashboard data
-        await activateRewardsAndFetchData(wallet.publicKey.toBase58(), session.user.xId, session.user.dbId);
-        toast.success("Dashboard refreshed!");
-      } catch (error) {
-        console.error("[HomePage] Error during refresh:", error);
-        toast.error("Failed to refresh dashboard.");
-      }
-    } else {
-      toast.info("Login and connect wallet to refresh dashboard.");
+    if (!session?.user?.xId || !session?.user?.dbId || !wallet.publicKey) {
+      toast.error("Please ensure you are logged in and your wallet is connected.");
+      return;
     }
-  }, [authStatus, wallet, session, activateRewardsAndFetchData]);
+
+    try {
+      // Re-fetch all primary dashboard data
+      await activateRewardsAndFetchData(wallet.publicKey.toBase58(), session.user.xId, session.user.dbId);
+      toast.success("Dashboard refreshed!");
+    } catch (error) {
+      console.error("[HomePage] Error during refresh:", error);
+      toast.error("Failed to refresh dashboard data.");
+    }
+  }, [session, wallet.publicKey, activateRewardsAndFetchData]);
+
+  // Safe wallet.publicKey access with null check
+  const walletPublicKey = useMemo(() => {
+    if (!wallet.publicKey) return null;
+    try {
+      const pubKey = new PublicKey(wallet.publicKey.toBase58());
+      return pubKey;
+    } catch {
+      return null;
+    }
+  }, [wallet.publicKey]);
+
+  const walletAddress = useMemo(() => walletPublicKey?.toBase58() ?? '', [walletPublicKey]);
+  const truncatedWalletAddress = useMemo(() => 
+    walletAddress ? `${walletAddress.substring(0,4)}...${walletAddress.substring(walletAddress.length - 4)}` : '', 
+    [walletAddress]
+  );
+
+  // Type-safe error handling
+  const handleShareError = (error: unknown) => {
+    if (error instanceof Error) {
+      if (error.name !== 'AbortError') {
+        toast.error("Could not share link.");
+        console.error("Error sharing referral link:", error);
+      }
+    }
+  };
+
+  // Type-safe share handler
+  const handleShare = async () => {
+    if (!userData?.referralCode) return;
+    try {
+      await navigator.share({
+        title: 'Join me on DeFAI Rewards!',
+        text: `Join me on DeFAI Rewards and let\'s earn together! Use my referral link:`,
+        url: `https://squad.defairewards.net/?ref=${userData.referralCode}`
+      });
+      toast.success("Referral link shared!");
+    } catch (error) {
+      handleShareError(error);
+    }
+  };
+
+  // Check if share API is available
+  const canShare = typeof navigator !== 'undefined' && 'share' in navigator;
+
+  // Type-safe copy handler
+  const handleCopy = () => {
+    if (!userData?.referralCode) return;
+    handleCopyToClipboard(`https://squad.defairewards.net/?ref=${userData.referralCode}`);
+  };
+
+  // Type guard for UserData
+  const isUserData = (data: unknown): data is UserData => {
+    if (!data || typeof data !== 'object') return false;
+    const d = data as Record<string, unknown>;
+    return 'points' in d && 
+      'initialAirdropAmount' in d &&
+      (!('activeReferralBoosts' in d) || (Array.isArray(d.activeReferralBoosts) && d.activeReferralBoosts.every(
+        (boost: unknown) => typeof boost === 'object' && boost !== null &&
+          'id' in boost && typeof (boost as any).id === 'string' &&
+          'expiresAt' in boost && typeof (boost as any).expiresAt === 'string' &&
+          'multiplier' in boost && typeof (boost as any).multiplier === 'number'
+      )));
+  };
+
+  // Prepare AirdropSnapshotHorizontal props
+  const airdropSnapshotProps: AirdropSnapshotHorizontalProps | null = userData ? {
+    initialAirdropAllocation: userData.initialAirdropAmount,
+    defaiBalance,
+    userPoints: userData.points,
+    totalCommunityPoints,
+    airdropPoolSize,
+    snapshotDateString,
+    isLoading: isActivatingRewards || isCheckingDefaiBalance
+  } : null;
 
   if (authStatus === "loading") {
     console.log("[HomePage] Rendering: Loading Session state");
@@ -444,14 +522,14 @@ export default function HomePage() {
           <p className="text-sm sm:text-base text-muted-foreground max-w-xs sm:max-w-sm mt-2">Complete these steps to activate your account and start earning.</p>
         </div>
         <OnboardingStepper 
-          currentMajorStep={currentMajorStep} 
+          currentMajorStep={currentMajorStep}
           onLogin={() => signIn('twitter')} 
           onConnectWallet={() => setWalletModalVisible(true)}
           isWalletConnected={wallet.connected}
         />
         {currentMajorStep === 'wallet' && wallet.connected && !isRewardsActive && (
           <div className="mt-6 flex flex-col items-center space-y-2 text-center">
-            <p className="text-sm text-positive">Wallet connected: {wallet.publicKey?.toBase58().substring(0,4)}...{wallet.publicKey?.toBase58().substring(wallet.publicKey?.toBase58().length - 4)}</p>
+            <p className="text-sm text-positive">Wallet connected: {truncatedWalletAddress}</p>
             <p className="text-sm text-muted-foreground">Finalizing account activation...</p>
             {isActivatingRewards && <p className="text-primary text-sm animate-pulse">Activating rewards...</p>}
           </div>
@@ -466,242 +544,82 @@ export default function HomePage() {
   const showInsufficientBalanceMessage = authStatus === "authenticated" && wallet.connected && isRewardsActive && userData && hasSufficientDefai === false;
     
   return (
-    <main className="flex flex-col items-center min-h-screen bg-background text-foreground font-sans">
-      <div className="w-full"> 
-        {isDesktop ? (
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            <div className="grid grid-cols-1 lg:grid-cols-[1fr_400px] gap-6 xl:gap-8">
-              {/* === Left Column === */}
-              {/* === Left Column: Changed to grid layout === */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fadeUp">
-                {/* Hero Headlines: This is not a card, might need specific placement if grid is used for all items */}
-                {/* For now, let it be a grid item spanning full width on md if needed, or adjust its container separately */}
-                <div className="md:col-span-2">
-                  {/* Original Hero Headlines Div (text-center lg:text-left) */}
-                  <div className="relative text-center lg:text-left">
-                    <div className="flex items-center align-left gap-3">
-                      <div className="relative">
-                        <div className="text-center">
-                          <h1 className="font-orbitron text-4xl sm:text-5xl lg:text-6xl font-bold text-primary">
-                            Banking AI Agents
-                          </h1>
-                          <h2 className="font-orbitron text-4xl sm:text-5xl lg:text-6xl font-bold text-foreground">
-                            Rewarding Humans
-                          </h2>
+    <ClientBoundary fallback={
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-pulse text-center">
+          <DeFAILogo className="w-24 h-24 mx-auto mb-4" />
+          <p className="text-lg text-muted-foreground">Loading DeFAI Rewards...</p>
+        </div>
+      </div>
+    }>
+      <main className="flex flex-col items-center min-h-screen bg-background text-foreground font-sans">
+        <div className="w-full"> 
+          {isDesktop ? (
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+              <div className="grid grid-cols-1 lg:grid-cols-[1fr_400px] gap-6 xl:gap-8">
+                {/* === Left Column === */}
+                {/* === Left Column: Changed to grid layout === */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fadeUp">
+                  {/* Hero Headlines: This is not a card, might need specific placement if grid is used for all items */}
+                  {/* For now, let it be a grid item spanning full width on md if needed, or adjust its container separately */}
+                  <div className="md:col-span-2">
+                    {/* Original Hero Headlines Div (text-center lg:text-left) */}
+                    <div className="relative text-center lg:text-left">
+                      <div className="flex items-center align-left gap-3">
+                        <div className="relative">
+                          <div className="text-center">
+                            <h1 className="font-orbitron text-4xl sm:text-5xl lg:text-6xl font-bold text-primary">
+                              Banking AI Agents
+                            </h1>
+                            <h2 className="font-orbitron text-4xl sm:text-5xl lg:text-6xl font-bold text-foreground">
+                              Rewarding Humans
+                            </h2>
+                          </div>
                         </div>
                       </div>
+                      <p className="mt-3 text-muted-foreground max-w-xl mx-auto lg:mx-0 font-sans">
+                        Welcome to DEFAI Rewards. Check eligibility, activate your account, complete actions to earn {AIR.LABEL}, and climb the leaderboard!
+                      </p>
                     </div>
-                    <p className="mt-3 text-muted-foreground max-w-xl mx-auto lg:mx-0 font-sans">
-                      Welcome to DEFAI Rewards. Check eligibility, activate your account, complete actions to earn {AIR.LABEL}, and climb the leaderboard!
-                    </p>
                   </div>
-                </div>
-                
-                {/* Action Buttons Row: Spans full width */}
-                <div className="md:col-span-2">
-                  <DashboardActionRow 
-                    isRewardsActive={isRewardsActive}
-                    currentTotalAirdropForSharing={currentTotalAirdropForSharing}
-                    onShareToX={handleShareToX}
-                    onLogSocialAction={logSocialAction}
-                  />
-                </div>
-
-                {/* Airdrop Snapshot Horizontal: Spans full width on md, or takes one column if others are present */}
-                {/* This component is wide by nature. Let it span full for now. */}
-                {(authStatus === "authenticated" && wallet.connected && isRewardsActive && userData && hasSufficientDefai === true) && (
+                  
+                  {/* Action Buttons Row: Spans full width */}
                   <div className="md:col-span-2">
-                    <AirdropSnapshotHorizontal 
-                      initialAirdropAllocation={userData.initialAirdropAmount ?? null}
-                      defaiBalance={defaiBalance} 
-                      userPoints={userData.points ?? null}
-                      totalCommunityPoints={totalCommunityPoints} 
-                      airdropPoolSize={airdropPoolSize}
-                      snapshotDateString={snapshotDateString}
-                      isLoading={isActivatingRewards || isCheckingDefaiBalance} 
+                    <DashboardActionRow 
+                      isRewardsActive={isRewardsActive}
+                      currentTotalAirdropForSharing={currentTotalAirdropForSharing}
+                      onShareToX={handleShareToX}
+                      onLogSocialAction={logSocialAction}
                     />
                   </div>
-                )}
-                 {(authStatus !== "authenticated" || !wallet.connected || !isRewardsActive || hasSufficientDefai === false) && (
-                  // This message card can take one column or span full if it's the only thing in a row
-                  <div className="p-6 bg-card/80 backdrop-blur-md shadow-lg rounded-xl border border-border/50 text-center md:col-span-2">
-                    <h3 className="text-xl font-semibold mb-2">Activate Your Account</h3>
-                    <p className="text-sm text-muted-foreground mb-4">
-                      Connect your X account and wallet, and ensure you hold enough DEFAI to see your full airdrop snapshot and earn {AIR.LABEL}.
-                    </p>
-                  </div>
-                )}
 
-                {/* Milestones Card - this will now be a grid item */}
-                {showPointsSection && userData && (
-                  <DashboardCard title={`Key Milestones & Achievements`} className="bg-card/80 backdrop-blur-md md:col-span-2">
-                    <MilestoneTimeline milestones={sampleMilestonesData} />
-                  </DashboardCard>
-                )}
-              </div>
-
-              {/* === Right Column (Sidebar) === */}
-              <aside className="lg:sticky lg:top-24 space-y-6 animate-fadeUp lg:animate-[fadeUp_0.6s_ease_0.2s]" style={{alignSelf: 'start'}}>
-                <MiniSquadCard 
-                  squadId={mySquadData?.squadId}
-                  squadName={mySquadData?.name}
-                  totalSquadPoints={mySquadData?.totalSquadPoints}
-                  memberCount={mySquadData?.memberWalletAddresses.length}
-                  maxMembers={mySquadData?.maxMembers}
-                  isLeader={mySquadData?.leaderWalletAddress === wallet.publicKey?.toBase58()}
-                  isLoading={isFetchingSquad}
-                />
-                {isRewardsActive && mySquadData && (
-                  <>
-                    <TopProposalCard />
-                    <SquadGoalQuestCard />
-                  </>
-                )}
-                
-                {isRewardsActive && userData?.referralCode && (
-                  <DashboardCard title="Referral Link" className="bg-card/80 backdrop-blur-md">
-                    {userData.activeReferralBoosts && userData.activeReferralBoosts.length > 0 && (
-                        <span className="absolute top-3 right-3 px-2 py-0.5 text-xs font-bold text-black bg-yellow-400 rounded-full animate-pulse shadow-sm">
-                          BOOST ACTIVE!
-                        </span>
-                      )}
-                    <div className="flex items-center bg-muted/50 p-1.5 rounded-md border border-input mt-1">
-                      <input type="text" readOnly value={`https://squad.defairewards.net/?ref=${userData.referralCode}`} aria-label="Your referral link" className="text-foreground text-xs break-all bg-transparent outline-none flex-grow p-1" />
-                      {typeof navigator !== 'undefined' && navigator.share ? (
-                        <button 
-                          onClick={async () => {
-                            try {
-                              await navigator.share({
-                                title: 'Join me on DeFAI Rewards!',
-                                text: `Join me on DeFAI Rewards and let\'s earn together! Use my referral link:`, // Escape single quote for JS string
-                                url: `https://squad.defairewards.net/?ref=${userData.referralCode}`
-                              });
-                              toast.success("Referral link shared!");
-                            } catch (error) {
-                              // Handle errors (e.g., user dismissed share dialog)
-                              // Don't show an error toast if user simply cancels share.
-                              if (error.name !== 'AbortError') {
-                                toast.error("Could not share link.");
-                                console.error("Error sharing referral link:", error);
-                              }
-                            }
-                          }}
-                          className="ml-2 py-1 px-2 text-xs bg-primary text-primary-foreground rounded hover:bg-primary/90 transition-colors"
-                          aria-label="Share your referral link"
-                        >
-                          Share
-                        </button>
-                      ) : (
-                        <button 
-                          onClick={() => handleCopyToClipboard(`https://squad.defairewards.net/?ref=${userData.referralCode}`)} 
-                          className="ml-2 py-1 px-2 text-xs bg-primary text-primary-foreground rounded hover:bg-primary/90 transition-colors"
-                          aria-label="Copy your referral link to clipboard"
-                        >
-                          Copy
-                        </button>
-                      )}
-                    </div>
-                  </DashboardCard>
-                )}
-
-                {isRewardsActive && !mySquadData && pendingInvites.length > 0 && (
-                  <DashboardCard title="Squad Invitations" className="bg-card/80 backdrop-blur-md">
-                    {isFetchingInvites && <p className="text-sm text-muted-foreground p-4 text-center">Loading invites...</p>}
-                    {!isFetchingInvites && pendingInvites.length === 0 && <p className="text-sm text-muted-foreground p-4 text-center">No pending invitations.</p>}
-                    {pendingInvites.length > 0 && (
-                        <ul className="space-y-3 max-h-[300px] overflow-y-auto p-1">
-                        {pendingInvites.map(invite => (
-                            <SquadInvitationCard 
-                                key={invite.invitationId} 
-                                invite={invite} 
-                                onAction={handleInviteAction} 
-                                isProcessing={isProcessingInvite === invite.invitationId}
-                            />
-                        ))}
-                        </ul>
-                    )}
-                  </DashboardCard>
-                )}
-              </aside>
-            </div>
-          </div>
-        ) : (
-          // Mobile Layout (Existing Structure, but using AppHeader)
-          <PullToRefreshDynamic onRefresh={handleRefresh} className="flex-grow w-full">
-            {/* Added flex-grow and w-full to PullToRefresh for layout */}
-            <div className="w-full max-w-3xl mx-auto px-4 pt-2 pb-20 flex flex-col items-center">
-              {/* Added pb-20 to account for bottom tab bar space */}
-              {/* Illustration and Headlines for Mobile (can be simpler or same as desktop) */}
-              <div className="relative text-center mt-4 mb-6">
-                <div className="text-center mb-6 mt-4">
-                  <h1 className="relative z-10 font-orbitron text-3xl sm:text-4xl font-bold text-primary">
-                    Banking AI Agents
-                  </h1>
-                  <h2 className="relative z-10 font-orbitron text-3xl sm:text-4xl font-bold text-foreground">
-                    Rewarding Humans
-                  </h2>
-                </div>
-                <p className="relative z-10 mt-3 text-sm text-muted-foreground max-w-md mx-auto font-sans">
-                  Welcome to DEFAI Rewards. Check eligibility, activate your account, complete actions to earn {AIR.LABEL}, and climb the leaderboard!
-                </p>
-              </div>
-              
-              {/* Original Airdrop Checker for non-authed/non-active users on mobile */}
-              {authStatus !== "authenticated" || !isRewardsActive || !wallet.connected ? (
-                <div className="w-full mb-6">
-                  <div className="relative flex items-center mt-1 mb-4">
-                    <input
-                      type="text" value={typedAddress} onChange={(e) => setTypedAddress(e.target.value)}
-                      placeholder="Enter Solana address for eligibility check"
-                      className="w-full p-3 pl-4 pr-28 bg-card border border-input rounded-full focus:ring-1 focus:ring-primary text-sm text-foreground"
-                      disabled={isCheckingAirdrop}
-                    />
-                    <button
-                      onClick={handleInitialAirdropCheck} disabled={isCheckingAirdrop}
-                      className="absolute right-1.5 bg-primary hover:bg-primary/90 text-primary-foreground font-medium py-1.5 px-4 rounded-full text-xs transition-all disabled:opacity-60"
-                    >
-                      {isCheckingAirdrop ? '...' : 'Check'}
-                    </button>
-                  </div>
-                  {airdropCheckResultForTyped !== null && (
-                    <div className="mt-4 p-3 bg-primary-subtle border border-primary-subtle-border rounded-lg text-center text-sm shadow-sm">
-                      {typeof airdropCheckResultForTyped === 'number' ? (
-                          airdropCheckResultForTyped > 0 ? (
-                            <p>Eligible: <span className="font-bold text-positive">{formatPoints(airdropCheckResultForTyped)} {AIR.LABEL}</span>!</p>
-                          ) : (
-                            <p className="text-muted-foreground">Not on initial list. Earn {AIR.LABEL} for future rewards!</p>
-                          )
-                        ) : (
-                          <p className="text-destructive">{airdropCheckResultForTyped}</p>
-                        )
-                      }
+                  {/* Airdrop Snapshot Horizontal: Spans full width on md, or takes one column if others are present */}
+                  {/* This component is wide by nature. Let it span full for now. */}
+                  {airdropSnapshotProps && (
+                    <div className="md:col-span-2">
+                      <AirdropSnapshotHorizontal {...airdropSnapshotProps} />
                     </div>
                   )}
-                </div>
-              ) : null}
-              
-              {/* Existing Content Flow for Mobile when rewards active */}
-              {showInsufficientBalanceMessage && (
-                  <div className="w-full my-4 p-4 bg-primary-subtle border border-primary-subtle-border rounded-lg text-center shadow-sm">
-                      <h3 className="text-base font-semibold text-primary-emphasis mb-2">Hold DeFAI Tokens</h3>
-                      <p className="text-xs text-foreground mb-3">
-                      To earn {AIR.LABEL}, hold {REQUIRED_DEFAI_AMOUNT} $DeFAI in wallet ({wallet.publicKey?.toBase58().substring(0,4)}...). 
+                   {(authStatus !== "authenticated" || !wallet.connected || !isRewardsActive || hasSufficientDefai === false) && (
+                    // This message card can take one column or span full if it's the only thing in a row
+                    <div className="p-6 bg-card/80 backdrop-blur-md shadow-lg rounded-xl border border-border/50 text-center md:col-span-2">
+                      <h3 className="text-xl font-semibold mb-2">Activate Your Account</h3>
+                      <p className="text-sm text-muted-foreground mb-4">
+                        Connect your X account and wallet, and ensure you hold enough DEFAI to see your full airdrop snapshot and earn {AIR.LABEL}.
                       </p>
-                      <Link href="https://dexscreener.com/solana/3jiwexdwzxjva2yd8aherfsrn7a97qbwmdz8i4q6mh7y" target="_blank" rel="noopener noreferrer" className="inline-block">
-                          <Button size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground"><ChartIcon /> Buy DeFAI</Button>
-                      </Link>
-                  </div>
-              )}
+                    </div>
+                  )}
 
-              {showPointsSection && userData && (
-                <div className="w-full max-w-md mt-1 flex flex-col items-center space-y-5">
-                  <AirdropInfoDisplay onTotalAirdropChange={setCurrentTotalAirdropForSharing} showTitle={false} />
-                  <DashboardActionRow 
-                    isRewardsActive={isRewardsActive}
-                    currentTotalAirdropForSharing={currentTotalAirdropForSharing}
-                    onShareToX={handleShareToX}
-                    onLogSocialAction={logSocialAction}
-                  />
+                  {/* Milestones Card - this will now be a grid item */}
+                  {showPointsSection && userData && (
+                    <DashboardCard title={`Key Milestones & Achievements`} className="bg-card/80 backdrop-blur-md md:col-span-2">
+                      <MilestoneTimeline milestones={sampleMilestonesData} />
+                    </DashboardCard>
+                  )}
+                </div>
+
+                {/* === Right Column (Sidebar) === */}
+                <aside className="lg:sticky lg:top-24 space-y-6 animate-fadeUp lg:animate-[fadeUp_0.6s_ease_0.2s]" style={{alignSelf: 'start'}}>
                   <MiniSquadCard 
                     squadId={mySquadData?.squadId}
                     squadName={mySquadData?.name}
@@ -712,42 +630,33 @@ export default function HomePage() {
                     isLoading={isFetchingSquad}
                   />
                   {isRewardsActive && mySquadData && (
-                    <div className="w-full space-y-4 mt-4">
+                    <>
                       <TopProposalCard />
                       <SquadGoalQuestCard />
-                    </div>
+                    </>
                   )}
-                  {/* Other mobile sections like referral, invites can be added here if needed, or kept simpler */}
-                   {userData.referralCode && (
-                    <DashboardCard title="Your Referral Link" className="w-full text-center">
-                      <div className="flex items-center bg-muted p-1.5 rounded border border-input mt-1">
-                        <input type="text" readOnly value={`https://squad.defairewards.net/?ref=${userData.referralCode}`} aria-label="Your referral link" className="text-foreground text-xs break-all bg-transparent outline-none flex-grow p-0.5" />
-                        {typeof navigator !== 'undefined' && navigator.share ? (
+                  
+                  {isRewardsActive && userData?.referralCode && (
+                    <DashboardCard title="Referral Link" className="bg-card/80 backdrop-blur-md">
+                      {userData.activeReferralBoosts && userData.activeReferralBoosts.length > 0 && (
+                          <span className="absolute top-3 right-3 px-2 py-0.5 text-xs font-bold text-black bg-yellow-400 rounded-full animate-pulse shadow-sm">
+                            BOOST ACTIVE!
+                          </span>
+                        )}
+                      <div className="flex items-center bg-muted/50 p-1.5 rounded-md border border-input mt-1">
+                        <input type="text" readOnly value={`https://squad.defairewards.net/?ref=${userData.referralCode}`} aria-label="Your referral link" className="text-foreground text-xs break-all bg-transparent outline-none flex-grow p-1" />
+                        {canShare ? (
                           <button 
-                            onClick={async () => {
-                              try {
-                                await navigator.share({
-                                  title: 'Join me on DeFAI Rewards!',
-                                  text: `Join me on DeFAI Rewards and let\'s earn together! Use my referral link:`, // Escape single quote
-                                  url: `https://squad.defairewards.net/?ref=${userData.referralCode}`
-                                });
-                                toast.success("Referral link shared!");
-                              } catch (error) {
-                                if (error.name !== 'AbortError') {
-                                  toast.error("Could not share link.");
-                                  console.error("Error sharing referral link:", error);
-                                }
-                              }
-                            }}
-                            className="ml-1.5 py-1 px-1.5 text-xs bg-primary text-primary-foreground rounded hover:bg-primary/90"
+                            onClick={handleShare}
+                            className="ml-2 py-1 px-2 text-xs bg-primary text-primary-foreground rounded hover:bg-primary/90 transition-colors"
                             aria-label="Share your referral link"
                           >
                             Share
                           </button>
                         ) : (
                           <button 
-                            onClick={() => handleCopyToClipboard(`https://squad.defairewards.net/?ref=${userData.referralCode}`)} 
-                            className="ml-1.5 py-1 px-1.5 text-xs bg-primary text-primary-foreground rounded hover:bg-primary/90"
+                            onClick={handleCopy}
+                            className="ml-2 py-1 px-2 text-xs bg-primary text-primary-foreground rounded hover:bg-primary/90 transition-colors"
                             aria-label="Copy your referral link to clipboard"
                           >
                             Copy
@@ -756,59 +665,199 @@ export default function HomePage() {
                       </div>
                     </DashboardCard>
                   )}
-                  <div className="w-full mt-3">
-                    <DashboardCard title={`How to Earn More ${AIR.LABEL}`} className="w-full">
-                       {/* If we want to keep the old detailed list, it could go here or be linked */}
-                       {/* For now, the MilestoneTimeline has replaced the primary display in the desktop left column */}
-                       <p className="text-sm text-muted-foreground p-3">Track your progress through key milestones above. Complete more actions to earn points and climb the leaderboard!</p>
-                    </DashboardCard>
-                  </div>
-                </div>
-              )}
-            </div>
-          </PullToRefreshDynamic>
-        )}
-      </div>
-      
-      {/* Bottom branding - remains same */}
-      <div className="fixed bottom-0 w-full flex justify-center p-2 z-20 pointer-events-none">
-        <div className="bg-background text-positive rounded-lg px-3 py-1 text-xs font-medium shadow-lg pointer-events-auto">
-          Built with ElizaOS
-        </div>
-      </div>
 
-      {/* Welcome Modal - remains same */}
-      <Dialog open={showWelcomeModal} onOpenChange={setShowWelcomeModal}>
-        <DialogContent className="sm:max-w-[525px] bg-card border-border shadow-xl">
-          <DialogHeader>
-            <DialogTitle className="text-2xl font-bold font-spacegrotesk text-center text-transparent bg-clip-text bg-gradient-to-r from-primary via-pink-500 to-orange-500 animate-pulse">
-              Squad Goals! Welcome to defAIRewards!
-            </DialogTitle>
-            <DialogDescription className="text-center text-foreground pt-2">
-              You have successfully activated your account. Here is how to get started:
-            </DialogDescription>
-          </DialogHeader>
-          <div className="py-4 space-y-3 text-sm text-foreground">
-            <p>✨ <span className="font-semibold">Earn {AIR.LABEL}:</span> Connect your wallet, follow us on X, join Telegram, and share your profile/airdrop results to earn DeFAI {AIR.LABEL}.</p>
-            <p>🚀 <span className="font-semibold">Refer Friends:</span> Share your unique referral link! You earn points when your friends connect their wallet after logging in via your link.</p>
-            <p>🛡️ <span className="font-semibold">Join Squads:</span> Team up with others in Squads to boost your points potential and compete on the leaderboard.</p>
-            <p>💰 <span className="font-semibold">Check Airdrop:</span> Use the checker to see if your wallet is eligible for the $AIR token airdrop.</p>
-            <p>💎 <span className="font-semibold">Hold $DeFAI:</span> You need to hold at least {REQUIRED_DEFAI_AMOUNT} $DeFAI tokens in your connected wallet to earn points and use all features.</p>
+                  {isRewardsActive && !mySquadData && pendingInvites.length > 0 && (
+                    <DashboardCard title="Squad Invitations" className="bg-card/80 backdrop-blur-md">
+                      {isFetchingInvites && <p className="text-sm text-muted-foreground p-4 text-center">Loading invites...</p>}
+                      {!isFetchingInvites && pendingInvites.length === 0 && <p className="text-sm text-muted-foreground p-4 text-center">No pending invitations.</p>}
+                      {pendingInvites.length > 0 && (
+                          <ul className="space-y-3 max-h-[300px] overflow-y-auto p-1">
+                          {pendingInvites.map(invite => (
+                              <SquadInvitationCard 
+                                  key={invite.invitationId} 
+                                  invite={invite} 
+                                  onAction={handleInviteAction} 
+                                  isProcessing={isProcessingInvite === invite.invitationId}
+                              />
+                          ))}
+                          </ul>
+                      )}
+                    </DashboardCard>
+                  )}
+                </aside>
+              </div>
+            </div>
+          ) : (
+            // Mobile Layout (Existing Structure, but using AppHeader)
+            <PullToRefreshDynamic onRefresh={handleRefresh} className="flex-grow w-full">
+              {/* Added flex-grow and w-full to PullToRefresh for layout */}
+              <div className="w-full max-w-3xl mx-auto px-4 pt-2 pb-20 flex flex-col items-center">
+                {/* Added pb-20 to account for bottom tab bar space */}
+                {/* Illustration and Headlines for Mobile (can be simpler or same as desktop) */}
+                <div className="relative text-center mt-4 mb-6">
+                  <div className="text-center mb-6 mt-4">
+                    <h1 className="relative z-10 font-orbitron text-3xl sm:text-4xl font-bold text-primary">
+                      Banking AI Agents
+                    </h1>
+                    <h2 className="relative z-10 font-orbitron text-3xl sm:text-4xl font-bold text-foreground">
+                      Rewarding Humans
+                    </h2>
+                  </div>
+                  <p className="relative z-10 mt-3 text-sm text-muted-foreground max-w-md mx-auto font-sans">
+                    Welcome to DEFAI Rewards. Check eligibility, activate your account, complete actions to earn {AIR.LABEL}, and climb the leaderboard!
+                  </p>
+                </div>
+                
+                {/* Original Airdrop Checker for non-authed/non-active users on mobile */}
+                {authStatus !== "authenticated" || !isRewardsActive || !wallet.connected ? (
+                  <div className="w-full mb-6">
+                    <div className="relative flex items-center mt-1 mb-4">
+                      <input
+                        type="text" value={typedAddress} onChange={(e) => setTypedAddress(e.target.value)}
+                        placeholder="Enter Solana address for eligibility check"
+                        className="w-full p-3 pl-4 pr-28 bg-card border border-input rounded-full focus:ring-1 focus:ring-primary text-sm text-foreground"
+                        disabled={isCheckingAirdrop}
+                      />
+                      <button
+                        onClick={handleInitialAirdropCheck} disabled={isCheckingAirdrop}
+                        className="absolute right-1.5 bg-primary hover:bg-primary/90 text-primary-foreground font-medium py-1.5 px-4 rounded-full text-xs transition-all disabled:opacity-60"
+                      >
+                        {isCheckingAirdrop ? '...' : 'Check'}
+                      </button>
+                    </div>
+                    {airdropCheckResultForTyped !== null && (
+                      <div className="mt-4 p-3 bg-primary-subtle border border-primary-subtle-border rounded-lg text-center text-sm shadow-sm">
+                        {typeof airdropCheckResultForTyped === 'number' ? (
+                            airdropCheckResultForTyped > 0 ? (
+                              <p>Eligible: <span className="font-bold text-positive">{formatPoints(airdropCheckResultForTyped)} {AIR.LABEL}</span>!</p>
+                            ) : (
+                              <p className="text-muted-foreground">Not on initial list. Earn {AIR.LABEL} for future rewards!</p>
+                            )
+                          ) : (
+                            <p className="text-destructive">{airdropCheckResultForTyped}</p>
+                          )
+                        }
+                      </div>
+                    )}
+                  </div>
+                ) : null}
+                
+                {/* Existing Content Flow for Mobile when rewards active */}
+                {showInsufficientBalanceMessage && (
+                    <div className="w-full my-4 p-4 bg-primary-subtle border border-primary-subtle-border rounded-lg text-center shadow-sm">
+                        <h3 className="text-base font-semibold text-primary-emphasis mb-2">Hold DeFAI Tokens</h3>
+                        <p className="text-xs text-foreground mb-3">
+                        To earn {AIR.LABEL}, hold {REQUIRED_DEFAI_AMOUNT} $DeFAI in wallet ({truncatedWalletAddress}). 
+                        </p>
+                        <Link href="https://dexscreener.com/solana/3jiwexdwzxjva2yd8aherfsrn7a97qbwmdz8i4q6mh7y" target="_blank" rel="noopener noreferrer" className="inline-block">
+                            <Button size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground"><ChartIcon /> Buy DeFAI</Button>
+                        </Link>
+                    </div>
+                )}
+
+                {showPointsSection && userData && (
+                  <div className="w-full max-w-md mt-1 flex flex-col items-center space-y-5">
+                    <AirdropInfoDisplay onTotalAirdropChange={setCurrentTotalAirdropForSharing} showTitle={false} />
+                    <DashboardActionRow 
+                      isRewardsActive={isRewardsActive}
+                      currentTotalAirdropForSharing={currentTotalAirdropForSharing}
+                      onShareToX={handleShareToX}
+                      onLogSocialAction={logSocialAction}
+                    />
+                    <MiniSquadCard 
+                      squadId={mySquadData?.squadId}
+                      squadName={mySquadData?.name}
+                      totalSquadPoints={mySquadData?.totalSquadPoints}
+                      memberCount={mySquadData?.memberWalletAddresses.length}
+                      maxMembers={mySquadData?.maxMembers}
+                      isLeader={mySquadData?.leaderWalletAddress === wallet.publicKey?.toBase58()}
+                      isLoading={isFetchingSquad}
+                    />
+                    {isRewardsActive && mySquadData && (
+                      <div className="w-full space-y-4 mt-4">
+                        <TopProposalCard />
+                        <SquadGoalQuestCard />
+                      </div>
+                    )}
+                    {/* Other mobile sections like referral, invites can be added here if needed, or kept simpler */}
+                     {userData.referralCode && (
+                      <DashboardCard title="Your Referral Link" className="w-full text-center">
+                        <div className="flex items-center bg-muted p-1.5 rounded border border-input mt-1">
+                          <input type="text" readOnly value={`https://squad.defairewards.net/?ref=${userData.referralCode}`} aria-label="Your referral link" className="text-foreground text-xs break-all bg-transparent outline-none flex-grow p-0.5" />
+                          {canShare ? (
+                            <button 
+                              onClick={handleShare}
+                              className="ml-1.5 py-1 px-1.5 text-xs bg-primary text-primary-foreground rounded hover:bg-primary/90"
+                              aria-label="Share your referral link"
+                            >
+                              Share
+                            </button>
+                          ) : (
+                            <button 
+                              onClick={handleCopy}
+                              className="ml-1.5 py-1 px-1.5 text-xs bg-primary text-primary-foreground rounded hover:bg-primary/90"
+                              aria-label="Copy your referral link to clipboard"
+                            >
+                              Copy
+                            </button>
+                          )}
+                        </div>
+                      </DashboardCard>
+                    )}
+                    <div className="w-full mt-3">
+                      <DashboardCard title={`How to Earn More ${AIR.LABEL}`} className="w-full">
+                         {/* If we want to keep the old detailed list, it could go here or be linked */}
+                         {/* For now, the MilestoneTimeline has replaced the primary display in the desktop left column */}
+                         <p className="text-sm text-muted-foreground p-3">Track your progress through key milestones above. Complete more actions to earn points and climb the leaderboard!</p>
+                      </DashboardCard>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </PullToRefreshDynamic>
+          )}
+        </div>
+        
+        {/* Bottom branding - remains same */}
+        <div className="fixed bottom-0 w-full flex justify-center p-2 z-20 pointer-events-none">
+          <div className="bg-background text-positive rounded-lg px-3 py-1 text-xs font-medium shadow-lg pointer-events-auto">
+            Built with ElizaOS
           </div>
-          <DialogFooter>
-            <Button 
-              onClick={() => {
-                 setShowWelcomeModal(false);
-                 // TODO: Trigger tutorial start here if desired
-                 console.log("[WelcomeModal] Closed. Tutorial trigger point.");
-              }}
-              className="w-full bg-gradient-to-r from-primary to-pink-500 hover:from-primary/90 hover:to-pink-500/90 text-primary-foreground font-bold py-2 px-4 rounded-lg shadow-md hover:shadow-lg transition-all"
-            >
-              LFG!
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </main>
+        </div>
+
+        {/* Welcome Modal - remains same */}
+        <Dialog open={showWelcomeModal} onOpenChange={setShowWelcomeModal}>
+          <DialogContent className="sm:max-w-[525px] bg-card border-border shadow-xl">
+            <DialogHeader>
+              <DialogTitle className="text-2xl font-bold font-spacegrotesk text-center text-transparent bg-clip-text bg-gradient-to-r from-primary via-pink-500 to-orange-500 animate-pulse">
+                Squad Goals! Welcome to defAIRewards!
+              </DialogTitle>
+              <DialogDescription className="text-center text-foreground pt-2">
+                You have successfully activated your account. Here is how to get started:
+              </DialogDescription>
+            </DialogHeader>
+            <div className="py-4 space-y-3 text-sm text-foreground">
+              <p>✨ <span className="font-semibold">Earn {AIR.LABEL}:</span> Connect your wallet, follow us on X, join Telegram, and share your profile/airdrop results to earn DeFAI {AIR.LABEL}.</p>
+              <p>🚀 <span className="font-semibold">Refer Friends:</span> Share your unique referral link! You earn points when your friends connect their wallet after logging in via your link.</p>
+              <p>🛡️ <span className="font-semibold">Join Squads:</span> Team up with others in Squads to boost your points potential and compete on the leaderboard.</p>
+              <p>💰 <span className="font-semibold">Check Airdrop:</span> Use the checker to see if your wallet is eligible for the $AIR token airdrop.</p>
+              <p>💎 <span className="font-semibold">Hold $DeFAI:</span> You need to hold at least {REQUIRED_DEFAI_AMOUNT} $DeFAI tokens in your connected wallet to earn points and use all features.</p>
+            </div>
+            <DialogFooter>
+              <Button 
+                onClick={() => {
+                   setShowWelcomeModal(false);
+                   // TODO: Trigger tutorial start here if desired
+                   console.log("[WelcomeModal] Closed. Tutorial trigger point.");
+                }}
+                className="w-full bg-gradient-to-r from-primary to-pink-500 hover:from-primary/90 hover:to-pink-500/90 text-primary-foreground font-bold py-2 px-4 rounded-lg shadow-md hover:shadow-lg transition-all"
+              >
+                LFG!
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </main>
+    </ClientBoundary>
   );
 }

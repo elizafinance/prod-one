@@ -1,50 +1,59 @@
 import path from 'path';
 import { fileURLToPath } from 'url';
-import withPWAInit from "next-pwa";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-const withPWA = withPWAInit({
-  dest: "public",
-  disable: process.env.NODE_ENV === "development",
-  register: true,
-  skipWaiting: true,
-  maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5MB
-  runtimeCaching: [
-    {
-      urlPattern: /^\/api\/.*/i,
-      handler: 'StaleWhileRevalidate',
-      options: {
-        cacheName: 'api-cache',
-        expiration: {
-          maxEntries: 50,
-          maxAgeSeconds: 60 * 60 * 24,
-        },
-      },
-    },
-    {
-      urlPattern: /\.(?:png|gif|jpg|jpeg|svg|webp)$/i,
-      handler: 'CacheFirst',
-      options: {
-        cacheName: 'image-cache',
-        expiration: {
-          maxEntries: 60,
-          maxAgeSeconds: 30 * 24 * 60 * 60,
-        },
-      },
-    },
-  ],
-});
-
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  webpack: (config) => {
+  webpack: (config, { isServer }) => {
     config.resolve.alias = {
       ...(config.resolve.alias || {}),
       '@orca-so/whirlpools-client': path.resolve(__dirname, 'src/stubs/whirlpools-client.js'),
     };
+
+    // Add optimization configuration
+    config.optimization = {
+      ...config.optimization,
+      moduleIds: 'deterministic',
+      chunkIds: 'deterministic',
+      // Ensure proper initialization order
+      splitChunks: {
+        chunks: 'all',
+        cacheGroups: {
+          default: false,
+          vendors: false,
+          // Vendor chunk
+          vendor: {
+            name: 'vendor',
+            chunks: 'all',
+            test: /[\\/]node_modules[\\/]/,
+            priority: 20
+          },
+          // Common chunk
+          common: {
+            name: 'common',
+            minChunks: 2,
+            chunks: 'all',
+            priority: 10,
+            reuseExistingChunk: true,
+            enforce: true
+          }
+        }
+      }
+    };
+
+    // Handle 'self' reference error in server-side code
+    if (isServer) {
+      config.output.globalObject = 'this';
+    }
+
     return config;
+  },
+  // Add experimental features to help with module initialization
+  experimental: {
+    optimizeCss: true,
+    scrollRestoration: true,
   },
 };
 
-export default withPWA(nextConfig);
+export default nextConfig;

@@ -1,9 +1,9 @@
 import mongoose from 'mongoose';
-import { connectToDatabase } from '@/lib/mongodb'; // Adjust if your helper is different or not used
-import { Proposal, IProposal } from '@/models/Proposal';
-import { Vote, IVote } from '@/models/Vote';
-import { Notification } from '@/models/Notification'; // Added Notification model
-import { Squad } from '@/models/Squad'; // Added Squad model
+import { connectToDatabase } from '../../lib/mongodb';
+import { Proposal, IProposal } from '../../models/Proposal';
+import { Vote, IVote } from '../../models/Vote';
+import { Notification } from '../../models/Notification';
+import { Squad } from '../../models/Squad';
 
 // Configuration from environment variables with defaults
 const CRON_PROPOSAL_PASS_THRESHOLD = parseInt(process.env.CRON_PROPOSAL_PASS_THRESHOLD || "0", 10);

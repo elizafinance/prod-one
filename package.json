@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "build:scripts": "tsc -p tsconfig.scripts.json",
     "start": "next start",
     "lint": "next lint",
     "test": "cross-env NODE_ENV=test jest --runInBand --detectOpenHandles",
@@ -19,7 +20,10 @@
     "dev:reward-distributor": "nodemon src/rewardWorker.js",
     "dev:scheduler": "nodemon src/scheduler.js",
     "dev:all-services": "npm-run-all --parallel dev:websocket dev:quest-engine dev:reward-distributor dev:scheduler",
-    "generate:proposal-slugs": "node --loader ts-node/esm scripts/generateProposalSlugs.ts"
+    "generate:proposal-slugs": "node --loader ts-node/esm scripts/generateProposalSlugs.ts",
+    "cron:run:proposals:compiled": "node dist-scripts/scripts/cron/processProposals.js",
+    "cron:run:proposals": "yarn build:scripts && yarn cron:run:proposals:compiled",
+    "cron:ts:proposals": "npx ts-node --project tsconfig.json -r tsconfig-paths/register --esm src/scripts/cron/processProposals.ts"
   },
   "dependencies": {
     "@headlessui/react": "^2.2.3",
@@ -123,6 +127,7 @@
     "tailwindcss": "^3.4.1",
     "ts-jest": "^29.3.4",
     "ts-node": "^10.9.2",
+    "tsconfig-paths": "^4.2.0",
     "typescript": "^5"
   },
   "lint-staged": {

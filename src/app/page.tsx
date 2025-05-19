@@ -489,6 +489,7 @@ export default function HomePage() {
                   currentTotalAirdropForSharing={currentTotalAirdropForSharing}
                   onShareToX={handleShareToX}
                   onLogSocialAction={logSocialAction}
+                  completedActions={userData?.completedActions || []}
                 />
 
                 {/* Airdrop Snapshot Horizontal */}
@@ -692,6 +693,7 @@ export default function HomePage() {
                   currentTotalAirdropForSharing={currentTotalAirdropForSharing}
                   onShareToX={handleShareToX}
                   onLogSocialAction={logSocialAction}
+                  completedActions={userData?.completedActions || []}
                 />
                 <MiniSquadCard 
                   squadId={mySquadData?.squadId}

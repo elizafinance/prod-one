@@ -195,6 +195,7 @@ export function useHomePageLogic() {
     console.log("[HomePage] activateRewardsAndFetchData called", { connectedWalletAddress, xUserId, userDbId, initialReferrer, squadInviteIdFromUrl });
     setActivationAttempted(true);
     setIsActivatingRewards(true);
+    const referralCodeToUse = initialReferrer;
     toast.info("Activating your DeFAI Rewards account...");
     try {
       const response = await fetch('/api/users/activate-rewards', {
@@ -204,20 +205,25 @@ export function useHomePageLogic() {
           walletAddress: connectedWalletAddress, 
           xUserId: xUserId, 
           userDbId: userDbId, 
-          referredByCode: initialReferrer, // Ensure backend expects referredByCode
+          referredByCode: referralCodeToUse,
           squadInviteIdFromUrl: squadInviteIdFromUrl 
         }),
       });
-      const data = await response.json(); // This data is from activate-rewards API
+      const data = await response.json();
+      console.log("[HomePageLogic] Raw data from /api/users/activate-rewards:", JSON.stringify(data, null, 2));
+      if (data && typeof data === 'object') {
+        console.log("[HomePageLogic] data.referralCode from API:", data.referralCode);
+        console.log("[HomePageLogic] data.user (if exists from API call itself):", JSON.stringify(data.user, null, 2));
+      }
+
       if (response.ok) {
-        console.log("[HomePage] activateRewardsAndFetchData: Success", data);
-        // userAirdrop hook will fetch points. We primarily set other user data here.
+        const userFromResponse = data.user || data;
+
         setOtherUserData({
-            referralCode: data.referralCode,
-            completedActions: data.completedActions,
-            xUsername: data.xUsername,
-            squadId: data.squadId,
-            // Points and initialAirdropAmount will come from userAirdrop hook
+            referralCode: userFromResponse.referralCode,
+            completedActions: userFromResponse.completedActions,
+            xUsername: userFromResponse.xUsername,
+            squadId: userFromResponse.squadId,
         });
         setIsRewardsActive(true);
         if (connectedWalletAddress) {

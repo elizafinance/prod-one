@@ -37,6 +37,21 @@ interface TwitterProfile {
   profile_image_url_https?: string;
 }
 
+// Diagnostics helper – writes denied sign-ins to a dedicated collection so we can trace the exact reason later.
+async function logAuthFailure(reason: string, context: Record<string, any> = {}) {
+  try {
+    const { db } = await connectToDatabase();
+    await db.collection('authFailures').insertOne({
+      reason,
+      context,
+      timestamp: new Date(),
+    });
+  } catch (logErr) {
+    // We never want logging to break auth – just emit to console if DB logging fails.
+    console.error('[AuthFailureLogger] Failed to persist auth failure', logErr, { reason, context });
+  }
+}
+
 export const authOptions: NextAuthOptions = {
   providers: [
     TwitterProvider({
@@ -67,6 +82,7 @@ export const authOptions: NextAuthOptions = {
 
       if (!account) {
         console.error('[NextAuth SignIn] No account object provided');
+        await logAuthFailure('no_account_object', { user, profile });
         return false;
       }
 
@@ -88,6 +104,7 @@ export const authOptions: NextAuthOptions = {
 
           if (!xUserId || xUserId === "undefined") { 
             console.error(`[NextAuth SignIn] Critical: X User ID not found or invalid in profile. Denying access. Profile data:`, JSON.stringify(profile, null, 2), JSON.stringify(user, null, 2), JSON.stringify(account, null, 2));
+            await logAuthFailure('missing_xUserId', { profile, account, user });
             return false;
           }
 
@@ -115,7 +132,7 @@ export const authOptions: NextAuthOptions = {
 
           // --- Attempt the upsert with basic retry on duplicate key errors (e.g. referralCode collision) ---
           let dbUserResult: any = null;
-          const MAX_UPSERT_ATTEMPTS = 3;
+          const MAX_UPSERT_ATTEMPTS = 5;
           for (let attempt = 1; attempt <= MAX_UPSERT_ATTEMPTS; attempt++) {
             try {
               dbUserResult = await usersCollection.findOneAndUpdate(
@@ -190,14 +207,36 @@ export const authOptions: NextAuthOptions = {
         } catch (error: any) { 
           console.error(`[NextAuth SignIn] Error during signIn callback for xUserId ${(user as any)?.xId || 'UNKNOWN'}: `, error);
           if (error.code === 11000) {
-            console.error("[NextAuth SignIn] Duplicate key error during user upsert after retries. Denying access.", error);
+            console.error("[NextAuth SignIn] Duplicate key error during user upsert after retries. Attempting to recover by loading existing user.");
+            try {
+              const { db } = await connectToDatabase();
+              const usersCollection = db.collection<UserDocument>('users');
+              const existing = await usersCollection.findOne({ xUserId: (user as any)?.xId });
+              if (existing) {
+                (user as any).dbId = existing._id!.toHexString();
+                (user as any).walletAddress = existing.walletAddress || undefined;
+                (user as any).role = existing.role || 'user';
+                console.log('[NextAuth SignIn] Recovery successful – proceeding with sign-in for existing user');
+                return true;
+              }
+            } catch (recoveryErr) {
+              console.error('[NextAuth SignIn] Recovery attempt failed', recoveryErr);
+            }
           }
+          // Log the failure details so we can inspect later
+          await logAuthFailure('signIn_callback_error', {
+            error: error?.message || String(error),
+            code: error?.code,
+            provider: account?.provider,
+            xId: (user as any)?.xId,
+          });
           return false; 
         }
       }
 
       // Only Twitter accounts allowed – deny any others
       console.log(`[NextAuth SignIn] Account provider ${account?.provider} not allowed.`);
+      await logAuthFailure('provider_not_allowed', { provider: account?.provider, user, profile });
       return false;
     },
     async jwt({ token, user }: { token: JWT; user?: any }) {

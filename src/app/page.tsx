@@ -257,7 +257,7 @@ export default function HomePage() {
     const twitterHandle = "DeFAIRewards";
     const tokenToBuy = "$DeFAI"; 
     const snapshotDate = "May 20, 2025";
-    const text = `I'm getting ${airdropAmountStr} $AIR from @${twitterHandle}! 🚀 My referral link: ${shareUrl} \nGet ready for the ${snapshotDate} snapshot - buy ${tokenToBuy} now!`;
+    const text = `I'm getting ${airdropAmountStr} $DEFAI from @${twitterHandle} in the migration! 🚀 My referral link: ${shareUrl} \nGet ready for the ${snapshotDate} snapshot - buy ${tokenToBuy} now!`;
     const hashtags = "DeFAIRewards,Airdrop,AI,Solana";
     const twitterIntentUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&hashtags=${encodeURIComponent(hashtags)}&via=${twitterHandle}`;
     window.open(twitterIntentUrl, '_blank');

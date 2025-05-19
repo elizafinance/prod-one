@@ -4,7 +4,7 @@ This platform is designed to foster user engagement through a points-based rewar
 
 ![WebUI Preview](./template-image.jpg)
 
-## Core Features
+## Core Featuressssssssss
 
 *   **User Authentication:** Secure sign-up and login using X (Twitter) accounts via NextAuth.js.
 *   **Points System:** Users earn points for actions like initial connection, social sharing, following, airdrop eligibility, and referrals.

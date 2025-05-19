@@ -10,6 +10,15 @@ import React, { FC, useMemo, useState, useEffect } from "react";
 // Default styles that can be overridden by your app
 import "@solana/wallet-adapter-react-ui/styles.css";
 
+// Import wallet adapters that work across desktop & mobile (in-app browsers / deep links)
+import {
+  PhantomWalletAdapter,
+  SolflareWalletAdapter,
+  UnsafeBurnerWalletAdapter,
+} from "@solana/wallet-adapter-wallets";
+
+import { WalletAdapterNetwork } from "@solana/wallet-adapter-base";
+
 type Props = {
   children?: React.ReactNode;
 };
@@ -36,23 +45,24 @@ export const WalletAdapterProvider: FC<Props> = ({ children }) => {
     setConnectionReady(true);
   }, [endpoint]);
 
+  // Pick the Solana cluster based on the RPC URL the dApp is pointing to.
+  // This is required by some adapters (e.g. Solflare) to generate the correct deeplink.
+  const network: WalletAdapterNetwork = useMemo(() => {
+    if (endpoint.includes("devnet")) return WalletAdapterNetwork.Devnet;
+    if (endpoint.includes("testnet")) return WalletAdapterNetwork.Testnet;
+    return WalletAdapterNetwork.Mainnet; // default
+  }, [endpoint]);
+
+  // Initialise a set of common adapters that also work inside mobile in-app browsers.
+  // Keeping this list lean prevents unnecessary bundle-size bloat.
   const wallets = useMemo(
     () => [
-      /**
-       * Wallets that implement either of these standards will be available automatically.
-       *
-       *   - Solana Mobile Stack Mobile Wallet Adapter Protocol
-       *     (https://github.com/solana-mobile/mobile-wallet-adapter)
-       *   - Solana Wallet Standard
-       *     (https://github.com/anza-xyz/wallet-standard)
-       *
-       * If you wish to support a wallet that supports neither of those standards,
-       * instantiate its legacy wallet adapter here. Common legacy adapters can be found
-       * in the npm package `@solana/wallet-adapter-wallets`.
-       */
+      new PhantomWalletAdapter(), // Phantom (desktop & mobile)
+      new SolflareWalletAdapter({ network }), // Solflare (desktop & mobile with deeplink)
+      // Unsafe burner – useful fallback on unsupported devices or during development.
+      new UnsafeBurnerWalletAdapter(),
     ],
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    []
+    [network]
   );
 
   if (connectionError) {

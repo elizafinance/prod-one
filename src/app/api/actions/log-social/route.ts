@@ -19,8 +19,13 @@ interface RequestBody {
 // Points for each action are now primarily managed by ACTION_TYPE_POINTS in points.config.ts
 // const POINTS_FOR_ACTION: Record<RequestBody['actionType'], number> = { ... }; // Redundant
 
-// Define actions that should only award points once
-const ONE_TIME_ACTIONS: Array<keyof typeof ACTION_TYPE_POINTS> = ['followed_on_x', 'joined_telegram', 'shared_on_x']; // shared_on_x might be complex
+// Define actions that should only award points once (shared_on_x removed – now time-based)
+const ONE_TIME_ACTIONS: Array<keyof typeof ACTION_TYPE_POINTS> = ['followed_on_x', 'joined_telegram'];
+
+// Cool-down for recurring social actions (milliseconds)
+const ACTION_COOLDOWNS: Partial<Record<keyof typeof ACTION_TYPE_POINTS, number>> = {
+  shared_on_x: 24 * 60 * 60 * 1000, // 24 hours
+};
 
 const baseHandler = withAuth(async (request: Request, session) => {
   try {
@@ -50,17 +55,29 @@ const baseHandler = withAuth(async (request: Request, session) => {
     }
 
     const pointsToAward = ACTION_TYPE_POINTS[actionType];
-    let alreadyRecorded = false;
 
+    // 1️⃣ Check one-time actions
     if (ONE_TIME_ACTIONS.includes(actionType) && user.completedActions?.includes(actionType)) {
-      alreadyRecorded = true;
-    }
-
-    if (alreadyRecorded) {
       return NextResponse.json({ message: `Action '${actionType}' already recorded. No new points awarded.`, currentPoints: user.points });
     }
-    
-    if (pointsToAward === 0 && !alreadyRecorded) {
+
+    // 2️⃣ Check cool-down based actions
+    if (ACTION_COOLDOWNS[actionType]) {
+      const cooldownMs = ACTION_COOLDOWNS[actionType]!;
+      const lastField = `last_${actionType}_at`; // e.g., last_shared_on_x_at
+      // @ts-ignore – dynamic access
+      const lastTimestamp: Date | undefined = user[lastField];
+      if (lastTimestamp && Date.now() - new Date(lastTimestamp).getTime() < cooldownMs) {
+        const nextAvailableAt = new Date(new Date(lastTimestamp).getTime() + cooldownMs);
+        return NextResponse.json({
+          message: `Action '${actionType}' is on cooldown. Try again later.`,
+          nextAvailableAt,
+          currentPoints: user.points,
+        });
+      }
+    }
+
+    if (pointsToAward === 0) {
         // If pointsToAward is 0, we might still want to record the action as completed, but not call PointsService
         // For now, let's assume 0 point actions are not sent here or PointsService handles it.
         // Or, we can just log it without awarding points through the service.
@@ -81,10 +98,20 @@ const baseHandler = withAuth(async (request: Request, session) => {
         return NextResponse.json({ error: 'Failed to process action via PointsService' }, { status: 500 });
     }
 
+    // 3️⃣ Update user doc with timestamp for cooldown actions
+    if (ACTION_COOLDOWNS[actionType]) {
+      const lastFieldName = `last_${actionType}_at`;
+      await usersCollection.updateOne(
+        { walletAddress },
+        { $set: { [lastFieldName]: new Date() } }
+      );
+    }
+
     return NextResponse.json({ 
       message: `Action '${actionType}' logged successfully. +${pointsToAward} points.`, 
       newPointsTotal: updatedUser.points,
-      completedActions: updatedUser.completedActions || [] // Ensure it's an array and always present
+      completedActions: updatedUser.completedActions || [], // Ensure it's an array and always present
+      nextAvailableAt: ACTION_COOLDOWNS[actionType] ? new Date(Date.now() + ACTION_COOLDOWNS[actionType]!) : undefined,
     });
 
   } catch (error) {

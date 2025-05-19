@@ -409,9 +409,14 @@ export default function HomePage() {
     console.log("[HomePage] Rendering: Not Authenticated state");
     return (
       <main className="flex flex-col lg:flex-row min-h-screen w-full">
-        {/* Left hero image */}
-        <div className="relative lg:w-1/2 w-full h-64 lg:h-auto overflow-hidden">
-          <img src={Illustration.src} alt="Futuristic AI illustration" className="object-cover w-full h-full animate-float" />
+        {/* Hero illustration on mobile should not be cropped */}
+        <div className="relative lg:w-1/2 w-full overflow-hidden">
+          {/* Use object-contain so the full image is visible, and let the image decide its own height */}
+          <img
+            src={Illustration.src}
+            alt="Futuristic AI illustration"
+            className="w-full h-auto object-contain animate-float"
+          />
         </div>
 
         {/* Right login panel */}
@@ -532,11 +537,11 @@ export default function HomePage() {
                             }
                             return (
                               <li key={activity.id} className="flex justify-between items-center py-1.5 border-b border-border/50 last:border-b-0">
-                                <span className={`text-sm ${isEffectivelyCompleted ? 'text-muted-foreground line-through' : 'text-foreground'}`}>
+                                <span className={`text-sm ${isEffectivelyCompleted ? 'text-muted-foreground' : 'text-foreground'}`}>
                                   {isEffectivelyCompleted ? '✅ ' : '✨ '}
                                   {activity.action}
                                 </span>
-                                <span className={`font-semibold text-sm ${isEffectivelyCompleted ? 'text-muted-foreground line-through' : (typeof activity.points === 'number' ? 'text-purple-600' : 'text-yellow-500')}`}>
+                                <span className={`font-semibold text-sm ${isEffectivelyCompleted ? 'text-muted-foreground' : (typeof activity.points === 'number' ? 'text-purple-600' : 'text-yellow-500')}`}>
                                   {activity.pointsString ? activity.pointsString : `${formatPoints(activity.points)} ${AIR.LABEL}`}
                                 </span>
                               </li>
@@ -735,11 +740,11 @@ export default function HomePage() {
                             }
                             return (
                             <li key={activity.id} className="flex justify-between items-center py-1 border-b border-border/30 last:border-b-0">
-                                <span className={`text-xs ${isEffectivelyCompleted ? 'text-muted-foreground line-through' : 'text-foreground'}`}>
+                                <span className={`text-xs ${isEffectivelyCompleted ? 'text-muted-foreground' : 'text-foreground'}`}>
                                 {isEffectivelyCompleted ? '✅ ' : '✨ '}
                                 {activity.action}
                                 </span>
-                                <span className={`font-semibold text-xs ${isEffectivelyCompleted ? 'text-muted-foreground line-through' : (typeof activity.points === 'number' ? 'text-purple-600' : 'text-yellow-500')}`}>
+                                <span className={`font-semibold text-xs ${isEffectivelyCompleted ? 'text-muted-foreground' : (typeof activity.points === 'number' ? 'text-purple-600' : 'text-yellow-500')}`}>
                                 {activity.pointsString ? activity.pointsString : `${formatPoints(activity.points)} ${AIR.LABEL}`}
                                 </span>
                             </li>

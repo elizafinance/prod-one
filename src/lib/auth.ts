@@ -42,15 +42,33 @@ export const authOptions: NextAuthOptions = {
     TwitterProvider({
       clientId: process.env.X_CLIENT_ID!,
       clientSecret: process.env.X_CLIENT_SECRET!,
+      version: "2.0", // Add explicit version
     }),
   ],
+  debug: true, // Enable debug logs
   session: {
     strategy: "jwt",
     maxAge: 72 * 60 * 60, // 72 hours in seconds
   },
   callbacks: {
     async signIn({ user, account, profile }: any) {
-      console.log(`[NextAuth SignIn] Callback triggered. Provider: ${account?.provider}. Timestamp: ${new Date().toISOString()}`);
+      // Debug logging
+      console.log('==== NextAuth SignIn Debug ====');
+      console.log('Environment:', {
+        X_CLIENT_ID_SET: !!process.env.X_CLIENT_ID,
+        X_CLIENT_SECRET_SET: !!process.env.X_CLIENT_SECRET,
+        NEXTAUTH_SECRET_SET: !!process.env.NEXTAUTH_SECRET,
+        NODE_ENV: process.env.NODE_ENV
+      });
+      console.log('Account:', JSON.stringify(account, null, 2));
+      console.log('Profile:', JSON.stringify(profile, null, 2));
+      console.log('User:', JSON.stringify(user, null, 2));
+      console.log('============================');
+
+      if (!account) {
+        console.error('[NextAuth SignIn] No account object provided');
+        return false;
+      }
 
       // --- Twitter login (existing flow) ---
       if (account?.provider === "twitter" && profile) {

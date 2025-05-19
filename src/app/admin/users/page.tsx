@@ -9,7 +9,8 @@ import ConfirmationModal from '@/components/admin/ConfirmationModal';
 import CreateUserModal from '@/components/admin/CreateUserModal';
 
 export interface UserRow {
-  walletAddress: string;
+  _id?: string | ObjectId;
+  walletAddress?: string;
   xUsername?: string;
   points?: number;
   role?: string;
@@ -123,8 +124,8 @@ export default function AdminUsersPage() {
 
   // Opens the confirmation modal
   const initiatePurge = (user: UserRow) => {
-    if (!user || !user.walletAddress) {
-      toast.error('Cannot purge user: Wallet address is missing.');
+    if (!user || (!user.walletAddress && !user._id)) {
+      toast.error('Cannot purge user: No identifier (wallet or ID) found.');
       return;
     }
     setUserToPurge(user);
@@ -133,14 +134,21 @@ export default function AdminUsersPage() {
 
   // Actual purge logic, called on confirm from modal
   const executePurge = async () => {
-    if (!userToPurge || !userToPurge.walletAddress) return;
+    if (!userToPurge || (!userToPurge.walletAddress && !userToPurge._id)) return;
 
     setIsPurging(true);
     try {
-      const res = await fetch(`/api/admin/users?wallet=${encodeURIComponent(userToPurge.walletAddress)}`, { method: 'DELETE' });
+      let deleteUrl = '/api/admin/users';
+      if (userToPurge.walletAddress) {
+        deleteUrl += `?wallet=${encodeURIComponent(userToPurge.walletAddress)}`;
+      } else if (userToPurge._id) {
+        deleteUrl += `?id=${encodeURIComponent(userToPurge._id.toString())}`;
+      }
+
+      const res = await fetch(deleteUrl, { method: 'DELETE' });
       const data = await res.json();
       if (res.ok) {
-        toast.success(`User ${userToPurge.xUsername || userToPurge.walletAddress.substring(0,6)}... purged`);
+        toast.success(`User ${userToPurge.xUsername || userToPurge.walletAddress?.substring(0,6) || ''} purged`);
         fetchUsers(); // Refresh the user list
       } else {
         toast.error(data.error || 'Failed to purge user');
@@ -298,16 +306,17 @@ export default function AdminUsersPage() {
               </thead>
               <tbody>
                 {users.map((u) => (
-                  <tr key={u.walletAddress} className="border-t hover:bg-gray-50">
-                    <td className="p-2 font-mono truncate max-w-xs" title={u.walletAddress}>{u.walletAddress}</td>
+                  <tr key={u.walletAddress || (u._id as any)?.toString?.() || Math.random().toString()} className="border-t hover:bg-gray-50">
+                    <td className="p-2 font-mono truncate max-w-xs" title={u.walletAddress}>{u.walletAddress || '-'}</td>
                     <td className="p-2 truncate max-w-xs">{u.xUsername || '-'}</td>
                     <td className="p-2 text-right">{u.points?.toLocaleString() || 0}</td>
                     <td className="p-2 truncate max-w-xs" title={u.squadId}>{u.squadId || '-'}</td>
                     <td className="p-2">{u.role || 'user'}</td>
                     <td className="p-2 whitespace-nowrap">
                       <button
-                        onClick={() => handleViewDetails(u.walletAddress)}
-                        className="text-blue-600 hover:underline text-xs mr-2"
+                        onClick={() => u.walletAddress && handleViewDetails(u.walletAddress)}
+                        disabled={!u.walletAddress}
+                        className="text-blue-600 hover:underline text-xs mr-2 disabled:opacity-40"
                       >
                         Details
                       </button>
@@ -359,7 +368,7 @@ export default function AdminUsersPage() {
           message={
             <p>
               Are you sure you want to purge user{' '}
-              <strong className="font-mono">{userToPurge.xUsername || userToPurge.walletAddress.substring(0, 8)}...</strong>?
+              <strong className="font-mono">{userToPurge.xUsername || userToPurge.walletAddress?.substring(0, 8) || ''}...</strong>?
               This action cannot be undone.
             </p>
           }

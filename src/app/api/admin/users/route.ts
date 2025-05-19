@@ -108,11 +108,23 @@ export async function DELETE(request: NextRequest) {
     const usersCollection = db.collection('users');
     const { searchParams } = new URL(request.url);
     const walletAddress = searchParams.get('wallet');
-    if (!walletAddress) {
-      return NextResponse.json({ error: 'wallet query param required' }, { status: 400 });
+    const idParam = searchParams.get('id');
+
+    if (!walletAddress && !idParam) {
+      return NextResponse.json({ error: 'Either wallet or id query param required' }, { status: 400 });
     }
 
-    const targetUserForDelete = await usersCollection.findOne({ walletAddress: walletAddress });
+    let targetUserForDelete: any = null;
+    if (walletAddress) {
+      targetUserForDelete = await usersCollection.findOne({ walletAddress });
+    } else if (idParam) {
+      try {
+        targetUserForDelete = await usersCollection.findOne({ _id: new ObjectId(idParam) });
+      } catch (err) {
+        return NextResponse.json({ error: 'Invalid id parameter' }, { status: 400 });
+      }
+    }
+
     if (!targetUserForDelete) {
         return NextResponse.json({ error: 'User to delete not found' }, { status: 404 });
     }
@@ -123,28 +135,43 @@ export async function DELETE(request: NextRequest) {
     const actionsCollection = db.collection('actions');
     const notificationsCollection = db.collection('notifications');
 
-    const userDel = await usersCollection.deleteOne({ walletAddress });
-    const pullMember = await squadsCollection.updateMany(
-      { memberWalletAddresses: walletAddress },
-      { $pull: { memberWalletAddresses: walletAddress } } as any
-    );
-    const invDel = await invitationsCollection.updateMany(
-      {
-        $or: [
-          { invitedUserWalletAddress: walletAddress },
-          { invitedByUserWalletAddress: walletAddress },
-        ],
-      },
-      { $set: { status: 'revoked' } }
-    );
-    const jrDel = await joinReqCollection.deleteMany({ requestingUserWalletAddress: walletAddress });
-    const actDel = await actionsCollection.deleteMany({ walletAddress });
-    const notifDel = await notificationsCollection.deleteMany({ 
-        $or: [
-            { recipientWalletAddress: walletAddress }, 
-            { userId: targetUserForDelete._id?.toString() } 
-        ]
-     });
+    // Delete user
+    const userDel = walletAddress
+      ? await usersCollection.deleteOne({ walletAddress })
+      : await usersCollection.deleteOne({ _id: targetUserForDelete._id });
+
+    // Remove references in other collections only if a walletAddress exists
+    let pullMember = { modifiedCount: 0 } as any;
+    let invDel = { modifiedCount: 0 } as any;
+    let jrDel = { deletedCount: 0 } as any;
+    let actDel = { deletedCount: 0 } as any;
+    if (targetUserForDelete.walletAddress) {
+      const wa = targetUserForDelete.walletAddress;
+      pullMember = await squadsCollection.updateMany(
+        { memberWalletAddresses: wa },
+        { $pull: { memberWalletAddresses: wa } } as any
+      );
+      invDel = await invitationsCollection.updateMany(
+        {
+          $or: [
+            { invitedUserWalletAddress: wa },
+            { invitedByUserWalletAddress: wa },
+          ],
+        },
+        { $set: { status: 'revoked' } }
+      );
+      jrDel = await joinReqCollection.deleteMany({ requestingUserWalletAddress: wa });
+      actDel = await actionsCollection.deleteMany({ walletAddress: wa });
+    }
+    const notifQuery: any = { userId: targetUserForDelete._id?.toString() };
+    if (targetUserForDelete.walletAddress) {
+      notifQuery.$or = [
+        { recipientWalletAddress: targetUserForDelete.walletAddress },
+        { userId: targetUserForDelete._id?.toString() },
+      ];
+    }
+
+    const notifDel = await notificationsCollection.deleteMany(notifQuery);
 
     return NextResponse.json({
       message: 'User purged',

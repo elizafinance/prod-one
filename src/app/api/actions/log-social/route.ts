@@ -83,7 +83,8 @@ const baseHandler = withAuth(async (request: Request, session) => {
 
     return NextResponse.json({ 
       message: `Action '${actionType}' logged successfully. +${pointsToAward} points.`, 
-      newPointsTotal: updatedUser.points 
+      newPointsTotal: updatedUser.points,
+      completedActions: updatedUser.completedActions || [] // Ensure it's an array and always present
     });
 
   } catch (error) {

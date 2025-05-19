@@ -219,8 +219,16 @@ export default function HomePage() {
       const data = await response.json();
       if (response.ok) {
         toast.success(data.message || `${actionType.replace('_',' ')} logged!`);
-        if(data.newPointsTotal !== undefined && userData) {
-          setUserData(prev => prev ? {...prev, points: data.newPointsTotal, completedActions: [...(prev.completedActions || []), actionType] } : null);
+        if (data.newPointsTotal !== undefined && data.completedActions !== undefined) {
+          setUserData(prev => {
+            // Ensure prev is not null and spread its properties
+            const base = prev || {}; 
+            return {
+                ...base,
+                points: data.newPointsTotal, // Points might be part of 'otherUserData' or derived in combinedUserData
+                completedActions: data.completedActions // This is the key update
+            };
+          });
         }
         // Optionally, refresh all userData if the backend doesn't return the full updated state
         // if(wallet.publicKey && session.user.xId && session.user.dbId) activateRewardsAndFetchData(wallet.publicKey.toBase58(), session.user.xId, session.user.dbId);

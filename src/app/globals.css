@@ -37,14 +37,22 @@
     --radius: 0.5rem;
     --invert-value: 0;
   }
-}
 
-@layer base {
+  html {
+    @apply min-h-dvh; /* Ensure html takes full dynamic viewport height */
+  }
+
+  body {
+    @apply bg-background text-foreground min-h-dvh; /* Ensure body also takes full dynamic viewport height */
+    /* Apply safe area padding for iOS devices */
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
   * {
     @apply border-border;
-  }
-  body {
-    @apply bg-background text-foreground;
   }
 }
 

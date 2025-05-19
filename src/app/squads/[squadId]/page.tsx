@@ -10,6 +10,7 @@ import UserAvatar from "@/components/UserAvatar";
 import { QuestProgressData, useSquadQuestProgressStore } from '@/store/useQuestProgressStore'; // Adjust path
 // import CommunityQuest from '@/models/communityQuest.model'; // This is the Mongoose model
 import RequestToJoinModal from '@/components/modals/RequestToJoinModal';
+import CollapsibleSquadHeader from '@/components/squads/CollapsibleSquadHeader'; // Import the new header
 import { TOKEN_LABEL_POINTS } from '@/lib/labels';
 
 // Updated interface to match the enriched data from the new API
@@ -24,6 +25,7 @@ interface SquadDetailsData extends SquadDocument {
   leaderReferralCode?: string; // Add field for leader's referral code
   totalSquadPoints: number; // Added to match the API response
   maxMembers?: number; // Added maxMembers field
+  bannerImageUrl?: string; // Added for header
 }
 
 // Define a Quest type for frontend usage based on expected fields from CommunityQuest model
@@ -241,8 +243,9 @@ export default function SquadDetailsPage() {
       } catch (err) {
         console.error("Error fetching squad quests:", err);
         setActiveSquadQuests([]); // Ensure it's an empty array on error
+      } finally {
+        setIsLoadingQuests(false);
       }
-      setIsLoadingQuests(false);
     };
 
     if (squadId) { // Ensure squadId is available before fetching
@@ -308,8 +311,9 @@ export default function SquadDetailsPage() {
       toast.error("Error fetching sent invitations.");
       console.error("Fetch sent invites error:", err);
       setSentPendingInvites([]);
+    } finally {
+        setIsFetchingSentInvites(false);
     }
-    setIsFetchingSentInvites(false);
   }, [connected]);
 
   // Forward declaration for fetchJoinRequestsForSquad
@@ -329,8 +333,9 @@ export default function SquadDetailsPage() {
       toast.error("Error fetching join requests.");
       console.error("Fetch join requests error:", err);
       setJoinRequests([]);
+    } finally {
+        setIsFetchingJoinRequests(false);
     }
-    setIsFetchingJoinRequests(false);
   }, [connected]);
 
   useEffect(() => {
@@ -368,8 +373,9 @@ export default function SquadDetailsPage() {
       console.error("[SquadDetailsPage] Error fetching squad details:", err);
       setError((err as Error).message || 'Could not load squad details.');
       setHasLoadedInitialData(true);
+    } finally {
+        setIsLoading(false);
     }
-    setIsLoading(false);
   }, [squadId, connected, currentUserWalletAddress, fetchSentPendingInvitesForSquad, fetchJoinRequestsForSquad]);
 
   useEffect(() => {
@@ -432,8 +438,9 @@ export default function SquadDetailsPage() {
     } catch (err) {
       toast.error("An unexpected error occurred while leaving squad.");
       console.error("Leave squad error:", err);
+    } finally {
+        setIsLeaving(false);
     }
-    setIsLeaving(false);
   };
   
   const handleEditSquadSubmit = async (e: FormEvent<HTMLFormElement>) => {
@@ -468,8 +475,9 @@ export default function SquadDetailsPage() {
     } catch (err) {
       toast.error("An error occurred while updating squad.");
       console.error("Edit squad error:", err);
+    } finally {
+        setIsSavingEdit(false);
     }
-    setIsSavingEdit(false);
   };
 
   const handleKickMember = async (memberWalletAddressToKick: string) => {
@@ -503,8 +511,9 @@ export default function SquadDetailsPage() {
     } catch (err) {
       toast.error("An error occurred while kicking member.");
       console.error("Kick member error:", err);
+    } finally {
+        setIsKickingMember(null);
     }
-    setIsKickingMember(null);
   };
 
   const handleTransferLeadership = async (newLeaderWalletAddress: string) => {
@@ -540,8 +549,9 @@ export default function SquadDetailsPage() {
     } catch (err) {
       toast.error("An error occurred while transferring leadership.");
       console.error("Transfer leadership error:", err);
+    } finally {
+        setIsKickingMember(null); // Reset loading state
     }
-    setIsKickingMember(null); // Reset loading state
   };
 
   const searchUserByTwitterHandle = async () => {
@@ -567,9 +577,9 @@ export default function SquadDetailsPage() {
     } catch (err) {
       toast.error("An error occurred while searching for the user.");
       console.error("Twitter user search error:", err);
+    } finally {
+        setIsSearchingTwitterUser(false);
     }
-    
-    setIsSearchingTwitterUser(false);
   };
 
   const handleSendInvite = async () => {
@@ -626,8 +636,9 @@ export default function SquadDetailsPage() {
     } catch (err) {
       toast.error("An error occurred while sending invitation.");
       console.error("Send invite error:", err);
+    } finally {
+        setIsSendingInvite(false);
     }
-    setIsSendingInvite(false);
   };
 
   const handleRevokeInvite = async (invitationIdToRevoke: string) => {
@@ -649,8 +660,9 @@ export default function SquadDetailsPage() {
     } catch (err) {
       toast.error("An error occurred while revoking invitation.");
       console.error("Revoke invite error:", err);
+    } finally {
+        setIsRevokingInvite(null);
     }
-    setIsRevokingInvite(null);
   };
 
   const handleCopyToClipboard = (textToCopy: string) => {
@@ -680,8 +692,9 @@ export default function SquadDetailsPage() {
     } catch (err) {
       toast.error(`An error occurred while ${action}ing request.`);
       console.error(`Error ${action}ing request:`, err);
+    } finally {
+        setIsProcessingJoinRequest(null);
     }
-    setIsProcessingJoinRequest(null);
   };
 
   // Handler to open request modal
@@ -712,52 +725,65 @@ export default function SquadDetailsPage() {
     } catch (err) {
       toast.error('An unexpected error occurred while sending request.');
       console.error('Submit join request error:', err);
+    } finally {
+        setIsSubmittingJoinRequest(false);
     }
-    setIsSubmittingJoinRequest(false);
   };
 
-  if (isLoading) return <main className="flex items-center justify-center min-h-screen bg-background text-foreground"><div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#2B96F1]"></div><p className='ml-3 text-foreground'>Loading...</p></main>;
+  if (isLoading && !squadDetails) return <main className="flex items-center justify-center min-h-screen bg-background text-foreground"><div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#2B96F1]"></div><p className='ml-3 text-foreground'>Loading Squad...</p></main>;
   if (error) return <main className="flex flex-col items-center justify-center min-h-screen bg-background text-foreground"><p className="text-xl mb-4">Error: {error}</p><Link href="/squads/browse"><button className='p-2 bg-[#2B96F1] text-white rounded-md hover:bg-blue-600'>Browse Squads</button></Link></main>;
   if (!squadDetails) return <main className="flex flex-col items-center justify-center min-h-screen bg-background text-foreground"><p className="text-xl mb-4">Squad not found.</p><Link href="/squads/browse"><button className='p-2 bg-[#2B96F1] text-white rounded-md hover:bg-blue-600'>Browse Squads</button></Link></main>;
 
+  // Main content render
   return (
-    <main className="flex flex-col items-center min-h-screen p-4 sm:p-8 bg-background text-foreground">
-      <div className="w-full max-w-3xl mx-auto my-10 bg-card border border-border shadow-xl rounded-xl p-6 sm:p-8">
-        <div className="flex justify-between items-start mb-6">
-          <div>
-            {!isEditingSquad ? (
-              <h1 className="text-4xl font-bold font-spacegrotesk tracking-tight text-foreground">
-                {squadDetails?.name}
-              </h1>
-            ) : (
-              <h1 className="text-4xl font-bold font-spacegrotesk tracking-tight text-gray-800">
-                Edit Squad Info
-              </h1>
-            )}
-            {!isEditingSquad && squadDetails?.description && <p className="text-muted-foreground mt-1 text-sm">{squadDetails.description}</p>}
+    <div className="bg-background min-h-screen">
+      {squadDetails && (
+        <CollapsibleSquadHeader 
+          squadName={squadDetails.name}
+          squadDescription={squadDetails.description}
+          bannerImageUrl={squadDetails.bannerImageUrl} // Assuming this field exists or a default is handled in component
+        />
+      )}
+      {/* Remove pt from SafeAreaView if CollapsibleSquadHeader is sticky and handles its own height */}
+      {/* Or ensure SafeAreaView starts below the expanded header height initially */}
+      {/* For now, main content is simply below the header */}
+      <main className="p-4 sm:p-6 lg:p-8">
+        {/* The original content container, adjust margins/padding as needed */}
+        <div className="w-full max-w-3xl mx-auto bg-card border border-border shadow-xl rounded-xl p-6 sm:p-8 -mt-16 relative z-10 mb-10">
+          {/* -mt-16 to pull card content up over bottom part of banner for overlap effect */}
+          {/* This -mt-16 might need adjustment based on EXPANDED_HEADER_HEIGHT */}
+          
+          {/* Original content starts here, excluding the h1/description already in CollapsibleHeader */}
+          <div className="flex justify-between items-start mb-6">
+            {/* Squad name and description are now in CollapsibleSquadHeader */}
+            {/* This div might be for actions like 'Browse Squads' or 'Edit Info' if not moved to header */}
+            <div>
+              {/* Placeholder if any subtitle or quick stat needs to be here under the main card title area */}
+            </div>
+            <div className="flex flex-col space-y-2 items-end flex-shrink-0 ml-4">
+              <Link href="/squads/browse" passHref>
+                <button className="bg-muted hover:bg-muted/80 text-foreground text-xs font-semibold py-1.5 px-3 rounded-md shadow-md hover:shadow-lg transform hover:scale-105 transition-all duration-150 ease-in-out w-full sm:w-auto">
+                    Browse Squads
+                </button>
+              </Link>
+              {isUserLeader && !isEditingSquad && (
+                <button 
+                  onClick={() => {
+                    setEditableSquadName(squadDetails?.name || '');
+                    setEditableDescription(squadDetails?.description || '');
+                    setIsEditingSquad(true);
+                  }}
+                  className="bg-muted hover:bg-muted/80 text-foreground text-xs font-semibold py-1.5 px-3 rounded-md shadow-md hover:shadow-lg transform hover:scale-105 transition-all duration-150 ease-in-out w-full sm:w-auto"
+                >
+                  Edit Info
+                </button>
+              )}
+            </div>
           </div>
-          <div className="flex flex-col space-y-2 items-end flex-shrink-0 ml-4">
-            <Link href="/squads/browse" passHref>
-              <button className="bg-muted hover:bg-muted/80 text-foreground text-xs font-semibold py-1.5 px-3 rounded-md shadow-md hover:shadow-lg transform hover:scale-105 transition-all duration-150 ease-in-out w-full sm:w-auto">
-                  Browse Squads
-              </button>
-            </Link>
-            {isUserLeader && !isEditingSquad && (
-              <button 
-                onClick={() => {
-                  setEditableSquadName(squadDetails?.name || '');
-                  setEditableDescription(squadDetails?.description || '');
-                  setIsEditingSquad(true);
-                }}
-                className="bg-muted hover:bg-muted/80 text-foreground text-xs font-semibold py-1.5 px-3 rounded-md shadow-md hover:shadow-lg transform hover:scale-105 transition-all duration-150 ease-in-out w-full sm:w-auto"
-              >
-                Edit Info
-              </button>
-            )}
-          </div>
-        </div>
 
-        {isEditingSquad && (
+          {/* ... (rest of the squad details page content: isEditingSquad form, stats, members list, actions, quests, etc.) */}
+          {/* ... This content remains the same as the original file from line 800 onwards roughly ... */}
+          {isEditingSquad && (
           <form onSubmit={handleEditSquadSubmit} className="mb-6 p-6 bg-muted border border-border rounded-lg space-y-4">
             <div>
               <label htmlFor="editableSquadName" className="block text-sm font-medium text-foreground mb-1">Squad Name</label>
@@ -863,7 +889,6 @@ export default function SquadDetailsPage() {
             <div>
               <h3 className="text-xl font-bold text-yellow-600 mb-4 text-center">Leader Tools</h3>
               
-              {/* Join Requests Management - NEW SECTION */}
               <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg mb-6">
                 <h4 className="text-md font-semibold text-yellow-800 mb-3">Pending Join Requests ({joinRequests.length})</h4>
                 {isFetchingJoinRequests && <p className="text-sm text-yellow-700">Loading join requests...</p>}
@@ -1033,7 +1058,6 @@ export default function SquadDetailsPage() {
                 )}
               </div>
 
-              {/* Leader Referral Link Section */}
               {squadDetails.leaderReferralCode && squadDetails.squadId && (
                 <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg mb-6">
                   <h4 className="text-md font-semibold text-gray-800 mb-2">Squad Invite & Referral Link:</h4>
@@ -1073,7 +1097,6 @@ export default function SquadDetailsPage() {
           )}
         </div>
 
-        {/* 'Request to Join' button for non-members */}
         {connected && !isUserMember && squadDetails && (
           <div className="mt-8 border-t border-gray-300 pt-6 text-center">
             {hasPendingRequestForThisSquad ? (
@@ -1094,7 +1117,6 @@ export default function SquadDetailsPage() {
           </div>
         )}
 
-        {/* Quest Display Section */}
         <div className="mb-8 border-b border-gray-200 pb-6">
           <h3 className="text-2xl font-semibold text-gray-800 mb-4">Active Squad Quests</h3>
           {isLoadingQuests && <div className="flex items-center justify-center text-gray-500"><div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-purple-500 mr-2"></div>Loading quests...</div>}
@@ -1107,10 +1129,8 @@ export default function SquadDetailsPage() {
             </div>
           )}
         </div>
-        {/* End Quest Display Section */}
       </div>
 
-      {/* Request To Join Modal */}
       {squadDetails && (
         <RequestToJoinModal
           isOpen={isRequestModalOpen}
@@ -1122,5 +1142,6 @@ export default function SquadDetailsPage() {
         />
       )}
     </main>
+  </div>
   );
 } 

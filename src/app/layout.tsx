@@ -8,6 +8,8 @@ import { Toaster as ShadcnToaster } from "@/components/ui/toaster";
 import { Toaster as SonnerToaster } from "sonner";
 import SessionProviderWrapper from "@/providers/sessionProviderWrapper";
 import ConditionalAppHeader from "@/components/layout/ConditionalAppHeader";
+import SafeAreaView from "@/components/layout/SafeAreaView";
+import BottomTabBar from "@/components/layout/BottomTabBar";
 
 const inter = Inter({ subsets: ["latin"], variable: '--font-inter' });
 const orbitron = Orbitron({ 
@@ -17,6 +19,7 @@ const orbitron = Orbitron({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://squad.defairewards.net'),
   title: "DeFAI Rewards - Banking AI Agents. Rewarding Humans",
   description: "DeFAI Rewards is a futuristic AI-powered rewards platform, where banking AI agents reward humans.",
   openGraph: {
@@ -46,18 +49,30 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${inter.variable} ${orbitron.variable}`}>
-      <body className="flex flex-col min-h-screen font-sans bg-white text-black">
+    <html lang="en" className={`${inter.variable} ${orbitron.variable}`} suppressHydrationWarning>
+      <head>
+        <link rel="manifest" href="/manifest.webmanifest" />
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png"></link>
+        {/* Theme color for browser UI based on current theme could also be added here if desired */}
+        {/* <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" /> */}
+        {/* <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" /> */}
+      </head>
+      <body className="flex flex-col min-h-screen font-sans bg-background text-foreground">
         <SessionProviderWrapper>
           <WalletAdapterProvider>
             <UmiProvider>
               <ThemeProviderWrapper>
-                <ConditionalAppHeader />
-                <main className="flex-grow bg-white">
+                <div className="hidden lg:block">
+                  <ConditionalAppHeader />
+                </div>
+                <SafeAreaView className="bg-background pb-16 lg:pb-0 lg:pt-20">
                   {children}
-                </main>
+                </SafeAreaView>
                 <ShadcnToaster />
                 <SonnerToaster richColors position="bottom-right" />
+                <div className="lg:hidden">
+                  <BottomTabBar />
+                </div>
               </ThemeProviderWrapper>
             </UmiProvider>
           </WalletAdapterProvider>

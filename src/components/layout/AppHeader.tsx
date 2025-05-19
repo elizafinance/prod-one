@@ -149,6 +149,7 @@ export default function AppHeader() {
               <button
                 onClick={() => signIn('twitter')}
                 className="ml-2 flex items-center space-x-1 hover:opacity-90 transition-opacity"
+                aria-label="Login with X"
                 style={{
                   backgroundColor: '#2B96F1', // Or black: '#000000'
                   color: 'white',

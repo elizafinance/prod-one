@@ -340,20 +340,22 @@ export function useHomePageLogic() {
   }, []);
 
   useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const refCode = urlParams.get('ref');
-    if (refCode) {
-       localStorage.setItem('referralCode', refCode);
-       setInitialReferrer(refCode);
-    } else {
-       const savedRefCode = localStorage.getItem('referralCode');
-       if (savedRefCode) setInitialReferrer(savedRefCode);
-    }
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const refCode = urlParams.get('ref');
+      if (refCode) {
+         localStorage.setItem('referralCode', refCode);
+         setInitialReferrer(refCode);
+      } else {
+         const savedRefCode = localStorage.getItem('referralCode');
+         if (savedRefCode) setInitialReferrer(savedRefCode);
+      }
 
-    const squadInviteParam = urlParams.get('squadInvite');
-    if (squadInviteParam) {
-      setSquadInviteIdFromUrl(squadInviteParam);
-      console.log("[HomePage] Squad Invite ID from URL:", squadInviteParam);
+      const squadInviteParam = urlParams.get('squadInvite');
+      if (squadInviteParam) {
+        setSquadInviteIdFromUrl(squadInviteParam);
+        console.log("[HomePage] Squad Invite ID from URL:", squadInviteParam);
+      }
     }
   }, []);
 
@@ -380,12 +382,14 @@ export function useHomePageLogic() {
   }, [wallet.connected, wallet.publicKey, prevWalletAddress]);
 
   useEffect(() => {
-    const checkDesktop = () => {
-      setIsDesktop(window.innerWidth >= 1024);
-    };
-    checkDesktop();
-    window.addEventListener('resize', checkDesktop);
-    return () => window.removeEventListener('resize', checkDesktop);
+    if (typeof window !== 'undefined') {
+      const checkDesktop = () => {
+        setIsDesktop(window.innerWidth >= 1024);
+      };
+      checkDesktop();
+      window.addEventListener('resize', checkDesktop);
+      return () => window.removeEventListener('resize', checkDesktop);
+    }
   }, []);
 
   useEffect(() => {

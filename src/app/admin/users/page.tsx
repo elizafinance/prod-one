@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import { toast } from 'sonner';
 import { Document, ObjectId } from 'mongodb';
@@ -78,16 +78,9 @@ export default function AdminUsersPage() {
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const [limit, setLimit] = useState(25); // Default limit, can be made configurable
+  const [limit, setLimit] = useState(25);
 
-  useEffect(() => {
-    if (status !== 'authenticated') return;
-    const userRoleAuth = (session?.user as any)?.role;
-    if (userRoleAuth !== 'admin') return;
-    fetchUsers(currentPage); // Fetch users when component mounts or filters change
-  }, [status, (session?.user as any)?.role, query, roleFilter, squadIdFilter, hasSquadFilter, currentPage, limit]);
-
-  const fetchUsers = async (pageToFetch = 1) => {
+  const fetchUsers = useCallback(async (pageToFetch = 1) => {
     setLoading(true);
     let apiUrl = `/api/admin/users?q=${encodeURIComponent(query)}&page=${pageToFetch}&limit=${limit}`;
     if (roleFilter) apiUrl += `&role=${roleFilter}`;
@@ -101,7 +94,6 @@ export default function AdminUsersPage() {
         setUsers(data.users || []);
         setTotalPages(data.totalPages || 1);
         setCurrentPage(data.currentPage || 1);
-        // setLimit(data.limit); // If API dictates limit, update it here
       } else {
         toast.error(data.error || 'Failed to fetch users');
         setUsers([]);
@@ -116,7 +108,15 @@ export default function AdminUsersPage() {
       setCurrentPage(1);
     }
     setLoading(false);
-  };
+  }, [query, limit, roleFilter, squadIdFilter, hasSquadFilter]);
+
+  const userRole = (session?.user as any)?.role;
+
+  useEffect(() => {
+    if (status !== 'authenticated') return;
+    if (userRole !== 'admin') return;
+    fetchUsers(currentPage); 
+  }, [status, userRole, fetchUsers, currentPage]);
 
   // Opens the confirmation modal
   const initiatePurge = (user: UserRow) => {
@@ -203,7 +203,6 @@ export default function AdminUsersPage() {
     }
   };
 
-  const userRole = (session?.user as any)?.role;
   if (status === 'loading') return <p className="p-10">Loading session...</p>;
   if (status !== 'authenticated' || userRole !== 'admin') {
     return <p className="p-10 text-red-600">Access denied</p>;

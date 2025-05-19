@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef } from 'react';
-import { CheckCircleIcon, LockClosedIcon } from '@heroicons/react/24/solid'; // Example icons
+import { CheckCircleIcon, LockClosedIcon } from '@heroicons/react/24/solid';
 
 export interface Milestone {
   id: string;
@@ -25,18 +25,8 @@ const MilestoneItem: React.FC<{ milestone: Milestone; isLast: boolean }> = ({ mi
   const prevAchievedRef = useRef<boolean>(isAchieved);
 
   useEffect(() => {
-    // Trigger confetti only when isAchieved changes from false to true
     if (isAchieved && !prevAchievedRef.current) {
-      // Dynamically import canvas-confetti only on the client when needed to avoid SSR issues / circular dependencies
-      import('canvas-confetti').then(({ default: confetti }) => {
-        confetti({
-          particleCount: 100,
-          spread: 70,
-          origin: { y: 0.6 }
-        });
-      }).catch(err => {
-        console.error('Failed to load confetti library:', err);
-      });
+      console.log('Milestone achieved, confetti was here.');
     }
     prevAchievedRef.current = isAchieved;
   }, [isAchieved]);

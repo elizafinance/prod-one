@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { Document, ObjectId } from 'mongodb';
 import UserDetailsModal from '@/components/admin/UserDetailsModal';
 import ConfirmationModal from '@/components/admin/ConfirmationModal';
+import CreateUserModal from '@/components/admin/CreateUserModal';
 
 export interface UserRow {
   walletAddress: string;
@@ -79,6 +80,8 @@ export default function AdminUsersPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [limit, setLimit] = useState(25); // Default limit, can be made configurable
+
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
   useEffect(() => {
     if (status !== 'authenticated') return;
@@ -203,6 +206,11 @@ export default function AdminUsersPage() {
     }
   };
 
+  const handleUserCreated = (newUser: UserRow) => {
+    // Prepend new user to list
+    setUsers(prev => [newUser, ...prev]);
+  };
+
   const userRole = (session?.user as any)?.role;
   if (status === 'loading') return <p className="p-10">Loading session...</p>;
   if (status !== 'authenticated' || userRole !== 'admin') {
@@ -264,6 +272,11 @@ export default function AdminUsersPage() {
             <option value="false">No</option>
           </select>
         </div>
+      </div>
+
+      {/* Create User button */}
+      <div className="mb-4 flex justify-end">
+        <button onClick={()=>setIsCreateModalOpen(true)} className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 text-sm">Create User</button>
       </div>
 
       {/* Table and Modal remain largely the same, but will use paginated data */}
@@ -353,6 +366,9 @@ export default function AdminUsersPage() {
           confirmButtonText="Purge User"
           isConfirming={isPurging}
         />
+      )}
+      {isCreateModalOpen && (
+        <CreateUserModal isOpen={isCreateModalOpen} onClose={()=>setIsCreateModalOpen(false)} onUserCreated={handleUserCreated} />
       )}
     </main>
   );

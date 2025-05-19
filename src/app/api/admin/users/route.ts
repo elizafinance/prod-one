@@ -161,4 +161,56 @@ export async function DELETE(request: NextRequest) {
     console.error('Database error in DELETE /api/admin/users:', dbError);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
+}
+
+export async function POST(request: NextRequest) {
+  const session: any = await getServerSession(authOptions);
+  if (!session?.user?.role || session.user.role !== 'admin') {
+    return NextResponse.json({ error: 'Forbidden: Requires admin privileges' }, { status: 403 });
+  }
+
+  try {
+    const body = await request.json();
+    const { walletAddress, xUsername, email, points = 0, role = 'user' } = body;
+
+    if (!walletAddress || typeof walletAddress !== 'string') {
+      return NextResponse.json({ error: 'walletAddress is required' }, { status: 400 });
+    }
+    if (role && !['user', 'admin'].includes(role)) {
+      return NextResponse.json({ error: 'Invalid role' }, { status: 400 });
+    }
+    if (points < 0) {
+      return NextResponse.json({ error: 'Points must be non-negative' }, { status: 400 });
+    }
+
+    const { db } = await connectToDatabase();
+    const usersCollection = db.collection('users');
+
+    // Ensure unique wallet
+    const existing = await usersCollection.findOne({ walletAddress });
+    if (existing) {
+      return NextResponse.json({ error: 'User with this wallet already exists' }, { status: 409 });
+    }
+
+    const newDoc = {
+      walletAddress,
+      xUsername: xUsername || undefined,
+      email: email || undefined,
+      points,
+      role,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    const insertRes = await usersCollection.insertOne(newDoc as any);
+
+    if (!insertRes.acknowledged) {
+      return NextResponse.json({ error: 'Insert failed' }, { status: 500 });
+    }
+
+    return NextResponse.json({ message: 'User created', user: { _id: insertRes.insertedId, ...newDoc } }, { status: 201 });
+  } catch (err) {
+    console.error('admin create user error', err);
+    return NextResponse.json({ error: 'Server error' }, { status: 500 });
+  }
 } 

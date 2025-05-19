@@ -2,7 +2,7 @@
   "crons": [
     {
       "path": "/api/cron/process-proposals",
-      "schedule": "0 0 * * FRI"
+      "schedule": "0 0 * * 5"
     }
   ]
 } 

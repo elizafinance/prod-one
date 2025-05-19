@@ -2,7 +2,6 @@
 
 import React, { useEffect, useRef } from 'react';
 import { CheckCircleIcon, LockClosedIcon } from '@heroicons/react/24/solid'; // Example icons
-import confetti from 'canvas-confetti'; // Added confetti import
 
 export interface Milestone {
   id: string;
@@ -28,11 +27,15 @@ const MilestoneItem: React.FC<{ milestone: Milestone; isLast: boolean }> = ({ mi
   useEffect(() => {
     // Trigger confetti only when isAchieved changes from false to true
     if (isAchieved && !prevAchievedRef.current) {
-      // Basic confetti, centered
-      confetti({
-        particleCount: 100,
-        spread: 70,
-        origin: { y: 0.6 }
+      // Dynamically import canvas-confetti only on the client when needed to avoid SSR issues / circular dependencies
+      import('canvas-confetti').then(({ default: confetti }) => {
+        confetti({
+          particleCount: 100,
+          spread: 70,
+          origin: { y: 0.6 }
+        });
+      }).catch(err => {
+        console.error('Failed to load confetti library:', err);
       });
     }
     prevAchievedRef.current = isAchieved;

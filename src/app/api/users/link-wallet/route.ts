@@ -24,13 +24,29 @@ export async function POST(request: Request) {
     const xUserId = session.user.xId; // xId should be string here due to the check above
 
     // Check if this wallet address is already linked to a *different* xUserId
-    const existingUserWithWallet = await usersCollection.findOne({ 
-      walletAddress: walletAddress,
-      xUserId: { $ne: xUserId } 
-    });
+    const existingUserWithWallet = await usersCollection.findOne({ walletAddress });
 
-    if (existingUserWithWallet) {
+    if (existingUserWithWallet && existingUserWithWallet.xUserId && existingUserWithWallet.xUserId !== xUserId) {
+      // Genuine conflict – wallet belongs to someone else
       return NextResponse.json({ error: 'This wallet is already associated with another X account.' }, { status: 409 }); // 409 Conflict
+    }
+
+    // If wallet record exists but is orphaned (no xUserId), we "claim" it for the current user
+    if (existingUserWithWallet && !existingUserWithWallet.xUserId) {
+      await usersCollection.updateOne(
+        { _id: existingUserWithWallet._id },
+        {
+          $set: { xUserId, updatedAt: new Date() },
+          $addToSet: { completedActions: 'wallet_connected' }
+        }
+      );
+
+      // Optionally remove any placeholder record that might exist for this xUserId without a wallet (avoid dupes)
+      await usersCollection.deleteMany({ xUserId, walletAddress: { $exists: false } });
+
+      const updated = await usersCollection.findOne({ _id: existingUserWithWallet._id });
+      console.log(`[Link Wallet] Claimed orphan wallet ${walletAddress} for xUserId ${xUserId}`);
+      return NextResponse.json({ message: 'Wallet linked successfully.', user: updated });
     }
 
     const options: FindOneAndUpdateOptions = {

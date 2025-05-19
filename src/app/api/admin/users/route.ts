@@ -3,6 +3,8 @@ import { connectToDatabase } from '@/lib/mongodb';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 import { ObjectId, Filter, Document } from 'mongodb';
+import { AIR } from '@/config/points.config';
+import { randomBytes } from 'crypto';
 
 export async function GET(request: NextRequest) {
   const session: any = await getServerSession(authOptions);
@@ -190,6 +192,28 @@ export async function DELETE(request: NextRequest) {
   }
 }
 
+// Helper to generate unique referral codes identical to auth/activate-rewards flows
+async function generateUniqueReferralCode(db: any, length = 8): Promise<string> {
+  const usersCollection = db.collection('users');
+  let referralCode = '';
+  let isUnique = false;
+  let attempts = 0;
+  const maxAttempts = 10;
+  while (!isUnique && attempts < maxAttempts) {
+    referralCode = randomBytes(Math.ceil(length / 2)).toString('hex').slice(0, length);
+    const existingUser = await usersCollection.findOne({ referralCode });
+    if (!existingUser) {
+      isUnique = true;
+    }
+    attempts++;
+  }
+  if (!isUnique) {
+    console.warn(`Could not generate unique referral code in admin create user after ${maxAttempts} attempts.`);
+    return referralCode + randomBytes(2).toString('hex');
+  }
+  return referralCode;
+}
+
 export async function POST(request: NextRequest) {
   const session: any = await getServerSession(authOptions);
   if (!session?.user?.role || session.user.role !== 'admin') {
@@ -198,11 +222,14 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { walletAddress, xUsername, email, points = 0, role = 'user' } = body;
+    const { walletAddress, xUsername, email, points, role = 'user' } = body;
 
-    if (!walletAddress || typeof walletAddress !== 'string') {
-      return NextResponse.json({ error: 'walletAddress is required' }, { status: 400 });
+    // walletAddress is now optional – admin can create a placeholder user and let them link later.
+    if (walletAddress && typeof walletAddress !== 'string') {
+      return NextResponse.json({ error: 'walletAddress must be a string' }, { status: 400 });
     }
+    // If points not supplied, default to the initial connection amount.
+    const startingPoints = typeof points === 'number' && points >= 0 ? points : AIR.INITIAL_LOGIN;
     if (role && !['user', 'admin'].includes(role)) {
       return NextResponse.json({ error: 'Invalid role' }, { status: 400 });
     }
@@ -213,17 +240,22 @@ export async function POST(request: NextRequest) {
     const { db } = await connectToDatabase();
     const usersCollection = db.collection('users');
 
-    // Ensure unique wallet
-    const existing = await usersCollection.findOne({ walletAddress });
-    if (existing) {
-      return NextResponse.json({ error: 'User with this wallet already exists' }, { status: 409 });
+    if (walletAddress) {
+      const existing = await usersCollection.findOne({ walletAddress });
+      if (existing) {
+        return NextResponse.json({ error: 'User with this wallet already exists' }, { status: 409 });
+      }
     }
 
-    const newDoc = {
-      walletAddress,
+    const referralCode = await generateUniqueReferralCode(db);
+
+    const newDoc: Record<string, any> = {
+      walletAddress: walletAddress || undefined,
       xUsername: xUsername || undefined,
       email: email || undefined,
-      points,
+      points: startingPoints,
+      completedActions: ['initial_connection'],
+      referralCode,
       role,
       createdAt: new Date(),
       updatedAt: new Date(),

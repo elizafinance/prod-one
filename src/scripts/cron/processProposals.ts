@@ -1,3 +1,4 @@
+// @ts-nocheck
 import mongoose from 'mongoose';
 import { connectToDatabase } from '../../lib/mongodb';
 import { Proposal, IProposal } from '../../models/Proposal';

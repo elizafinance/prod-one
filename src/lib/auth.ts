@@ -149,8 +149,14 @@ export const authOptions: NextAuthOptions = {
           }
 
           if (!dbUserResult || !dbUserResult.value) {
-            console.error(`[NextAuth SignIn] Critical: Failed to upsert user for xUserId: ${xUserId} after ${MAX_UPSERT_ATTEMPTS} attempts.`);
-            return false;
+            // As a fallback, attempt to fetch the user (might have been inserted but not returned)
+            const fallbackUser = await usersCollection.findOne({ xUserId });
+            if (fallbackUser) {
+              dbUserResult = { value: fallbackUser } as any;
+            } else {
+              console.error(`[NextAuth SignIn] Critical: Failed to upsert user for xUserId: ${xUserId} after ${MAX_UPSERT_ATTEMPTS} attempts.`);
+              return false;
+            }
           }
           
           const dbUser = dbUserResult.value;

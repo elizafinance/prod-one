@@ -628,6 +628,8 @@ export default function HomePage() {
         ) : (
           // Mobile Layout (Existing Structure, but using AppHeader)
           <div className="w-full max-w-3xl mx-auto px-4 pt-2 pb-8 flex flex-col items-center">
+            {/* Centered logo at the very top for mobile */}
+            <DeFAILogo className="h-16 w-16 mb-4" />
             {/* Illustration and Headlines for Mobile (can be simpler or same as desktop) */}
             <div className="relative text-center mt-4 mb-6">
               <div className="text-center mb-6 mt-4">

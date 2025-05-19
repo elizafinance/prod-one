@@ -102,8 +102,8 @@ export default function AppHeader() {
       {/* END DEBUG INFO */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16 md:h-20">
-          {/* Logo */}
-          <div className="flex-shrink-0">
+          {/* Logo – hide on mobile (<640px) to keep the header uncluttered */}
+          <div className="hidden sm:flex flex-shrink-0">
             <Link href="/" passHref>
               <div className="text-[#2563EB] font-orbitron font-semibold text-3xl cursor-pointer hover:scale-105 transition-all">
                 DeFAI Rewards

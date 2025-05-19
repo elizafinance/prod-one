@@ -106,8 +106,6 @@ export const authOptions: NextAuthOptions = {
           const updateOnInsert = {
             xUserId: xUserId,
             walletAddress: undefined, // Wallet is linked in a separate step
-            xUsername: xUsername,
-            xProfileImageUrl: xProfileImageUrl,
             points: AIR.INITIAL_LOGIN,
             referralCode: await generateUniqueReferralCode(db), // Generate code for new users
             completedActions: ['initial_connection'],

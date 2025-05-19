@@ -3,41 +3,35 @@ import { useEffect, useRef, useState } from "react";
 const LazyImage = (props: any) => {
   const [inView, setInView] = useState(false);
 
-  const placeholderRef = useRef();
+  const placeholderRef = useRef<HTMLDivElement | null>(null);
 
-  function onIntersection(entries: any, opts: any) {
-    entries.forEach((entry: any) => {
+  function onIntersection(entries: IntersectionObserverEntry[], observer: IntersectionObserver) {
+    entries.forEach((entry) => {
       if (entry.isIntersecting) {
         setInView(true);
+        observer.unobserve(entry.target);
       }
     });
   }
 
   useEffect(() => {
-    const observer = new IntersectionObserver(onIntersection, {
-      root: null, // default is the viewport
-      threshold: 0, // percentage of target's visible area. Triggers "onIntersection"
-      rootMargin: "-50px", // margin around root. Values are similar to CSS margin property
-    });
-
-    if (placeholderRef?.current) {
+    const observer = new IntersectionObserver(onIntersection);
+    if (placeholderRef.current) {
       observer.observe(placeholderRef.current);
     }
-
     return () => {
       observer.disconnect();
     };
   }, []);
 
-  return inView ? (
-    <img {...props} alt={props.alt || ""} />
-  ) : (
-    <img
-      {...props}
-      ref={placeholderRef}
-      src="/placeholder.png"
-      alt={props.alt || ""}
-    />
+  return (
+    <div ref={placeholderRef} className="relative w-full h-full">
+      {inView ? (
+        <img {...props} alt={props.alt || ""} className="w-full h-full object-cover" />
+      ) : (
+        <div className="w-full h-full bg-gray-200 animate-pulse" />
+      )}
+    </div>
   );
 };
 

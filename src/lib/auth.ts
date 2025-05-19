@@ -110,7 +110,6 @@ export const authOptions: NextAuthOptions = {
             referralCode: await generateUniqueReferralCode(db), // Generate code for new users
             completedActions: ['initial_connection'],
             createdAt: new Date(),
-            updatedAt: new Date(),
             role: 'user' // Default role
           };
 

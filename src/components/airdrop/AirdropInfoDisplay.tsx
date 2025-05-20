@@ -14,15 +14,15 @@ interface AirdropInfoDisplayProps {
   onNotConnected?: () => React.ReactNode;
   showTitle?: boolean;
   onTotalAirdropChange?: (totalAirdrop: number) => void;
+  defaiBalanceFetched?: number | null;
 }
 
-const AirdropInfoDisplay: React.FC<AirdropInfoDisplayProps> = ({ onNotConnected, showTitle = true, onTotalAirdropChange }) => {
+const AirdropInfoDisplay: React.FC<AirdropInfoDisplayProps> = ({ onNotConnected, showTitle = true, onTotalAirdropChange, defaiBalanceFetched }) => {
   const { publicKey, connected } = useWallet();
   const { connection } = useConnection();
   const { data: session, status: authStatus } = useSession<any>();
   const typedSession: any = session;
 
-  const [defaiBalance, setDefaiBalance] = useState<number | null>(null);
   const [userPoints, setUserPoints] = useState<number | null>(null);
   const [totalCommunityPoints, setTotalCommunityPoints] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -34,7 +34,6 @@ const AirdropInfoDisplay: React.FC<AirdropInfoDisplayProps> = ({ onNotConnected,
   const snapshotDateString = process.env.NEXT_PUBLIC_AIRDROP_SNAPSHOT_DATE_STRING || "May 20th";
   const airdropPoolSize = parseInt(process.env.NEXT_PUBLIC_AIRDROP_POINTS_POOL_SIZE || '1000000000', 10);
 
-  // useEffect for onTotalAirdropChange: Moved to top, depends on constituent states.
   useEffect(() => {
     if (onTotalAirdropChange) {
       const currentPointsShare = 
@@ -43,15 +42,14 @@ const AirdropInfoDisplay: React.FC<AirdropInfoDisplayProps> = ({ onNotConnected,
         : 0;
       const currentTotalEstimatedAirdrop = 
         (initialAirdropAllocation || 0) + 
-        (defaiBalance !== null ? defaiBalance : 0) + 
+        (defaiBalanceFetched !== null && defaiBalanceFetched !== undefined ? defaiBalanceFetched : 0) +
         currentPointsShare;
       onTotalAirdropChange(currentTotalEstimatedAirdrop);
     }
-  }, [initialAirdropAllocation, defaiBalance, userPoints, totalCommunityPoints, airdropPoolSize, onTotalAirdropChange]);
+  }, [initialAirdropAllocation, defaiBalanceFetched, userPoints, totalCommunityPoints, airdropPoolSize, onTotalAirdropChange]);
 
   const fetchAirdropData = useCallback(async () => {
     if (!connected || !publicKey || !typedSession?.user?.walletAddress) {
-      setDefaiBalance(null);
       setUserPoints(null);
       return;
     }
@@ -59,22 +57,12 @@ const AirdropInfoDisplay: React.FC<AirdropInfoDisplayProps> = ({ onNotConnected,
     setIsLoading(true);
     setError(null);
 
-    let fetchedBalance: number | null = null;
     let fetchedUserPoints: number | null = null;
     let fetchedTotalCommunityPoints: number | null = null;
     let fetchError: string | null = null;
 
     try {
-      const [balanceResult, pointsResult, totalPointsResult, initialAirdropResult] = await Promise.allSettled([
-        (async () => {
-          if (tokenMintAddress) {
-            const mint = new PublicKey(tokenMintAddress);
-            const ata = await getAssociatedTokenAddress(mint, publicKey);
-            const accountInfo = await getAccount(connection, ata, 'confirmed');
-            return Number(accountInfo.amount) / (10 ** tokenDecimals);
-          }
-          return 0;
-        })(),
+      const [pointsResult, totalPointsResult, initialAirdropResult] = await Promise.allSettled([
         (async () => {
           const pointsResponse = await fetch(`/api/users/points?address=${publicKey.toBase58()}`);
           if (pointsResponse.ok) {
@@ -109,13 +97,6 @@ const AirdropInfoDisplay: React.FC<AirdropInfoDisplayProps> = ({ onNotConnected,
         })()
       ]);
 
-      if (balanceResult.status === 'fulfilled') {
-        fetchedBalance = balanceResult.value;
-      } else {
-        console.warn("Failed to fetch DeFAI token balance:", balanceResult.reason);
-        fetchedBalance = 0;
-      }
-
       if (pointsResult.status === 'fulfilled') {
         fetchedUserPoints = pointsResult.value;
       } else {
@@ -141,14 +122,13 @@ const AirdropInfoDisplay: React.FC<AirdropInfoDisplayProps> = ({ onNotConnected,
       fetchError = "Could not load airdrop information.";
     }
 
-    setDefaiBalance(fetchedBalance);
     setUserPoints(fetchedUserPoints);
     setTotalCommunityPoints(fetchedTotalCommunityPoints);
     if (fetchError) setError(fetchError);
 
     setIsLoading(false);
 
-  }, [connected, publicKey, typedSession, connection, tokenMintAddress, tokenDecimals]);
+  }, [connected, publicKey, typedSession]);
 
   useEffect(() => {
     if (connected && publicKey && typedSession?.user?.walletAddress && authStatus === 'authenticated') {
@@ -189,7 +169,7 @@ const AirdropInfoDisplay: React.FC<AirdropInfoDisplayProps> = ({ onNotConnected,
     ? (userPoints / totalCommunityPoints) * airdropPoolSize 
     : 0;
   
-  const totalEstimatedAirdrop = (initialAirdropAllocation || 0) + (defaiBalance !== null ? defaiBalance : 0) + pointsShare;
+  const totalEstimatedAirdrop = (initialAirdropAllocation || 0) + (defaiBalanceFetched !== null && defaiBalanceFetched !== undefined ? defaiBalanceFetched : 0) + pointsShare;
 
   // Brand colors
   const headlineColor = "text-[#2A97F1]";
@@ -245,7 +225,7 @@ const AirdropInfoDisplay: React.FC<AirdropInfoDisplayProps> = ({ onNotConnected,
             <span className={`${textColor} text-lg`}>Your DeFAI Balance:</span>
           </div>
           <span className={`text-xl font-semibold ${accentTextColor} text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-sky-400 to-cyan-400`}>
-            {defaiBalance !== null ? defaiBalance.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2}) : 'N/A'} DeFAI
+            {defaiBalanceFetched !== null && defaiBalanceFetched !== undefined ? defaiBalanceFetched.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2}) : 'N/A'} DeFAI
           </span>
         </div>
 
@@ -265,7 +245,7 @@ const AirdropInfoDisplay: React.FC<AirdropInfoDisplayProps> = ({ onNotConnected,
             <span>Snapshot on: <strong className={`${accentTextColor}`}>{snapshotDateString}</strong></span>
           </div>
           <p className={`${textColor} text-sm leading-relaxed`}>
-            If you hold DeFAI during the snapshot, you will receive <strong className={`${accentTextColor} text-transparent bg-clip-text bg-gradient-to-r from-green-400 via-teal-400 to-emerald-400`}>{defaiBalance !== null ? defaiBalance.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2}) : 'your current'} {TOKEN_LABEL_AIR}</strong> tokens (1:1 with your DeFAI balance) <strong className={`${accentTextColor}`}>PLUS</strong> a share of the <strong className={`${accentTextColor} text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 via-amber-400 to-orange-400`}>{(airdropPoolSize || 0).toLocaleString()} {TOKEN_LABEL_AIR}</strong> community pool based on your points!
+            If you hold DeFAI during the snapshot, you will receive <strong className={`${accentTextColor} text-transparent bg-clip-text bg-gradient-to-r from-green-400 via-teal-400 to-emerald-400`}>{defaiBalanceFetched !== null && defaiBalanceFetched !== undefined ? defaiBalanceFetched.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2}) : 'your current'} {TOKEN_LABEL_AIR}</strong> tokens (1:1 with your DeFAI balance) <strong className={`${accentTextColor}`}>PLUS</strong> a share of the <strong className={`${accentTextColor} text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 via-amber-400 to-orange-400`}>{(airdropPoolSize || 0).toLocaleString()} {TOKEN_LABEL_AIR}</strong> community pool based on your points!
           </p>
         </div>
 

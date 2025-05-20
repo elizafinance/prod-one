@@ -694,7 +694,11 @@ export default function HomePage() {
 
             {showPointsSection && userData && (
               <div className="w-full max-w-md mt-1 flex flex-col items-center space-y-5">
-                <AirdropInfoDisplay onTotalAirdropChange={setCurrentTotalAirdropForSharing} showTitle={false} />
+                <AirdropInfoDisplay 
+                  onTotalAirdropChange={setCurrentTotalAirdropForSharing} 
+                  showTitle={false} 
+                  defaiBalanceFetched={defaiBalance}
+                />
                 <DashboardActionRow 
                   isRewardsActive={isRewardsActive}
                   currentTotalAirdropForSharing={currentTotalAirdropForSharing}

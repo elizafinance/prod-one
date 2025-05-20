@@ -82,8 +82,8 @@ const VoteModal: React.FC<VoteModalProps> = ({ isOpen, onClose, proposal, onVote
       
       // If leader, also check vote count to determine if can cancel
       if (userIsLeader) {
-        // Use the totalVoters count from proposal data
-        setVoteCount(proposal.totalVoters);
+        // Use voters count (for active proposals) or final voters for closed ones
+        setVoteCount(proposal.totalVoters ?? proposal.totalFinalVoters ?? null);
       }
     }
   }, [isOpen, proposal, typedSession?.user?.walletAddress]);
@@ -202,8 +202,8 @@ const VoteModal: React.FC<VoteModalProps> = ({ isOpen, onClose, proposal, onVote
         
         <div className="py-4 space-y-3 text-sm text-gray-700">
           <p><strong>Contract:</strong> <code className="text-xs bg-gray-100 p-1 rounded">{proposal.tokenContractAddress}</code></p>
-          <p><strong>Current Weighted Score:</strong> {proposal.tally.totalEngagedWeight.toLocaleString()}</p>
-          <p><strong>Votes:</strong> Up: {proposal.tally.upVotesCount}, Down: {proposal.tally.downVotesCount}, Abstain: {proposal.tally.abstainVotesCount} ({proposal.totalVoters} total)</p>
+          <p><strong>Current Weighted Score:</strong> {proposal.tally?.totalEngagedWeight?.toLocaleString() ?? '—'}</p>
+          <p><strong>Votes:</strong> Up: {proposal.tally?.upVotesCount ?? '—'}, Down: {proposal.tally?.downVotesCount ?? '—'}, Abstain: {proposal.tally?.abstainVotesCount ?? '—'} ({proposal.totalVoters ?? proposal.totalFinalVoters ?? '—'} total)</p>
           {proposal.broadcasted && <p className="font-semibold text-green-600">This proposal has been broadcasted!</p>}
           {currentUserPoints != null && (
             <p><strong>Your voting weight:</strong> {currentUserPoints.toLocaleString()} {TOKEN_LABEL_POINTS}</p>

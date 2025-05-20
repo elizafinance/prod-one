@@ -27,16 +27,15 @@ export interface ProposalCardData {
   epochEnd: Date; // Use Date type if it's already transformed, or string if raw from API
   broadcasted: boolean;
   status: 'active' | 'closed_passed' | 'closed_failed' | 'closed_executed' | 'archived' | 'cancelled'; // Include all statuses
-  tally: DetailedVoteTally;
-  totalVoters: number;
-  // Add these if they are part of the lean proposal object from the API
-  // and needed directly on the card, otherwise tally covers most vote aspects.
-  // finalUpVotesWeight?: number;
-  // finalDownVotesWeight?: number;
-  // finalAbstainVotesCount?: number;
-  // totalFinalVoters?: number;
-  // finalUpVotesCount?: number;
-  // finalDownVotesCount?: number;
+  tally?: DetailedVoteTally;
+  totalVoters?: number;
+  // Fields populated for closed proposals
+  finalUpVotesWeight?: number;
+  finalDownVotesWeight?: number;
+  finalAbstainVotesCount?: number;
+  totalFinalVoters?: number;
+  finalUpVotesCount?: number;
+  finalDownVotesCount?: number;
 }
 
 interface ProposalCardProps {
@@ -89,7 +88,22 @@ const ProposalCard: React.FC<ProposalCardProps> = ({ proposal, onVoteClick, curr
     return `${minutes}m left`;
   };
   
-  const { tally, totalVoters, status } = proposal;
+  const status = proposal.status;
+
+  // Build a safe tally object regardless of proposal status or API shape
+  const safeTally: DetailedVoteTally = proposal.tally ?? {
+    upVotesCount: proposal.finalUpVotesCount ?? 0,
+    downVotesCount: proposal.finalDownVotesCount ?? 0,
+    abstainVotesCount: proposal.finalAbstainVotesCount ?? 0,
+    upVotesWeight: proposal.finalUpVotesWeight ?? 0,
+    downVotesWeight: proposal.finalDownVotesWeight ?? 0,
+    netVoteWeight: (proposal.finalUpVotesWeight ?? 0) - (proposal.finalDownVotesWeight ?? 0),
+    totalEngagedWeight: (proposal.finalUpVotesWeight ?? 0) + (proposal.finalDownVotesWeight ?? 0),
+  };
+
+  const safeTotalVoters = proposal.totalVoters ?? proposal.totalFinalVoters ?? (
+    (proposal.finalUpVotesCount ?? 0) + (proposal.finalDownVotesCount ?? 0) + (proposal.finalAbstainVotesCount ?? 0)
+  );
 
   const isClosed = status !== 'active';
 
@@ -122,26 +136,26 @@ const ProposalCard: React.FC<ProposalCardProps> = ({ proposal, onVoteClick, curr
         {status === 'active' && (
           <>
             {QUORUM_VOTERS_TARGET > 0 && 
-              <ProgressBar value={totalVoters} maxValue={QUORUM_VOTERS_TARGET} colorClass="bg-yellow-500" label="Quorum (Voters)"/>
+              <ProgressBar value={safeTotalVoters} maxValue={QUORUM_VOTERS_TARGET} colorClass="bg-yellow-500" label="Quorum (Voters)"/>
             }
             {QUORUM_WEIGHT_TARGET > 0 && 
-              <ProgressBar value={tally.totalEngagedWeight} maxValue={QUORUM_WEIGHT_TARGET} colorClass="bg-orange-500" label="Quorum (Weight)"/>
+              <ProgressBar value={safeTally.totalEngagedWeight} maxValue={QUORUM_WEIGHT_TARGET} colorClass="bg-orange-500" label="Quorum (Weight)"/>
             }
             {PASS_NET_WEIGHT_TARGET > 0 && 
-              <ProgressBar value={Math.max(0, tally.netVoteWeight)} maxValue={PASS_NET_WEIGHT_TARGET} colorClass="bg-green-500" label="Approval Strength"/>
+              <ProgressBar value={Math.max(0, safeTally.netVoteWeight)} maxValue={PASS_NET_WEIGHT_TARGET} colorClass="bg-green-500" label="Approval Strength"/>
             }
           </>
         )}
 
         <div className="flex justify-between items-center my-3">
           <div className="text-xs text-gray-500">
-            <p>Up: {tally.upVotesCount} ({tally.upVotesWeight.toLocaleString()} pts)</p>
-            <p>Down: {tally.downVotesCount} ({tally.downVotesWeight.toLocaleString()} pts)</p>
-            <p>Abstain: {tally.abstainVotesCount} ({totalVoters} voters)</p>
+            <p>Up: {safeTally.upVotesCount} ({safeTally.upVotesWeight.toLocaleString()} pts)</p>
+            <p>Down: {safeTally.downVotesCount} ({safeTally.downVotesWeight.toLocaleString()} pts)</p>
+            <p>Abstain: {safeTally.abstainVotesCount} ({safeTotalVoters} voters)</p>
           </div>
           <div className="text-right">
-            <p className={`text-sm font-semibold ${tally.netVoteWeight > 0 ? 'text-green-600' : tally.netVoteWeight < 0 ? 'text-red-600' : 'text-gray-700'}`}>
-              Net: {tally.netVoteWeight.toLocaleString()} pts
+            <p className={`text-sm font-semibold ${safeTally.netVoteWeight > 0 ? 'text-green-600' : safeTally.netVoteWeight < 0 ? 'text-red-600' : 'text-gray-700'}`}>
+              Net: {safeTally.netVoteWeight.toLocaleString()} pts
             </p>
             <p className="text-xs font-medium text-blue-500 mt-1">{timeRemaining()}</p>
           </div>

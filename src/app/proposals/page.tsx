@@ -156,9 +156,17 @@ export default function ProposalsPage() {
     }
   };
 
+  const tabClass = (isActive: boolean) => `px-4 py-2 rounded-lg text-sm font-medium transition-colors ${isActive ? 'bg-blue-600 text-white' : 'bg-muted hover:bg-muted/70 text-foreground'}`;
+
   return (
     <main className="flex flex-col items-center min-h-screen p-4 sm:p-8 bg-background text-foreground">
       <div className="w-full max-w-4xl mx-auto">
+        {/* Tabs Navigation */}
+        <div className="flex justify-center space-x-2 mb-8">
+          <span className={tabClass(true)}>Active</span>
+          <Link href="/proposals/closed" className={tabClass(false)}>Closed</Link>
+          <Link href="/proposals/archived" className={tabClass(false)}>Archived</Link>
+        </div>
         <div className="text-center mb-10">
           <h1 className="text-4xl sm:text-5xl font-bold font-spacegrotesk tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600">
             Active Governance Proposals

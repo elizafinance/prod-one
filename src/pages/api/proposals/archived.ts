@@ -13,9 +13,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const limit = parseInt(req.query.limit as string) || PROPOSALS_PER_PAGE;
     const skip = (page - 1) * limit;
 
-    // Closed proposals (exclude archived)
+    // Only archived proposals
     const statusFilter = {
-      status: { $in: ['closed_passed', 'closed_failed', 'closed_executed'] },
+      status: 'archived',
     };
 
     const totalProposalsCount = await Proposal.countDocuments(statusFilter);
@@ -33,7 +33,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       totalProposals: totalProposalsCount,
     });
   } catch (error) {
-    console.error('Error fetching closed proposals:', error);
-    return res.status(500).json({ error: 'Failed to fetch closed proposals.' });
+    console.error('Error fetching archived proposals:', error);
+    return res.status(500).json({ error: 'Failed to fetch archived proposals.' });
   }
 } 

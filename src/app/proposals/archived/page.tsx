@@ -12,7 +12,7 @@ interface ApiResponse {
   totalProposals: number;
 }
 
-export default function ClosedProposalsPage() {
+export default function ArchivedProposalsPage() {
   const [apiResponse, setApiResponse] = useState<ApiResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -23,10 +23,10 @@ export default function ClosedProposalsPage() {
     setIsLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/proposals/closed?page=${page}&limit=${proposalsPerPage}`);
+      const res = await fetch(`/api/proposals/archived?page=${page}&limit=${proposalsPerPage}`);
       if (!res.ok) {
         const errData = await res.json();
-        throw new Error(errData.error || 'Failed to fetch closed proposals');
+        throw new Error(errData.error || 'Failed to fetch archived proposals');
       }
       const data: ApiResponse = await res.json();
       setApiResponse(data);
@@ -62,16 +62,16 @@ export default function ClosedProposalsPage() {
         {/* Tabs Navigation */}
         <div className="flex justify-center space-x-2 mb-8">
           <Link href="/proposals" className={tabClass(false)}>Active</Link>
-          <span className={tabClass(true)}>Closed</span>
-          <Link href="/proposals/archived" className={tabClass(false)}>Archived</Link>
+          <Link href="/proposals/closed" className={tabClass(false)}>Closed</Link>
+          <span className={tabClass(true)}>Archived</span>
         </div>
 
         <div className="text-center mb-10">
-          <h1 className="text-4xl sm:text-5xl font-bold font-spacegrotesk tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-gray-700 via-gray-600 to-gray-500">
-            Closed Governance Proposals
+          <h1 className="text-4xl sm:text-5xl font-bold font-spacegrotesk tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-gray-600 via-gray-500 to-gray-400">
+            Archived Governance Proposals
           </h1>
           <p className="text-muted-foreground mt-3 text-lg max-w-2xl mx-auto">
-            Browse proposals that have concluded voting.
+            Historical record of proposals kept for transparency.
           </p>
         </div>
 
@@ -96,7 +96,7 @@ export default function ClosedProposalsPage() {
 
         {!isLoading && !error && apiResponse && apiResponse.proposals.length === 0 && (
           <div className="text-center py-10">
-            <p className="text-xl text-foreground">No closed proposals yet.</p>
+            <p className="text-xl text-foreground">No archived proposals found.</p>
           </div>
         )}
 

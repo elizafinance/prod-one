@@ -81,8 +81,27 @@ async function handler(
         if (!nacl.sign.detached.verify(messageBytes, signatureBytes, publicKeyBytes)) {
           return res.status(401).json({ error: 'Invalid signature.' });
         }
-        const parsedMsg = JSON.parse(msg);
-        if (parsedMsg.proposalId !== proposalId || parsedMsg.choice !== choice || parsedMsg.voter !== userWalletAddress) {
+        
+        // Correctly parse the pipe-separated message
+        const parts = msg.split('|');
+        if (parts.length !== 4) {
+          console.error('[VoteAPI] Malformed message string for signature:', msg);
+          return res.status(400).json({ error: 'Malformed message string for signature.' });
+        }
+        const msgPrefix = parts[0];
+        const msgProposalId = parts[1];
+        const msgChoice = parts[2];
+        const msgTimestamp = parts[3]; // Timestamp from the message
+
+        // Basic validation of the timestamp to prevent very old messages (e.g., within 5 minutes)
+        const fiveMinutes = 5 * 60 * 1000;
+        if (Math.abs(Date.now() - parseInt(msgTimestamp, 10)) > fiveMinutes) {
+            console.warn('[VoteAPI] Timestamp outside allowed window:', { msgTimestamp, serverTime: Date.now()});
+            return res.status(400).json({ error: 'Signed message timestamp is outside the allowed window.' });
+        }
+
+        if (msgPrefix !== 'defai-vote' || msgProposalId !== proposalId || msgChoice !== choice) {
+          console.error('[VoteAPI] Signed message content does not match vote details:', { msg, proposalId, choice });
           return res.status(400).json({ error: 'Signed message content does not match vote details.'});
         }
       } catch (sigErr) {

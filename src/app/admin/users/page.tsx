@@ -83,7 +83,6 @@ export default function AdminUsersPage() {
   const [limit, setLimit] = useState(25); // Default limit, can be made configurable
 
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [isExportingCsv, setIsExportingCsv] = useState(false); // State for CSV export loading
 
   useEffect(() => {
     if (status !== 'authenticated') return;
@@ -229,62 +228,6 @@ export default function AdminUsersPage() {
     setUsers(prev => [newUser, ...prev]);
   };
 
-  const handleUserExport = async () => {
-    setIsExportingCsv(true);
-    toast.info("Preparing user data for download...");
-    try {
-      const res = await fetch('/api/admin/users-export');
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.error || `Failed to fetch users for export: ${res.statusText}`);
-      }
-      const usersToExport = await res.json();
-
-      if (!usersToExport || usersToExport.length === 0) {
-        toast.info("No users to export.");
-        setIsExportingCsv(false);
-        return;
-      }
-
-      // Define CSV headers
-      const headers = ["X Username", "Wallet Address", "Points", "X ID"];
-      // Convert user data to CSV rows
-      const csvRows = usersToExport.map((user: any) => 
-        [
-          user.xUsername || 'N/A',
-          user.walletAddress || 'N/A',
-          user.points === null || user.points === undefined ? 0 : user.points,
-          user.xId || 'N/A'
-        ].join(',')
-      );
-
-      // Combine headers and rows
-      const csvString = [headers.join(','), ...csvRows].join('\n');
-
-      // Create a Blob and trigger download
-      const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
-      const link = document.createElement('a');
-      if (link.download !== undefined) { // feature detection
-        const url = URL.createObjectURL(blob);
-        link.setAttribute('href', url);
-        link.setAttribute('download', 'users_export.csv');
-        link.style.visibility = 'hidden';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-        toast.success("User data CSV downloaded.");
-      } else {
-        toast.error("CSV download is not supported by your browser.");
-      }
-
-    } catch (err: any) {
-      toast.error(err.message || 'Error exporting users to CSV');
-      console.error("Error exporting users:", err);
-    }
-    setIsExportingCsv(false);
-  };
-
   const userRole = (session?.user as any)?.role;
   if (status === 'loading') return <p className="p-10">Loading session...</p>;
   if (status !== 'authenticated' || userRole !== 'admin') {
@@ -348,15 +291,8 @@ export default function AdminUsersPage() {
         </div>
       </div>
 
-      {/* Create User button and Export CSV button*/}
-      <div className="mb-4 flex justify-end space-x-2">
-        <button 
-          onClick={handleUserExport} 
-          className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-sm disabled:opacity-50"
-          disabled={isExportingCsv}
-        >
-          {isExportingCsv ? 'Exporting...' : 'Download Users CSV'}
-        </button>
+      {/* Create User button - Reverted to original state */}
+      <div className="mb-4 flex justify-end">
         <button onClick={()=>setIsCreateModalOpen(true)} className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 text-sm">Create User</button>
       </div>
 

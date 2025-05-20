@@ -162,9 +162,18 @@ export default function AdminUsersPage() {
     setUserToPurge(null);
   };
 
-  const handleViewDetails = async (wallet: string) => {
+  const handleViewDetails = async (identifier: string) => {
     try {
-      const res = await fetch(`/api/admin/users/${wallet}`);
+      let apiUrl = '';
+      const isLikelyObjectId = /^[a-f0-9]{24}$/i.test(identifier);
+
+      if (isLikelyObjectId && !identifier.startsWith('0x')) { // Check if it's likely an ObjectId and not a wallet
+        apiUrl = `/api/admin/users/id/${identifier}`;
+      } else {
+        apiUrl = `/api/admin/users/${identifier}`;
+      }
+      
+      const res = await fetch(apiUrl);
       const data = await res.json(); // data = { user: UserDoc, recentActions: ..., recentNotifications: ... }
       if (res.ok && data.user) {
         // Flatten the structure to match FullUserDetail interface
@@ -187,11 +196,11 @@ export default function AdminUsersPage() {
   const handleUserUpdate = (updatedUser: FullUserDetail) => {
     setUsers(prevUsers => 
       prevUsers.map(user => 
-        user.walletAddress === updatedUser.walletAddress ? { ...user, ...updatedUser } : user
+        (user._id === updatedUser._id || user.walletAddress === updatedUser.walletAddress) ? { ...user, ...updatedUser } : user
       )
     );
     // Optionally, if the modal is still open with this user, update selectedUser as well
-    if (selectedUser && selectedUser.walletAddress === updatedUser.walletAddress) {
+    if (selectedUser && (selectedUser._id === updatedUser._id || selectedUser.walletAddress === updatedUser.walletAddress)) {
       setSelectedUser(prevSelected => prevSelected ? { ...prevSelected, ...updatedUser } : null);
     }
   };
@@ -232,13 +241,13 @@ export default function AdminUsersPage() {
       {/* Filter Section */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6 p-4 border rounded-lg bg-gray-50">
         <div>
-          <label htmlFor="searchQuery" className="block text-sm font-medium text-gray-700">Search Wallet/Username</label>
+          <label htmlFor="searchQuery" className="block text-sm font-medium text-gray-700">Search Wallet/Username/Email/ID</label>
           <input
             id="searchQuery"
             type="text"
             value={query}
             onChange={(e) => { setQuery(e.target.value); handleFilterChange(); }}
-            placeholder="Wallet or X Username"
+            placeholder="Wallet, X Username, Email or ID"
             className="mt-1 border p-2 rounded w-full shadow-sm"
           />
         </div>
@@ -296,6 +305,7 @@ export default function AdminUsersPage() {
             <table className="w-full border text-sm table-auto">
               <thead>
                 <tr className="bg-gray-100 text-left">
+                  <th className="p-2">ID</th>
                   <th className="p-2">Wallet</th>
                   <th className="p-2">Username</th>
                   <th className="p-2">Points</th>
@@ -305,30 +315,37 @@ export default function AdminUsersPage() {
                 </tr>
               </thead>
               <tbody>
-                {users.map((u) => (
-                  <tr key={u.walletAddress || (u._id as any)?.toString?.() || Math.random().toString()} className="border-t hover:bg-gray-50">
-                    <td className="p-2 font-mono truncate max-w-xs" title={u.walletAddress}>{u.walletAddress || '-'}</td>
-                    <td className="p-2 truncate max-w-xs">{u.xUsername || '-'}</td>
-                    <td className="p-2 text-right">{u.points?.toLocaleString() || 0}</td>
-                    <td className="p-2 truncate max-w-xs" title={u.squadId}>{u.squadId || '-'}</td>
-                    <td className="p-2">{u.role || 'user'}</td>
-                    <td className="p-2 whitespace-nowrap">
-                      <button
-                        onClick={() => u.walletAddress && handleViewDetails(u.walletAddress)}
-                        disabled={!u.walletAddress}
-                        className="text-blue-600 hover:underline text-xs mr-2 disabled:opacity-40"
-                      >
-                        Details
-                      </button>
-                      <button
-                        onClick={() => initiatePurge(u)}
-                        className="text-red-600 hover:underline text-xs"
-                      >
-                        Purge
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                {users.map((u) => {
+                  const displayId = (u._id as any)?.toString() || 'N/A';
+                  const idForOps = u.walletAddress || displayId;
+                  const isLikelyObjectId = /^[a-f0-9]{24}$/i.test(idForOps);
+
+                  return (
+                    <tr key={idForOps || Math.random().toString()} className="border-t hover:bg-gray-50">
+                      <td className="p-2 font-mono truncate max-w-xs" title={displayId}>{displayId.substring(0,8)}...</td>
+                      <td className="p-2 font-mono truncate max-w-xs" title={u.walletAddress}>{u.walletAddress || '-'}</td>
+                      <td className="p-2 truncate max-w-xs">{u.xUsername || '-'}</td>
+                      <td className="p-2 text-right">{u.points?.toLocaleString() || 0}</td>
+                      <td className="p-2 truncate max-w-xs" title={u.squadId}>{u.squadId || '-'}</td>
+                      <td className="p-2">{u.role || 'user'}</td>
+                      <td className="p-2 whitespace-nowrap">
+                        <button
+                          onClick={() => idForOps && handleViewDetails(idForOps)}
+                          disabled={!idForOps}
+                          className="text-blue-600 hover:underline text-xs mr-2 disabled:opacity-40"
+                        >
+                          Details
+                        </button>
+                        <button
+                          onClick={() => initiatePurge(u)}
+                          className="text-red-600 hover:underline text-xs"
+                        >
+                          Purge
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
                 {users.length === 0 && (
                     <tr><td colSpan={6} className="text-center p-4 text-gray-500">No users found matching your criteria.</td></tr>
                 )}

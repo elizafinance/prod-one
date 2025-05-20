@@ -28,13 +28,21 @@ export async function GET(request: NextRequest) {
     const andConditions: Filter<Document>[] = [];
 
     if (q) {
-      andConditions.push({
-        $or: [
-          { walletAddress: { $regex: q, $options: 'i' } },
-          { xUsername: { $regex: q, $options: 'i' } },
-          { email: { $regex: q, $options: 'i' } },
-        ]
-      });
+      const orConditions: Filter<Document>[] = [
+        { walletAddress: { $regex: q, $options: 'i' } },
+        { xUsername: { $regex: q, $options: 'i' } },
+        { email: { $regex: q, $options: 'i' } },
+        { auth0Id: { $regex: q, $options: 'i' } }
+      ];
+
+      if (/^[a-f0-9]{24}$/i.test(q)) {
+        try {
+          orConditions.push({ _id: new ObjectId(q) });
+        } catch (e) {
+          console.warn(`Search query "${q}" looks like an ObjectId but failed to parse:`, e);
+        }
+      }
+      andConditions.push({ $or: orConditions });
     }
 
     if (roleFilter) {

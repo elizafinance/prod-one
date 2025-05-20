@@ -15,12 +15,14 @@ export default function UserDetailsModal({ user, isOpen, onClose, onUserUpdate }
   const [activeTab, setActiveTab] = useState('details');
   const [newPoints, setNewPoints] = useState<number | string>(user.points || 0);
   const [newRole, setNewRole] = useState<string>(user.role || 'user');
+  const [newWalletAddress, setNewWalletAddress] = useState<string>(user.walletAddress || '');
   const [reason, setReason] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     setNewPoints(user.points || 0);
     setNewRole(user.role || 'user');
+    setNewWalletAddress(user.walletAddress || '');
     setReason('');
     setActiveTab('details');
   }, [user]);
@@ -34,11 +36,12 @@ export default function UserDetailsModal({ user, isOpen, onClose, onUserUpdate }
 
     const currentPoints = user.points || 0;
     const currentRole = user.role || 'user';
+    const currentWalletAddress = user.walletAddress || '';
 
     if (String(newPoints) !== String(currentPoints)) {
         const parsedPoints = parseInt(String(newPoints), 10);
-        if (isNaN(parsedPoints)) {
-            toast.error('Invalid points value.');
+        if (isNaN(parsedPoints) || parsedPoints < 0) {
+            toast.error('Invalid points value. Must be a non-negative number.');
             setIsSaving(false);
             return;
         }
@@ -48,18 +51,34 @@ export default function UserDetailsModal({ user, isOpen, onClose, onUserUpdate }
             return;
         }
         payload.points = parsedPoints;
-        payload.reason = reason;
+        payload.reason = reason; // reason is shared for all changes in this modal for now
         changesMade = true;
     }
 
     if (newRole !== currentRole) {
         payload.role = newRole;
-        if (!payload.reason && changesMade) { // If points also changed, reason is already set
-            // No specific reason needed for role change alone unless we want to enforce it
-        } else if (!payload.reason) {
-             // If ONLY role is changing, you might want a default reason or make it optional
-            // For now, if points are not changing, reason is not strictly enforced by API for role change only
+        if (!reason.trim() && !changesMade) { // Require reason if it's the only change
+            toast.error('Reason is required when changing role.');
+            setIsSaving(false);
+            return;
         }
+        if (!payload.reason) payload.reason = reason; // Use reason if provided
+        changesMade = true;
+    }
+
+    if (newWalletAddress !== currentWalletAddress) {
+        if (newWalletAddress && !/^0x[a-fA-F0-9]{40}$/.test(newWalletAddress) && !/^[T][a-zA-Z0-9]{33}$/.test(newWalletAddress)) {
+             // Basic check for ETH/TRX like addresses, can be expanded
+            // toast.warn('Wallet address format might be incorrect. Proceeding anyway.');
+            // For now, let's allow any string, backend does more validation if needed.
+        }
+        payload.walletAddress = newWalletAddress; // API handles if it's empty string for unlinking
+        if (!reason.trim() && !changesMade) { // Require reason if it's the only change
+            toast.error('Reason is required when changing wallet address.');
+            setIsSaving(false);
+            return;
+        }
+        if (!payload.reason) payload.reason = reason; // Use reason if provided
         changesMade = true;
     }
 
@@ -68,9 +87,33 @@ export default function UserDetailsModal({ user, isOpen, onClose, onUserUpdate }
         setIsSaving(false);
         return;
     }
+    
+    // Ensure reason is in payload if any change was made and reason was entered
+    if (changesMade && reason.trim() && !payload.reason) {
+        payload.reason = reason.trim();
+    }
+    if (changesMade && !payload.reason && (payload.points !== undefined || payload.role !== undefined || payload.walletAddress !== undefined)) {
+        // Check if any of the main fields that *require* a reason were changed
+        if ((payload.points !== undefined && String(newPoints) !== String(currentPoints)) || 
+            (payload.role !== undefined && newRole !== currentRole) || 
+            (payload.walletAddress !== undefined && newWalletAddress !== currentWalletAddress)){
+            toast.error('A reason is required for the changes made.');
+            setIsSaving(false);
+            return;
+        }
+    }
 
     try {
-      const res = await fetch(`/api/admin/users/${user.walletAddress}`, {
+      // Determine API endpoint: if user has walletAddress, use that, otherwise use _id.
+      // The PATCH to /api/admin/users/id/[id] can handle walletAddress updates.
+      const apiEndpoint = user._id ? `/api/admin/users/id/${user._id.toString()}` : `/api/admin/users/${user.walletAddress}`;
+      if (!user._id && !user.walletAddress) {
+        toast.error("User has no identifier (ID or Wallet Address) to update.");
+        setIsSaving(false);
+        return;
+      }
+
+      const res = await fetch(apiEndpoint, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -94,11 +137,16 @@ export default function UserDetailsModal({ user, isOpen, onClose, onUserUpdate }
   
   const renderDetailsTab = () => (
     <div className="space-y-3">
+        {user._id && (
+             <div key="db_id"><strong>Database ID: </strong> <span className="font-mono">{user._id.toString()}</span></div>
+        )}
         {Object.entries(user || {}).map(([key, value]) => {
             if (['recentActions', 'recentNotifications', '_id'].includes(key) || (typeof value === 'object' && value !== null) || Array.isArray(value)) {
                 return null; 
             }
             if (typeof value === 'function') return null;
+            // Skip walletAddress here as it has its own input field now
+            if (key === 'walletAddress') return null;
 
             return (
                 <div key={key}>
@@ -107,11 +155,13 @@ export default function UserDetailsModal({ user, isOpen, onClose, onUserUpdate }
                 </div>
             );
         })}
-        {user._id && (
-             <div><strong className="capitalize">Database ID: </strong> <span>{user._id.toString()}</span></div>
-        )}
+        
         <div className="mt-4 pt-4 border-t">
             <h4 className="font-semibold mb-2">Update User</h4>
+            <div className="mb-3">
+                <label className="block text-sm font-medium">Wallet Address:</label>
+                <input type="text" value={newWalletAddress} onChange={e => setNewWalletAddress(e.target.value)} placeholder="Enter wallet address (or leave empty to unlink)" className="border p-1 rounded w-full font-mono" />
+            </div>
             <div className="mb-3">
                 <label className="block text-sm font-medium">Points:</label>
                 <input type="number" value={newPoints} onChange={e => setNewPoints(e.target.value)} className="border p-1 rounded w-full" />
@@ -124,8 +174,8 @@ export default function UserDetailsModal({ user, isOpen, onClose, onUserUpdate }
                 </select>
             </div>
             <div className="mb-3">
-                <label className="block text-sm font-medium">Reason (for points change):</label>
-                <textarea value={reason} onChange={e => setReason(e.target.value)} className="border p-1 rounded w-full" rows={2}></textarea>
+                <label className="block text-sm font-medium">Reason (Required for any change):</label>
+                <textarea value={reason} onChange={e => setReason(e.target.value)} placeholder="State the reason for this update" className="border p-1 rounded w-full" rows={2}></textarea>
             </div>
             <button onClick={handleSave} disabled={isSaving} className="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 disabled:bg-gray-400">
                 {isSaving ? 'Saving...' : 'Save Changes'}
@@ -168,7 +218,7 @@ export default function UserDetailsModal({ user, isOpen, onClose, onUserUpdate }
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
       <div className="bg-white p-5 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] flex flex-col">
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-bold">User Details: {user.walletAddress ? user.walletAddress.substring(0, 6) : 'N/A'}...</h2>
+          <h2 className="text-xl font-bold">User Details: {(user.xUsername || user.walletAddress || user._id?.toString() || 'Unknown User').substring(0,15)}...</h2>
           <button onClick={onClose} className="text-2xl">&times;</button>
         </div>
 

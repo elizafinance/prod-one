@@ -90,10 +90,20 @@ export default function CrossmintLoginButton() {
   };
 
   const initializeCrossmint = () => {
+    console.log("[CrossmintButton] initializeCrossmint called. window.crossmintUiService exists:", !!window.crossmintUiService, "clientRef.current exists:", !!clientRef.current);
+
     if (typeof window !== "undefined" && (window.crossmintUiService as CrossmintUiService) && !clientRef.current) {
       try {
+        const clientId = process.env.NEXT_PUBLIC_CROSSMINT_CLIENT_SIDE;
+        if (!clientId) {
+          console.error("[CrossmintButton] Error: NEXT_PUBLIC_CROSSMINT_CLIENT_SIDE is not set. Cannot initialize SDK.");
+          setErrorState("Crossmint configuration error: Client ID is missing. Please contact support.");
+          setIsSdkLoading(false);
+          return;
+        }
+
         const client = (window.crossmintUiService as CrossmintUiService).init({
-          clientId: process.env.NEXT_PUBLIC_CROSSMINT_CLIENT_SIDE,
+          clientId: clientId,
           environment: process.env.NEXT_PUBLIC_CROSSMINT_ENVIRONMENT || "production",
           callbacks: { 
             onLoginSuccess: async (address: string, chainIdentifier: string) => { 
@@ -128,12 +138,13 @@ export default function CrossmintLoginButton() {
             },
           }
         });
-        if (client) {
+
+        if (client && typeof client.showLoginModal === 'function') {
             clientRef.current = client;
             setIsSdkLoading(false);
             console.log("[CrossmintButton] Crossmint SDK initialized and clientRef set.");
         } else {
-            console.error("[CrossmintButton] Crossmint SDK init() did not return a client.");
+            console.error("[CrossmintButton] Crossmint SDK init() did not return a valid client object. Client:", client);
             setErrorState("Could not initialize Crossmint client. Please refresh.");
             setIsSdkLoading(false);
         }
@@ -143,6 +154,17 @@ export default function CrossmintLoginButton() {
         setIsSdkLoading(false);
       }
     } else if (!clientRef.current) {
+      // This case means:
+      // 1. window.crossmintUiService was falsy (e.g. undefined, null) OR
+      // 2. clientRef.current was already set (but this elseif checks !clientRef.current, so this sub-condition means clientRef.current is null)
+      // Effectively, this path is taken if window.crossmintUiService is not available AND clientRef.current is null.
+      console.warn("[CrossmintButton] initializeCrossmint: Skipped main init logic. window.crossmintUiService not available or clientRef already set, yet clientRef is null. SDK may not be ready.");
+      // Consider if isSdkLoading should be set to false here if crossmintUiService is definitively not available after script load.
+      // For now, leaving as is to see logs. If window.crossmintUiService is consistently undefined here after script load,
+      // it means the script isn't setting it up as expected, and we might need to set isSdkLoading to false and show an error.
+    } else {
+      // This case means clientRef.current is already set. SDK should be initialized.
+      console.log("[CrossmintButton] initializeCrossmint: Client already initialized.");
     }
   };
 

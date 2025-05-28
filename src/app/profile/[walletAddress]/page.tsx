@@ -10,6 +10,7 @@ import UserAvatar from '@/components/UserAvatar';
 import ShareProfileButton from '@/components/ShareProfileButton';
 import GlowingBadge from '@/components/GlowingBadge';
 import AirdropInfoDisplay from "@/components/airdrop/AirdropInfoDisplay";
+import { useAuth } from "@crossmint/client-sdk-react-ui";
 
 // INTERFACES AND CONSTANTS used by the Client Component
 interface PublicProfileSquadInfo {
@@ -64,6 +65,7 @@ export default function UserProfilePage() {
   const walletAddress = params?.walletAddress as string || '';
   const { publicKey } = useWallet();
   const loggedInUserWalletAddress = publicKey?.toBase58();
+  const { user: crossmintUser, status: crossmintStatus } = useAuth();
 
   const [profileData, setProfileData] = useState<PublicProfileData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -116,6 +118,30 @@ export default function UserProfilePage() {
           <p className="text-lg text-foreground font-mono break-all">{profileData.maskedWalletAddress}</p>
           {profileData.xUsername && <p className="text-md text-muted-foreground">@{profileData.xUsername}</p>}
         </div>
+
+        {/* Crossmint User Info - Display if it's their own profile and data is available */}
+        {isOwnProfile && crossmintUser && (
+          <div className="my-6 p-6 bg-muted border border-border rounded-lg shadow-md">
+            <h2 className="text-sm font-semibold text-purple-700 uppercase tracking-wider mb-3">Account Details (Connected via Crossmint)</h2>
+            <div className="space-y-2 text-sm">
+              {crossmintUser.email && (
+                <p><strong>Email:</strong> {crossmintUser.email}</p>
+              )}
+              {(crossmintUser as any).google?.name && (
+                <div>
+                  <p><strong>Google:</strong> {(crossmintUser as any).google.name} ({(crossmintUser as any).google.picture && <a href={(crossmintUser as any).google.picture} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">view pic</a>})</p>
+                </div>
+              )}
+              {(crossmintUser as any).farcaster?.username && (
+                <div>
+                  <p><strong>Farcaster:</strong> @{(crossmintUser as any).farcaster.username} (FID: {(crossmintUser as any).farcaster.fid})</p>
+                  {(crossmintUser as any).farcaster.pfpUrl && <p><a href={(crossmintUser as any).farcaster.pfpUrl} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">View Farcaster PFP</a></p>}
+                </div>
+              )}
+              {/* Add other social logins or web3 wallet info from crossmintUser if needed */}
+            </div>
+          </div>
+        )}
 
         {/* Airdrop Info Display for Own Profile */}
         {isOwnProfile && (

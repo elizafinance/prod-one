@@ -31,8 +31,9 @@ export default function CrossmintProviders({ children }: { children: React.React
                 loginMethods={[
                     "email", 
                     "google", 
-                    // "farcaster", 
-                    // "twitter", // X (Twitter)
+                    "farcaster", 
+                    "twitter", // X (Twitter)
+                    "web3",
                     // "discord",
                     // "apple"
                 ]} // Customize as needed

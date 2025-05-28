@@ -26,6 +26,7 @@
     "cron:ts:proposals": "npx ts-node --project tsconfig.json -r tsconfig-paths/register --esm src/scripts/cron/processProposals.ts"
   },
   "dependencies": {
+    "@crossmint/client-sdk-react-ui": "^1.19.21",
     "@headlessui/react": "^2.2.3",
     "@heroicons/react": "^2.1.5",
     "@hookform/resolvers": "^3.9.0",

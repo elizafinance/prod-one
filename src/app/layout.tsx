@@ -9,6 +9,12 @@ import { Toaster as SonnerToaster } from "sonner";
 import SessionProviderWrapper from "@/providers/sessionProviderWrapper";
 import ConditionalAppHeader from "@/components/layout/ConditionalAppHeader";
 import AgentSetupModal from "@/components/modals/AgentSetupModal";
+import { Analytics } from "@vercel/analytics/react"
+import { SpeedInsights } from "@vercel/speed-insights/next"
+import { AuthProvider } from "@/providers/AuthProvider";
+import SolanaWalletProvider from "@/providers/SolanaWalletProvider";
+import CrossmintProviders from "@/providers/CrossmintProviders";
+import { ThemeProvider } from "@/components/theme-provider"
 
 const inter = Inter({ subsets: ["latin"], variable: '--font-inter' });
 const orbitron = Orbitron({ 
@@ -47,23 +53,39 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${inter.variable} ${orbitron.variable}`}>
+    <html lang="en" className={`${inter.variable} ${orbitron.variable}`} suppressHydrationWarning>
+      <head />
       <body className="flex flex-col min-h-screen font-sans bg-white text-black">
-        <SessionProviderWrapper>
-          <WalletAdapterProvider>
-            <UmiProvider>
-              <ThemeProviderWrapper>
-                <ConditionalAppHeader />
-                <main className="flex-grow bg-white">
-                  {children}
-                </main>
-                <ShadcnToaster />
-                <SonnerToaster richColors position="bottom-right" />
-                <AgentSetupModal />
-              </ThemeProviderWrapper>
-            </UmiProvider>
-          </WalletAdapterProvider>
-        </SessionProviderWrapper>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="dark"
+          enableSystem
+          disableTransitionOnChange
+        >
+          <AuthProvider>
+            <SolanaWalletProvider>
+              <CrossmintProviders>
+                <SessionProviderWrapper>
+                  <WalletAdapterProvider>
+                    <UmiProvider>
+                      <ThemeProviderWrapper>
+                        <ConditionalAppHeader />
+                        <main className="flex-grow bg-white">
+                          {children}
+                        </main>
+                        <ShadcnToaster />
+                        <SonnerToaster richColors position="bottom-right" />
+                        <AgentSetupModal />
+                      </ThemeProviderWrapper>
+                    </UmiProvider>
+                  </WalletAdapterProvider>
+                </SessionProviderWrapper>
+              </CrossmintProviders>
+            </SolanaWalletProvider>
+          </AuthProvider>
+          <Analytics />
+          <SpeedInsights />
+        </ThemeProvider>
       </body>
     </html>
   );

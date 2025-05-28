@@ -446,6 +446,7 @@ export function useHomePageLogic() {
     isProcessingInvite,
     setIsProcessingInvite,
     squadInviteIdFromUrl,
+    setSquadInviteIdFromUrl,
     currentTotalAirdropForSharing, // This is now derived from userAirdrop.totalDefai + defaiBalance
     setCurrentTotalAirdropForSharing, // Still needed if page.tsx sets it from other sources (e.g. AirdropInfoDisplay)
 

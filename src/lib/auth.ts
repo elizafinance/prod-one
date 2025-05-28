@@ -110,24 +110,32 @@ export const authOptions: NextAuthOptions = {
 
           // Attach custom fields to the user object that NextAuth will pass to the JWT callback
           (user as any).xId = xUserId;
-          let determinedWalletAddress: string | undefined = undefined;
+          // let determinedWalletAddress: string | undefined = undefined; // Not used here, can be removed
+
+          const now = new Date(); // For consistent timestamps
 
           // Convert findOne + insertOne to a single findOneAndUpdate with upsert
           const xUsername = twitterProfile.screen_name || user.name || undefined;
+          // const xDisplayName = profile.name || user.name; // Consider if you want to store this separately
           let rawProfileImageUrl = twitterProfile.profile_image_url_https || user.image || undefined;
           if (rawProfileImageUrl && !(rawProfileImageUrl.startsWith('http://') || rawProfileImageUrl.startsWith('https://'))) {
-              rawProfileImageUrl = undefined; // Or use a default placeholder if preferred
+              rawProfileImageUrl = undefined; 
           }
           const xProfileImageUrl = rawProfileImageUrl;
 
           const updateOnInsert = {
             xUserId: xUserId,
-            walletAddress: undefined, // Wallet is linked in a separate step
+            xUsername: xUsername, // Also set xUsername on insert
+            xProfileImageUrl: xProfileImageUrl, // Also set xProfileImageUrl on insert
+            walletAddress: undefined, 
             points: AIR.INITIAL_LOGIN,
-            referralCode: await generateUniqueReferralCode(db), // Generate code for new users
-            completedActions: ['initial_connection'],
-            createdAt: new Date(),
-            role: 'user' // Default role
+            referralCode: await generateUniqueReferralCode(db), 
+            completedActions: [{ action: 'initial_connection', timestamp: now }], // Store as object array
+            createdAt: now,
+            updatedAt: now, // Match createdAt on insert
+            lastLoginAt: now, // Set lastLoginAt on insert
+            role: 'user', 
+            isActive: true // Set isActive on insert
           };
 
           // --- Attempt the upsert with basic retry on duplicate key errors (e.g. referralCode collision) ---
@@ -140,12 +148,14 @@ export const authOptions: NextAuthOptions = {
                 {
                   $setOnInsert: attempt === 1 ? updateOnInsert : {
                     ...updateOnInsert,
-                    referralCode: await generateUniqueReferralCode(db) // Fresh code for retries
+                    referralCode: await generateUniqueReferralCode(db) 
                   },
                   $set: {
-                    xUsername: xUsername,
-                    xProfileImageUrl: xProfileImageUrl,
-                    updatedAt: new Date(),
+                    xUsername: xUsername, // Ensure xUsername is updated on subsequent logins
+                    xProfileImageUrl: xProfileImageUrl, // Ensure xProfileImageUrl is updated
+                    // xDisplayName: xDisplayName, // If you store display name
+                    lastLoginAt: now, // Update lastLoginAt on every successful sign-in
+                    updatedAt: now, // Update updatedAt on every successful sign-in
                   },
                 },
                 {
@@ -179,29 +189,45 @@ export const authOptions: NextAuthOptions = {
           const dbUser = dbUserResult.value;
 
           // If the user was just inserted, record the initial_connection action
-          // We can check if createdAt is very recent or if specific fields match the $setOnInsert values
-          // A more direct way is to see if the document returned from findOneAndUpdate has the properties from $setOnInsert
-          // For simplicity, we check if the points are exactly AIR.INITIAL_LOGIN and completedActions has only 'initial_connection'
-          // This assumes points are not reset to initial_login value otherwise.
-          // A more robust check would be if dbUserResult.lastErrorObject?.upserted exists and is true,
-          // but that depends on the MongoDB driver version and return.
-          // Let's check if the `createdAt` and `updatedAt` are the same, which is a good indicator of a new insert.
-          const wasInserted = dbUser.createdAt.getTime() === dbUser.updatedAt.getTime() && dbUser.points === AIR.INITIAL_LOGIN;
+          // const wasInserted = dbUser.createdAt.getTime() === dbUser.updatedAt.getTime() && dbUser.points === AIR.INITIAL_LOGIN;
+          // A more reliable check for insertion, especially if updatedAt can be modified by other processes soon after creation,
+          // is to check if the specific fields set only by $setOnInsert are present and match.
+          // For example, if points are only set on insert and not typically reset to INITIAL_LOGIN.
+          // Or, if the version of MongoDB driver supports it, dbUserResult.lastErrorObject?.upserted is the best.
+          // Given our current structure, comparing createdAt and lastLoginAt (both set to `now` on insert)
+          // and also checking if completedActions has only one entry (the initial_connection)
+          // should be a reasonably good heuristic for a new user insert for logging to actionsCollection.
+          
+          const wasLikelyInserted = dbUser.createdAt.getTime() === now.getTime() && 
+                                 dbUser.lastLoginAt.getTime() === now.getTime() &&
+                                 Array.isArray(dbUser.completedActions) && 
+                                 dbUser.completedActions.length === 1 && 
+                                 dbUser.completedActions[0]?.action === 'initial_connection';
 
-          if (wasInserted) {
+          if (wasLikelyInserted) {
             // Record action for new user
             await actionsCollection.insertOne({
-                walletAddress: xUserId, // Use xUserId as identifier before wallet link
+                // Use xUserId as identifier here, as wallet might not be linked yet.
+                // Or, if actions are always tied to a user record, user._id (dbUser._id) is better.
+                // For consistency, let's use dbUser._id if available.
+                userId: dbUser._id, 
+                identifierType: 'dbId',
+                identifierValue: dbUser._id.toHexString(),
                 actionType: 'initial_connection',
                 pointsAwarded: AIR.INITIAL_LOGIN,
-                timestamp: new Date(),
-                notes: `New user via X login: ${xUserId}`
+                timestamp: now, // Use the consistent `now` timestamp
+                notes: `New user via X login: ${xUserId} (${xUsername || 'N/A'})`
             });
           }
           
           (user as any).dbId = dbUser._id!.toHexString();
-          (user as any).walletAddress = dbUser.walletAddress || undefined; // Wallet address from DB (might be undefined)
+          (user as any).walletAddress = dbUser.walletAddress || undefined; 
           (user as any).role = dbUser.role || 'user';
+          // Pass other relevant fields from dbUser to the user object for JWT/session if needed
+          (user as any).isActive = dbUser.isActive;
+          (user as any).points = dbUser.points;
+          (user as any).referralCode = dbUser.referralCode;
+          // (user as any).completedActions = dbUser.completedActions; // Potentially large, maybe not for JWT
 
           return true; 
         } catch (error: any) { 

@@ -127,6 +127,7 @@ export default function HomePage() {
     isProcessingInvite,
     setIsProcessingInvite,
     squadInviteIdFromUrl,
+    setSquadInviteIdFromUrl,
     currentTotalAirdropForSharing,
     setCurrentTotalAirdropForSharing,
     isCheckingDefaiBalance,
@@ -304,13 +305,16 @@ export default function HomePage() {
 
   // ---> Process squad invite link for already-authenticated users (no wallet needed)
   useEffect(() => {
-    const shouldProcessInvite =
+    if (
       authStatus === "authenticated" &&
-      !!squadInviteIdFromUrl &&
-      !wallet.connected && // activation flow handles wallet-connected case
-      !isProcessingLinkInvite;
-
-    if (!shouldProcessInvite) return;
+      squadInviteIdFromUrl &&
+      wallet.connected &&
+      !isProcessingLinkInvite
+    ) {
+      // Only process if all conditions met
+    } else {
+      return; // Exit early if conditions not met
+    }
 
     const processInvite = async () => {
       setIsProcessingLinkInvite(true);
@@ -323,20 +327,20 @@ export default function HomePage() {
         const data = await res.json();
         if (res.ok) {
           toast.success(data.message || "Squad invitation received!");
-          // Refresh pending invites so notification count updates
           fetchPendingInvites();
-          setSquadInviteIdFromUrl(null); // prevent duplicate processing
+          setSquadInviteIdFromUrl(null);
         } else {
           console.warn("[HomePage] Process invite link error:", data.error || res.statusText);
         }
       } catch (err) {
         console.error("[HomePage] Failed to process squad invite link:", err);
       }
-      setIsProcessingLinkInvite(false);
+      setIsProcessingLinkInvite(false); // Make sure this is always called
     };
 
     processInvite();
-  }, [authStatus, squadInviteIdFromUrl, wallet.connected, isProcessingLinkInvite, fetchPendingInvites]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authStatus, squadInviteIdFromUrl, wallet.connected, isProcessingLinkInvite, fetchPendingInvites, setIsProcessingLinkInvite, setSquadInviteIdFromUrl]);
 
   // Automatically prompt wallet connect modal right after X login
   useEffect(() => {
@@ -398,7 +402,8 @@ export default function HomePage() {
       };
       fetchBalance();
     }
-  }, [wallet.connected, wallet.publicKey, connection]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wallet.connected, wallet.publicKey, connection, setDefaiBalance]);
 
   if (authStatus === "loading") {
     console.log("[HomePage] Rendering: Loading Session state");

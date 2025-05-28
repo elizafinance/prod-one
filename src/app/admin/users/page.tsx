@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import { toast } from 'sonner';
 import { Document, ObjectId } from 'mongodb';
@@ -69,29 +69,22 @@ export default function AdminUsersPage() {
 
   // State for purge confirmation modal
   const [isPurgeConfirmModalOpen, setIsPurgeConfirmModalOpen] = useState(false);
-  const [userToPurge, setUserToPurge] = useState<UserRow | null>(null); // Store the whole user object or just wallet
-  const [isPurging, setIsPurging] = useState(false); // Loading state for purge action
+  const [userToPurge, setUserToPurge] = useState<UserRow | null>(null);
+  const [isPurging, setIsPurging] = useState(false);
 
   // New state for filters
-  const [roleFilter, setRoleFilter] = useState(''); // e.g., 'admin', 'user', or '' for all
+  const [roleFilter, setRoleFilter] = useState('');
   const [squadIdFilter, setSquadIdFilter] = useState('');
-  const [hasSquadFilter, setHasSquadFilter] = useState(''); // 'true', 'false', or '' for all
+  const [hasSquadFilter, setHasSquadFilter] = useState('');
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const [limit, setLimit] = useState(25); // Default limit, can be made configurable
+  const [limit, setLimit] = useState(25);
 
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
-  useEffect(() => {
-    if (status !== 'authenticated') return;
-    const userRoleAuth = (session?.user as any)?.role;
-    if (userRoleAuth !== 'admin') return;
-    fetchUsers(currentPage); // Fetch users when component mounts or filters change
-  }, [status, (session?.user as any)?.role, query, roleFilter, squadIdFilter, hasSquadFilter, currentPage, limit]);
-
-  const fetchUsers = async (pageToFetch = 1) => {
+  const fetchUsers = useCallback(async (pageToFetch = 1) => {
     setLoading(true);
     let apiUrl = `/api/admin/users?q=${encodeURIComponent(query)}&page=${pageToFetch}&limit=${limit}`;
     if (roleFilter) apiUrl += `&role=${roleFilter}`;
@@ -105,7 +98,6 @@ export default function AdminUsersPage() {
         setUsers(data.users || []);
         setTotalPages(data.totalPages || 1);
         setCurrentPage(data.currentPage || 1);
-        // setLimit(data.limit); // If API dictates limit, update it here
       } else {
         toast.error(data.error || 'Failed to fetch users');
         setUsers([]);
@@ -120,7 +112,24 @@ export default function AdminUsersPage() {
       setCurrentPage(1);
     }
     setLoading(false);
-  };
+  }, [query, limit, roleFilter, squadIdFilter, hasSquadFilter, setLoading, setUsers, setTotalPages, setCurrentPage]);
+
+  // This useEffect handles fetching based on filters, pagination, and auth status
+  useEffect(() => {
+    if (status !== 'authenticated') return;
+    const userRoleAuth = (session?.user as any)?.role;
+    if (userRoleAuth !== 'admin') return;
+    fetchUsers(currentPage);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status, (session?.user as any)?.role, query, roleFilter, squadIdFilter, hasSquadFilter, currentPage, limit, fetchUsers]);
+
+  // This useEffect is for session-specific actions, now correctly using memoized fetchUsers
+  useEffect(() => {
+    if (session?.user && typeof fetchUsers === 'function') {
+      // Consider if this initial call is truly needed given the other useEffect
+      // fetchUsers(); 
+    }
+  }, [session?.user, fetchUsers]);
 
   // Opens the confirmation modal
   const initiatePurge = (user: UserRow) => {

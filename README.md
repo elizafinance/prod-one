@@ -202,3 +202,95 @@ For production, set this script up with a cron scheduler. If using Vercel, you c
 ```
 Create an API route (e.g., `src/pages/api/cron/process-proposals.ts`) that imports and calls the main function from `src/scripts/cron/processProposals.ts`.
 Ensure any necessary environment variables are available to this API route.
+
+## Environment Variables
+
+Create a `.env.local` file in the root of the project and add the following variables:
+
+```
+# NextAuth
+NEXTAUTH_URL=http://localhost:3000
+NEXTAUTH_SECRET= # Generate a strong secret: openssl rand -hex 32
+X_CLIENT_ID= # Your X/Twitter App Client ID
+X_CLIENT_SECRET= # Your X/Twitter App Client Secret
+
+# Crossmint
+NEXT_PUBLIC_CROSSMINT_CLIENT_SIDE= # Your Crossmint Client-Side API Key (from Staging Console for dev)
+# Ensure this key has 'users' and 'wallet API' scopes, JWT Auth enabled, and http://localhost:3000 whitelisted (or your dev port).
+
+# MongoDB
+MONGODB_URI= # Your MongoDB connection string (e.g., from Atlas)
+MONGODB_DB_NAME=defoiaffiliate # Or your DB name
+
+# For Agents (Conceptual - if deploying to Fleek or similar)
+# CROSSMINT_SERVER_SIDE_API_KEY= # Crossmint Server-Side API key for agent actions
+# ALCHEMY_API_KEY= # If using Crossmint EVM Smart Wallets that require Alchemy
+
+# For Crossmint Verifiable Credentials (Future - if implementing real VCs)
+# CROSSMINT_VC_SERVICE_KEY= # API key for Crossmint VC service
+```
+
+## Local Development
+
+1.  **Install Dependencies:**
+    ```bash
+    npm install
+    # or
+    pnpm install
+    # or
+    yarn install
+    ```
+
+2.  **Setup Database:**
+    *   Ensure you have a MongoDB instance running and accessible.
+    *   Update the `MONGODB_URI` and `MONGODB_DB_NAME` in your `.env.local`.
+    *   Connect to your MongoDB instance using `mongosh` or a GUI tool.
+    *   Create/verify the necessary unique indexes on the `users` collection:
+        ```javascript
+        // use your_database_name; // e.g., use defoiaffiliate;
+        db.users.createIndex({ xUserId: 1 }, { unique: true, sparse: true }); // Ensure this matches your confirmed setup
+        db.users.createIndex({ walletAddress: 1 }, { unique: true, sparse: true });
+        db.users.createIndex({ referralCode: 1 }, { unique: true, sparse: true }); // If using referrals
+        ```
+
+3.  **Run Development Server:**
+    ```bash
+    npm run dev
+    # or
+    pnpm dev
+    # or
+    yarn dev
+    ```
+    The application will be available at `http://localhost:3000` (or your configured port).
+
+## Testing
+
+### End-to-End Tests (Playwright)
+
+1.  **Install Playwright & Browsers:**
+    If you haven't already:
+    ```bash
+    npm install --save-dev @playwright/test
+    npx playwright install
+    ```
+
+2.  **Run Tests:**
+    Ensure the development server is running before executing E2E tests that target it.
+    ```bash
+    npx playwright test tests/e2e/onboarding.spec.ts
+    ```
+    To run in headed mode for debugging:
+    ```bash
+    npx playwright test tests/e2e/onboarding.spec.ts --headed
+    ```
+    To view the HTML report after a run:
+    ```bash
+    npx playwright show-report
+    ```
+
+**Note on E2E Test Linter/Type Errors:**
+The test file `tests/e2e/onboarding.spec.ts` may show TypeScript linter errors in some editors related to:
+*   `Cannot find module '@playwright/test'`: This typically indicates an issue with the TypeScript configuration (`tsconfig.json`) not recognizing Playwright types, or the editor's TS server needing a restart. Ensure `tsconfig.json` includes Playwright types (e.g., in `compilerOptions.types` or via `typeRoots`).
+*   Type conflicts for `window.crossmintUiService` (and similar mocked global objects): These arise from differences between the specific types used in component code and the more generic `any` types used for mocking in the test file for expediency. A long-term fix involves creating shared type definition files (`.d.ts`) for these interfaces and importing them in both the application code and the test scripts. For sprint purposes, the tests aim for functional correctness and these specific type annotations in the test file can be refined later.
+
+This project was developed with a focus on rapid iteration to achieve a walking skeleton within a 60-minute timeframe.

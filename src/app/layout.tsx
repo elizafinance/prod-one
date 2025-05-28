@@ -8,6 +8,7 @@ import { Toaster as ShadcnToaster } from "@/components/ui/toaster";
 import { Toaster as SonnerToaster } from "sonner";
 import SessionProviderWrapper from "@/providers/sessionProviderWrapper";
 import ConditionalAppHeader from "@/components/layout/ConditionalAppHeader";
+import AgentSetupModal from "@/components/modals/AgentSetupModal";
 
 const inter = Inter({ subsets: ["latin"], variable: '--font-inter' });
 const orbitron = Orbitron({ 
@@ -58,6 +59,7 @@ export default function RootLayout({
                 </main>
                 <ShadcnToaster />
                 <SonnerToaster richColors position="bottom-right" />
+                <AgentSetupModal />
               </ThemeProviderWrapper>
             </UmiProvider>
           </WalletAdapterProvider>

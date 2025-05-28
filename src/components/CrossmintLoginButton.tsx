@@ -33,13 +33,14 @@ declare global {
 export default function CrossmintLoginButton() {
   const clientRef = useRef<ReturnType<CrossmintUiService["init"]> | null>(null);
   const [session, setSession] = useState<any>(null);
-  const [status, setStatus] = useState<"unauthenticated" | "authenticated" | "loading">("loading");
+  const [authStatus, setAuthStatus] = useState<"unauthenticated" | "authenticated" | "loading">("loading");
   const { update: updateSession } = useSession();
   const crossmintModalOpened = useRef(false);
   
   const [currentStep, setCurrentStep] = useState<OnboardingStep>("WALLET");
   const [errorState, setErrorState] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isSdkLoading, setIsSdkLoading] = useState(true);
   const [vcHash, setVcHash] = useState<string | null>(null);
   const [agentStatus, setAgentStatus] = useState<string | null>(null);
 
@@ -50,7 +51,7 @@ export default function CrossmintLoginButton() {
     } else {
       setCurrentStep("WALLET");
     }
-    setStatus(session ? "authenticated" : "unauthenticated");
+    setAuthStatus(session ? "authenticated" : "unauthenticated");
   }, [session?.user?.walletAddress, agentStatus]);
 
   const linkWalletToAccount = async (walletAddress: string, chainId: string) => {
@@ -93,7 +94,7 @@ export default function CrossmintLoginButton() {
       try {
         const client = (window.crossmintUiService as CrossmintUiService).init({
           clientId: process.env.NEXT_PUBLIC_CROSSMINT_CLIENT_SIDE,
-          environment: "staging",
+          environment: process.env.NEXT_PUBLIC_CROSSMINT_ENVIRONMENT || "production",
           callbacks: { 
             onLoginSuccess: async (address: string, chainIdentifier: string) => { 
                 console.log(`Crossmint login success. Address: ${address}, Chain: ${chainIdentifier}`);
@@ -111,7 +112,7 @@ export default function CrossmintLoginButton() {
                   }
                   console.log("Wallet login successful, auth cookie set.", loginData);
                   setSession({ user: { id: loginData.userId, walletAddress: loginData.walletAddress, walletChain: chainIdentifier } });
-                  setStatus("authenticated");
+                  setAuthStatus("authenticated");
                   await linkWalletToAccount(address, chainIdentifier);
                 } catch (e: any) {
                   console.error("Error during wallet login/linking process:", e);
@@ -127,12 +128,21 @@ export default function CrossmintLoginButton() {
             },
           }
         });
-        clientRef.current = client;
-        console.log("Crossmint SDK initialized");
+        if (client) {
+            clientRef.current = client;
+            setIsSdkLoading(false);
+            console.log("[CrossmintButton] Crossmint SDK initialized and clientRef set.");
+        } else {
+            console.error("[CrossmintButton] Crossmint SDK init() did not return a client.");
+            setErrorState("Could not initialize Crossmint client. Please refresh.");
+            setIsSdkLoading(false);
+        }
       } catch (error: any) {
-        console.error("Failed to init Crossmint SDK", error);
+        console.error("[CrossmintButton] Failed to init Crossmint SDK:", error);
         setErrorState(error?.message || "Could not initialize Crossmint. Please refresh.");
+        setIsSdkLoading(false);
       }
+    } else if (!clientRef.current) {
     }
   };
 
@@ -140,13 +150,16 @@ export default function CrossmintLoginButton() {
     if (window.crossmintUiService) {
       initializeCrossmint();
     }
-    if (status === "authenticated" && currentStep === "WALLET" && clientRef.current && crossmintModalOpened.current) {
-        console.log("User authenticated (wallet cookie), modal was flagged, showing Crossmint modal.");
+  }, []);
+
+  useEffect(() => {
+    if (authStatus === "authenticated" && currentStep === "WALLET" && clientRef.current && crossmintModalOpened.current && !isSdkLoading) {
+        console.log("[CrossmintButton] User authenticated, needs wallet, modal previously flagged, SDK ready. Showing Crossmint modal.");
         setErrorState(null); 
-        (clientRef.current as any).showLoginModal();
+        clientRef.current.showLoginModal();
         crossmintModalOpened.current = false;
     }
-  }, [status, currentStep]);
+  }, [authStatus, currentStep, isSdkLoading]);
 
   const deployAgent = async () => {
     if (agentStatus === 'Deploying...' || agentStatus === 'Running') return;
@@ -180,28 +193,28 @@ export default function CrossmintLoginButton() {
     setErrorState(null);
     if (isLoading) return;
 
-    initializeCrossmint();
-    
-    if (!clientRef.current && window.crossmintUiService) {
-        console.warn("Crossmint client not initialized despite SDK script load. Attempting re-init.");
+    if (isSdkLoading) {
+        setErrorState("Wallet services are still initializing. Please wait a moment.");
+        return;
+    }
+
+    if (!clientRef.current) {
+        console.warn("[CrossmintButton] clientRef not set even though SDK should be ready. Attempting re-init.");
         initializeCrossmint(); 
         if (!clientRef.current) {
-            setErrorState("Wallet services are not ready. Please wait a moment or refresh.");
+            setErrorState("Wallet services could not be initialized. Please refresh the page.");
             return;
         }
-    } else if (!window.crossmintUiService) {
-        setErrorState("Wallet services are loading. Please try again in a few seconds.");
-        return;
     }
 
     switch (currentStep) {
       case "WALLET":
         if (clientRef.current) {
-          console.log("Showing Crossmint login modal.");
+          console.log("[CrossmintButton] Showing Crossmint login modal.");
           crossmintModalOpened.current = true;
-          (clientRef.current as any).showLoginModal();
+          clientRef.current.showLoginModal();
         } else {
-          setErrorState("Wallet connection service not ready. Please refresh.");
+          setErrorState("Wallet connection service not ready. Please refresh and try again.");
         }
         break;
       case "AGENT":
@@ -214,6 +227,7 @@ export default function CrossmintLoginButton() {
   };
   
   const getButtonText = () => {
+    if (isSdkLoading && currentStep === "WALLET") return "Initializing Wallet...";
     if (isLoading) return "Processing...";
     switch (currentStep) {
       case "WALLET": return "Connect Wallet with Crossmint";
@@ -236,23 +250,19 @@ export default function CrossmintLoginButton() {
         src="https://unpkg.com/@crossmint/client-sdk-vanilla-ui@latest/dist/index.global.js"
         strategy="lazyOnload"
         onLoad={() => {
-          console.log("Crossmint SDK script loaded via onLoad.");
+          console.log("[CrossmintButton] Crossmint SDK script loaded via onLoad.");
           initializeCrossmint();
-          if (status === "authenticated" && currentStep === "WALLET" && crossmintModalOpened.current && clientRef.current) {
-            console.log("SDK loaded, user authenticated (wallet cookie), modal flag set, showing Crossmint modal.");
-            (clientRef.current as any).showLoginModal();
-            crossmintModalOpened.current = false;
-          }
         }}
         onError={(e) => {
-            console.error("Failed to load Crossmint SDK script:", e);
+            console.error("[CrossmintButton] Failed to load Crossmint SDK script:", e);
             setErrorState("Could not load wallet services. Please check your internet connection or adblockers and refresh.");
+            setIsSdkLoading(false);
         }}
       />
       <button
         type="button"
         onClick={handleClick}
-        disabled={isLoading || (currentStep === "AGENT" && agentStatus === "Running") || (currentStep === "COMPLETED")}
+        disabled={isLoading || (isSdkLoading && currentStep === "WALLET") || (currentStep === "AGENT" && agentStatus === "Running") || (currentStep === "COMPLETED")}
         className="w-full rounded bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700 disabled:opacity-50 transition-all duration-150 ease-in-out"
       >
         {getButtonText()}

@@ -54,6 +54,7 @@ export function useHomePageLogic() {
   const [defaiBalance, setDefaiBalance] = useState<number | null>(null);
   const [isWalletSigningIn, setIsWalletSigningIn] = useState(false);
   const [walletSignInAttempted, setWalletSignInAttempted] = useState(false);
+  const [userDetailsFetched, setUserDetailsFetched] = useState(false);
 
   // Combine userData from userAirdrop hook and otherUserData
   const combinedUserData = {
@@ -356,9 +357,16 @@ export function useHomePageLogic() {
       setWalletSignInAttempted(true);
       // Use the `wallet` credentials provider we added in auth.ts
       signIn('wallet', { walletAddress: wallet.publicKey.toBase58(), redirect: false })
-        .then((res) => {
+        .then(async (res) => {
           if (res?.error) {
             console.error('[HomePageLogic] Wallet sign-in returned error:', res.error);
+          } else {
+            // Refresh NextAuth session so useSession reflects new auth state
+            try {
+              await updateSession();
+            } catch (e) {
+              console.warn('[HomePageLogic] updateSession after wallet sign-in failed', e);
+            }
           }
         })
         .catch((err) => {
@@ -369,6 +377,33 @@ export function useHomePageLogic() {
         });
     }
   }, [wallet.connected, wallet.publicKey, authStatus, isWalletSigningIn, walletSignInAttempted]);
+
+  // === Fetch user completed actions & other details once authenticated ===
+  useEffect(() => {
+    if (authStatus !== 'authenticated' || userDetailsFetched) return;
+
+    (async () => {
+      try {
+        const res = await fetch('/api/users/my-details');
+        const data = await res.json();
+        if (res.ok) {
+          setOtherUserData(prev => ({
+            ...prev,
+            referralCode: data.referralCode ?? prev.referralCode,
+            completedActions: data.completedActions ?? prev.completedActions,
+            xUsername: data.xUsername ?? prev.xUsername,
+            squadId: data.squadId ?? prev.squadId,
+          }));
+          if (data.points !== undefined && data.points !== null) {
+            // points are handled by useUserAirdrop; leave untouched here
+          }
+          setUserDetailsFetched(true);
+        }
+      } catch (e) {
+        console.warn('[HomePageLogic] Unable to fetch my-details:', e);
+      }
+    })();
+  }, [authStatus, userDetailsFetched]);
 
   // Other effects: largely unchanged
   useEffect(() => {

@@ -254,12 +254,10 @@ export default function HomePage() {
     }
     const airdropAmountStr = currentTotalAirdropForSharing.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0 });
     const siteBaseUrl = "https://squad.defairewards.net";
-    const shareUrl = userData?.referralCode ? `${siteBaseUrl}/?ref=${userData.referralCode}` : siteBaseUrl;
     const twitterHandle = "DeFAIRewards";
-    const tokenToBuy = "$DeFAI"; 
-    const snapshotDate = "May 20, 2025";
-    const text = `I'm getting ${airdropAmountStr} $DEFAI from @${twitterHandle} in the migration! 🚀 My referral link: ${shareUrl} \nGet ready for the ${snapshotDate} snapshot - buy ${tokenToBuy} now!`;
-    const hashtags = "DeFAIRewards,Airdrop,AI,Solana";
+    const shareUrl = userData?.referralCode ? `${siteBaseUrl}/?ref=${userData.referralCode}` : `${siteBaseUrl}/?ref=d93263c7`;
+    const text = `I'm getting ${airdropAmountStr} $DEFAI from @${twitterHandle} in the migration! 🚀 My referral link: ${shareUrl} \nGet ready for DEFAI SUMMER - buy $DeFAI now! #DeFAIRewards #TGE #AI #Solana`;
+    const hashtags = "DeFAIRewards,TGE,AI,Solana";
     const twitterIntentUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&hashtags=${encodeURIComponent(hashtags)}&via=${twitterHandle}`;
     window.open(twitterIntentUrl, '_blank');
     logSocialAction('shared_on_x');

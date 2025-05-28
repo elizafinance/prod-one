@@ -53,6 +53,7 @@ export function useHomePageLogic() {
   const [totalCommunityPoints, setTotalCommunityPoints] = useState<number | null>(null);
   const [defaiBalance, setDefaiBalance] = useState<number | null>(null);
   const [isWalletSigningIn, setIsWalletSigningIn] = useState(false);
+  const [walletSignInAttempted, setWalletSignInAttempted] = useState(false);
 
   // Combine userData from userAirdrop hook and otherUserData
   const combinedUserData = {
@@ -342,17 +343,24 @@ export function useHomePageLogic() {
 
   // ===== New Effect: Automatically authenticate with wallet credentials =====
   useEffect(() => {
-    // If wallet is connected but NextAuth is not authenticated, attempt credentials sign in
+    // If wallet is connected but NextAuth is not authenticated, attempt credentials sign in once
     if (
       wallet.connected &&
       wallet.publicKey &&
       authStatus !== 'authenticated' &&
-      !isWalletSigningIn
+      !isWalletSigningIn &&
+      !walletSignInAttempted
     ) {
       console.log('[HomePageLogic] Wallet connected but not authenticated – attempting credentials sign-in');
       setIsWalletSigningIn(true);
-      // Use the `wallet` credentials provider we will add in auth.ts
+      setWalletSignInAttempted(true);
+      // Use the `wallet` credentials provider we added in auth.ts
       signIn('wallet', { walletAddress: wallet.publicKey.toBase58() }, { redirect: false })
+        .then((res) => {
+          if (res?.error) {
+            console.error('[HomePageLogic] Wallet sign-in returned error:', res.error);
+          }
+        })
         .catch((err) => {
           console.error('[HomePageLogic] Wallet sign-in failed:', err);
         })
@@ -360,7 +368,7 @@ export function useHomePageLogic() {
           setIsWalletSigningIn(false);
         });
     }
-  }, [wallet.connected, wallet.publicKey, authStatus, isWalletSigningIn]);
+  }, [wallet.connected, wallet.publicKey, authStatus, isWalletSigningIn, walletSignInAttempted]);
 
   // Other effects: largely unchanged
   useEffect(() => {

@@ -1,7 +1,6 @@
 // @ts-nocheck
 
 import { JWT } from "next-auth/jwt";
-import TwitterProvider from "next-auth/providers/twitter";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { connectToDatabase, UserDocument, ActionDocument } from "@/lib/mongodb"; // Assuming mongodb.ts is also in @/lib
 import { randomBytes } from 'crypto';
@@ -120,7 +119,7 @@ export const authOptions: NextAuthOptions = {
         }
       },
     }),
-    // TwitterProvider kept for legacy but can be removed if desired
+    // TwitterProvider removed – wallet-only auth
   ],
   debug: true, // Enable debug logs
   session: {
@@ -128,209 +127,12 @@ export const authOptions: NextAuthOptions = {
     maxAge: 72 * 60 * 60, // 72 hours in seconds
   },
   callbacks: {
-    async signIn({ user, account, profile }: any) {
-      // Allow credentials (wallet) provider to sign in directly
+    async signIn({ user, account }: any) {
+      // Only allow the custom wallet/credentials provider
       if (account?.provider === 'wallet' || account?.provider === 'credentials') {
-        // authorize has already created/fetched the user and populated required fields.
         return true;
       }
-
-      // Debug logging
-      console.log('==== NextAuth SignIn Debug ====');
-      console.log('Environment:', {
-        X_CLIENT_ID_SET: !!process.env.X_CLIENT_ID,
-        X_CLIENT_SECRET_SET: !!process.env.X_CLIENT_SECRET,
-        NEXTAUTH_SECRET_SET: !!process.env.NEXTAUTH_SECRET,
-        NODE_ENV: process.env.NODE_ENV
-      });
-      console.log('Account:', JSON.stringify(account, null, 2));
-      console.log('Profile:', JSON.stringify(profile, null, 2));
-      console.log('User:', JSON.stringify(user, null, 2));
-      console.log('============================');
-
-      if (!account) {
-        console.error('[NextAuth SignIn] No account object provided');
-        await logAuthFailure('no_account_object', { user, profile });
-        return false;
-      }
-
-      // --- Twitter login (existing flow) ---
-      if (account?.provider === "twitter" && profile) {
-        const twitterProfile = profile as TwitterProfile;
-
-        try {
-          const { db } = await connectToDatabase();
-          const usersCollection = db.collection<UserDocument>('users');
-          const actionsCollection = db.collection<ActionDocument>('actions');
-
-          const xUserId = String(
-            twitterProfile.id_str ??         // Original
-            (profile as any).id ??           // OAuth 2.0 spec (often numeric)
-            account?.providerAccountId ?? // Always present from provider
-            user.id                          // NextAuth user.id (fallback)
-          );
-
-          if (!xUserId || xUserId === "undefined") { 
-            console.error(`[NextAuth SignIn] Critical: X User ID not found or invalid in profile. Denying access. Profile data:`, JSON.stringify(profile, null, 2), JSON.stringify(user, null, 2), JSON.stringify(account, null, 2));
-            await logAuthFailure('missing_xUserId', { profile, account, user });
-            return false;
-          }
-
-          // Attach custom fields to the user object that NextAuth will pass to the JWT callback
-          (user as any).xId = xUserId;
-          // let determinedWalletAddress: string | undefined = undefined; // Not used here, can be removed
-
-          const now = new Date(); // For consistent timestamps
-
-          // Convert findOne + insertOne to a single findOneAndUpdate with upsert
-          const xUsername = twitterProfile.screen_name || user.name || undefined;
-          // const xDisplayName = profile.name || user.name; // Consider if you want to store this separately
-          let rawProfileImageUrl = twitterProfile.profile_image_url_https || user.image || undefined;
-          if (rawProfileImageUrl && !(rawProfileImageUrl.startsWith('http://') || rawProfileImageUrl.startsWith('https://'))) {
-              rawProfileImageUrl = undefined; 
-          }
-          const xProfileImageUrl = rawProfileImageUrl;
-
-          const updateOnInsert = {
-            xUserId: xUserId,
-            xUsername: xUsername, // Also set xUsername on insert
-            xProfileImageUrl: xProfileImageUrl, // Also set xProfileImageUrl on insert
-            walletAddress: undefined, 
-            points: AIR.INITIAL_LOGIN,
-            referralCode: await generateUniqueReferralCode(db), 
-            completedActions: [{ action: 'initial_connection', timestamp: now }], // Store as object array
-            createdAt: now,
-            updatedAt: now, // Match createdAt on insert
-            lastLoginAt: now, // Set lastLoginAt on insert
-            role: 'user', 
-            isActive: true // Set isActive on insert
-          };
-
-          // --- Attempt the upsert with basic retry on duplicate key errors (e.g. referralCode collision) ---
-          let dbUserResult: any = null;
-          const MAX_UPSERT_ATTEMPTS = 5;
-          for (let attempt = 1; attempt <= MAX_UPSERT_ATTEMPTS; attempt++) {
-            try {
-              dbUserResult = await usersCollection.findOneAndUpdate(
-                { xUserId: xUserId },
-                {
-                  $setOnInsert: attempt === 1 ? updateOnInsert : {
-                    ...updateOnInsert,
-                    referralCode: await generateUniqueReferralCode(db) 
-                  },
-                  $set: {
-                    xUsername: xUsername, // Ensure xUsername is updated on subsequent logins
-                    xProfileImageUrl: xProfileImageUrl, // Ensure xProfileImageUrl is updated
-                    // xDisplayName: xDisplayName, // If you store display name
-                    lastLoginAt: now, // Update lastLoginAt on every successful sign-in
-                    updatedAt: now, // Update updatedAt on every successful sign-in
-                  },
-                },
-                {
-                  upsert: true,
-                  returnDocument: 'after', // Returns the new or updated document
-                }
-              );
-              // Success – break the retry loop
-              if (dbUserResult?.value) break;
-            } catch (upsertErr: any) {
-              if (upsertErr?.code === 11000 && attempt < MAX_UPSERT_ATTEMPTS) {
-                console.warn(`[NextAuth SignIn] Duplicate key on upsert attempt ${attempt}. Retrying with new referral code...`);
-                continue; // Retry the loop
-              }
-              // For any other error (or final failed attempt) re-throw to outer catch
-              throw upsertErr;
-            }
-          }
-
-          if (!dbUserResult || !dbUserResult.value) {
-            // As a fallback, attempt to fetch the user (might have been inserted but not returned)
-            const fallbackUser = await usersCollection.findOne({ xUserId });
-            if (fallbackUser) {
-              dbUserResult = { value: fallbackUser } as any;
-            } else {
-              console.error(`[NextAuth SignIn] Critical: Failed to upsert user for xUserId: ${xUserId} after ${MAX_UPSERT_ATTEMPTS} attempts.`);
-              return false;
-            }
-          }
-          
-          const dbUser = dbUserResult.value;
-
-          // If the user was just inserted, record the initial_connection action
-          // const wasInserted = dbUser.createdAt.getTime() === dbUser.updatedAt.getTime() && dbUser.points === AIR.INITIAL_LOGIN;
-          // A more reliable check for insertion, especially if updatedAt can be modified by other processes soon after creation,
-          // is to check if the specific fields set only by $setOnInsert are present and match.
-          // For example, if points are only set on insert and not typically reset to INITIAL_LOGIN.
-          // Or, if the version of MongoDB driver supports it, dbUserResult.lastErrorObject?.upserted is the best.
-          // Given our current structure, comparing createdAt and lastLoginAt (both set to `now` on insert)
-          // and also checking if completedActions has only one entry (the initial_connection)
-          // should be a reasonably good heuristic for a new user insert for logging to actionsCollection.
-          
-          const wasLikelyInserted = dbUser.createdAt.getTime() === now.getTime() && 
-                                 dbUser.lastLoginAt.getTime() === now.getTime() &&
-                                 Array.isArray(dbUser.completedActions) && 
-                                 dbUser.completedActions.length === 1 && 
-                                 dbUser.completedActions[0]?.action === 'initial_connection';
-
-          if (wasLikelyInserted) {
-            // Record action for new user
-            await actionsCollection.insertOne({
-                // Use xUserId as identifier here, as wallet might not be linked yet.
-                // Or, if actions are always tied to a user record, user._id (dbUser._id) is better.
-                // For consistency, let's use dbUser._id if available.
-                userId: dbUser._id, 
-                identifierType: 'dbId',
-                identifierValue: dbUser._id.toHexString(),
-                actionType: 'initial_connection',
-                pointsAwarded: AIR.INITIAL_LOGIN,
-                timestamp: now, // Use the consistent `now` timestamp
-                notes: `New user via X login: ${xUserId} (${xUsername || 'N/A'})`
-            });
-          }
-          
-          (user as any).dbId = dbUser._id!.toHexString();
-          (user as any).walletAddress = dbUser.walletAddress || undefined; 
-          (user as any).role = dbUser.role || 'user';
-          // Pass other relevant fields from dbUser to the user object for JWT/session if needed
-          (user as any).isActive = dbUser.isActive;
-          (user as any).points = dbUser.points;
-          (user as any).referralCode = dbUser.referralCode;
-          // (user as any).completedActions = dbUser.completedActions; // Potentially large, maybe not for JWT
-
-          return true; 
-        } catch (error: any) { 
-          console.error(`[NextAuth SignIn] Error during signIn callback for xUserId ${(user as any)?.xId || 'UNKNOWN'}: `, error);
-          if (error.code === 11000) {
-            console.error("[NextAuth SignIn] Duplicate key error during user upsert after retries. Attempting to recover by loading existing user.");
-            try {
-              const { db } = await connectToDatabase();
-              const usersCollection = db.collection<UserDocument>('users');
-              const existing = await usersCollection.findOne({ xUserId: (user as any)?.xId });
-              if (existing) {
-                (user as any).dbId = existing._id!.toHexString();
-                (user as any).walletAddress = existing.walletAddress || undefined;
-                (user as any).role = existing.role || 'user';
-                console.log('[NextAuth SignIn] Recovery successful – proceeding with sign-in for existing user');
-                return true;
-              }
-            } catch (recoveryErr) {
-              console.error('[NextAuth SignIn] Recovery attempt failed', recoveryErr);
-            }
-          }
-          // Log the failure details so we can inspect later
-          await logAuthFailure('signIn_callback_error', {
-            error: error?.message || String(error),
-            code: error?.code,
-            provider: account?.provider,
-            xId: (user as any)?.xId,
-          });
-          return false; 
-        }
-      }
-
-      // Only Twitter accounts allowed – deny any others
-      console.log(`[NextAuth SignIn] Account provider ${account?.provider} not allowed.`);
-      await logAuthFailure('provider_not_allowed', { provider: account?.provider, user, profile });
+      // Deny all other providers (legacy Twitter removed)
       return false;
     },
     async jwt({ token, user }: { token: JWT; user?: any }) {

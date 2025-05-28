@@ -109,7 +109,7 @@ export default function AppHeader() {
   // If still loading auth status or not client yet, render a placeholder or null to prevent hydration mismatch
   if (authStatus === 'loading' || !isClient) {
     return (
-      <header className="sticky top-0 z-50 w-full bg-black/80 backdrop-blur-md shadow-md">
+      <header className="sticky top-0 z-50 w-full bg-white shadow-md">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex h-16 items-center justify-between">
             <div className="flex items-center">
@@ -125,7 +125,7 @@ export default function AppHeader() {
   }
   
   return (
-    <header className="sticky top-0 z-50 w-full bg-black/80 backdrop-blur-md shadow-md">
+    <header className="sticky top-0 z-50 w-full bg-white shadow-md">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex h-16 items-center justify-between">
           {/* Logo and Nav Links */}
@@ -136,9 +136,9 @@ export default function AppHeader() {
             {/* Desktop Nav Links - Show if authenticated */}
             {isClient && authStatus === "authenticated" && (
               <nav className="hidden md:flex md:items-center md:space-x-4 md:ml-6">
-                <Link href="/" className="text-sm font-medium text-slate-300 hover:text-white transition-colors">Dashboard</Link>
-                <Link href="/quests" className="text-sm font-medium text-slate-300 hover:text-white transition-colors">Quests</Link>
-                <Link href="/squads" className="text-sm font-medium text-slate-300 hover:text-white transition-colors">Squads</Link>
+                <Link href="/" className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors">Dashboard</Link>
+                <Link href="/quests" className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors">Quests</Link>
+                <Link href="/squads" className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors">Squads</Link>
                 {/* <Link href="/leaderboard" className="text-sm font-medium text-slate-300 hover:text-white transition-colors">Leaderboard</Link> */}
               </nav>
             )}

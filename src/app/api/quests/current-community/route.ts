@@ -61,6 +61,16 @@ export async function GET() {
       console.warn('[API /quests/current-community] Redis error', e);
     }
 
+    // Dynamically override status if window is open
+    let displayStatus = questDoc.status;
+    if (
+      questDoc.status === 'scheduled' &&
+      questDoc.start_ts && questDoc.end_ts &&
+      new Date(questDoc.start_ts) <= now && new Date(questDoc.end_ts) >= now
+    ) {
+      displayStatus = 'active';
+    }
+
     const result = {
       id: questDoc._id.toString(),
       _id: questDoc._id.toString(),
@@ -74,7 +84,7 @@ export async function GET() {
         '',
       progress,
       target: (questDoc as any).goal_target ?? 0,
-      status: questDoc.status,
+      status: displayStatus,
       start_ts: (questDoc as any).start_ts,
       end_ts: (questDoc as any).end_ts,
     };

@@ -269,29 +269,49 @@ export const authOptions: NextAuthOptions = {
       console.log('[NextAuth JWT] Received token:', JSON.stringify(token, null, 2));
       console.log('[NextAuth JWT] Received user:', JSON.stringify(user, null, 2));
       
-      if (user?.xId) token.xId = user.xId;
-      if (user?.dbId) token.dbId = user.dbId;
-      if (user?.walletAddress) token.walletAddress = user.walletAddress;
-      if (user?.name) token.name = user.name;
-      if (user?.email) token.email = user.email;
-      if (user?.image) token.picture = user.image;
-      if (user?.role) token.role = user.role;
+      // If user object is present (e.g., during sign-in or explicit update with user data),
+      // prioritize its values to update the token.
+      if (user) {
+        if (user.xId) token.xId = user.xId;
+        if (user.dbId) token.dbId = user.dbId;
+        if (user.walletAddress) token.walletAddress = user.walletAddress;
+        if (user.name) token.name = user.name;
+        if (user.email) token.email = user.email; // Assuming email comes from twitter/user obj
+        if (user.image) token.picture = user.image;
+        if (user.role) token.role = user.role;
+        // Potentially other fields from the initial user object
+      }
 
-      // If we have a dbId, fetch the latest role from the database
-      if (token.dbId) {
+      // If we have a dbId, always fetch the latest user data from the database
+      // to ensure the token reflects the most current state (e.g., after linking a wallet).
+      if (token.dbId && typeof token.dbId === 'string') {
         try {
           const { db } = await connectToDatabase();
           const usersCollection = db.collection<UserDocument>('users');
           const { ObjectId } = await import('mongodb');
+          
           if (ObjectId.isValid(token.dbId)) {
             const userFromDb = await usersCollection.findOne({ _id: new ObjectId(token.dbId) });
             if (userFromDb) {
+              console.log('[NextAuth JWT] Fetched userFromDb:', JSON.stringify(userFromDb, null, 2));
+              // Update token with fresh data from DB
+              token.name = userFromDb.xUsername || token.name; // Prefer xUsername if available
+              // token.email = userFromDb.email || token.email; // If you store email in DB and want to refresh
+              token.picture = userFromDb.xProfileImageUrl || token.picture;
               token.role = userFromDb.role || 'user';
-              console.log('[NextAuth JWT] Updated role from DB:', token.role);
+              token.walletAddress = userFromDb.walletAddress || null; // Ensure walletAddress is updated
+              // Update any other fields you want to keep synchronized in the token
+              console.log('[NextAuth JWT] Updated token with DB data (incl. walletAddress):', token.walletAddress, 'Role:', token.role);
+            } else {
+              console.warn('[NextAuth JWT] User not found in DB for dbId:', token.dbId);
+              // Potentially invalidate token or handle as an error if user should exist
             }
+          } else {
+            console.warn('[NextAuth JWT] Invalid ObjectId for dbId:', token.dbId);
           }
         } catch (error) {
-          console.error("[NextAuth JWT] Error fetching user role:", error);
+          console.error("[NextAuth JWT] Error fetching user data from DB:", error);
+          // Decide if/how to handle this, e.g., proceed with possibly stale token data
         }
       }
 

@@ -32,7 +32,6 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import TopProposalCard from "@/components/dashboard/TopProposalCard";
 import SquadGoalQuestCard from "@/components/dashboard/SquadGoalQuestCard";
 import { useUserAirdrop, UserAirdropData as UserAirdropHookData } from '@/hooks/useUserAirdrop'; // Explicitly import type
-import CrossmintLoginButton from '@/components/CrossmintLoginButton'; // Import the button
 
 // Dynamically import WalletMultiButton
 const WalletMultiButtonDynamic = dynamic(
@@ -431,7 +430,7 @@ export default function HomePage() {
           <h1 className="text-4xl md:text-5xl font-orbitron font-bold text-center">Welcome to DEFAI Rewards</h1>
           <p className="text-base md:text-lg text-center max-w-sm">Connect your wallet to start earning rewards.</p>
           <div className="flex flex-col gap-4 w-full max-w-xs items-center">
-            <CrossmintLoginButton />
+            <WalletMultiButtonDynamic />
           </div>
         </div>
       </main>

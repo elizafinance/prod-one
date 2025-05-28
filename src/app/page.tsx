@@ -32,6 +32,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import TopProposalCard from "@/components/dashboard/TopProposalCard";
 import SquadGoalQuestCard from "@/components/dashboard/SquadGoalQuestCard";
 import { useUserAirdrop, UserAirdropData as UserAirdropHookData } from '@/hooks/useUserAirdrop'; // Explicitly import type
+import CrossmintLoginButton from '@/components/CrossmintLoginButton'; // Import the button
 
 // Dynamically import WalletMultiButton
 const WalletMultiButtonDynamic = dynamic(
@@ -411,7 +412,7 @@ export default function HomePage() {
   }
 
   if (authStatus !== "authenticated") {
-    console.log("[HomePage] Rendering: Not Authenticated state");
+    console.log("[HomePage] Rendering: Not Authenticated state - Now showing Wallet Connect instead of X login");
     return (
       <main className="flex flex-col lg:flex-row min-h-screen w-full">
         {/* Hero illustration on mobile should not be cropped */}
@@ -428,14 +429,9 @@ export default function HomePage() {
         <div className="flex flex-col justify-center items-center lg:w-1/2 w-full bg-gradient-to-b from-black to-[#111] text-white px-8 py-12 space-y-8">
           <DeFAILogo className="h-16 w-16" />
           <h1 className="text-4xl md:text-5xl font-orbitron font-bold text-center">Welcome to DEFAI Rewards</h1>
-          <p className="text-base md:text-lg text-center max-w-sm">Sign in with X to start earning rewards.</p>
-          <div className="flex gap-4 w-full max-w-xs">
-            <button
-              onClick={() => signIn('twitter')}
-              className="flex-1 bg-[#2563EB] hover:bg-[#1e54c7] text-white py-3 rounded-full font-medium transition-colors"
-            >
-              Login with X
-            </button>
+          <p className="text-base md:text-lg text-center max-w-sm">Connect your wallet to start earning rewards.</p>
+          <div className="flex flex-col gap-4 w-full max-w-xs items-center">
+            <CrossmintLoginButton />
           </div>
         </div>
       </main>
@@ -634,7 +630,7 @@ export default function HomePage() {
           // Mobile Layout (Existing Structure, but using AppHeader)
           <div className="w-full max-w-3xl mx-auto px-4 pt-2 pb-8 flex flex-col items-center">
             {/* Centered logo at the very top for mobile */}
-            <DeFAILogo className="h-16 w-16 mb-4" textClassName="text-black" />
+            <DeFAILogo className="h-16 w-16 mb-4" />
             {/* Illustration and Headlines for Mobile (can be simpler or same as desktop) */}
             <div className="relative text-center mt-4 mb-6">
               <div className="text-center mb-6 mt-4">

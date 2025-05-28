@@ -11,6 +11,10 @@ import NotificationsPanel from '@/components/notifications/NotificationsPanel'; 
 import { toast } from 'sonner'; // Correct import for toast
 import AppNav, { NavItem } from './AppNav'; // Import the new AppNav and NavItem type
 import UserAvatar from "@/components/UserAvatar"; // Assuming UserAvatarProps is exported
+import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
+import CrossmintLoginButton from '@/components/CrossmintLoginButton'; // Import the button
+import DeFAILogo from '@/components/DeFAILogo'; // Assuming DeFAILogo is correctly located
+import AgentSetupModal from '@/components/modals/AgentSetupModal'; // Path confirmed
 
 // Type imports using ComponentProps for better robustness if props are not explicitly exported
 // This assumes NotificationsPanel and UserAvatar are functional or class components.
@@ -24,7 +28,11 @@ const WalletMultiButtonDynamic = dynamic(
   { ssr: false }
 );
 
-const XIcon = () => <span>✖️</span>; // TODO: Replace with a proper X icon
+const XIcon = () => (
+  <svg fill="currentColor" viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5">
+    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+  </svg>
+);
 
 const navItems: NavItem[] = [
   { href: "/", label: "Dashboard", exact: true },
@@ -47,7 +55,8 @@ export default function AppHeader() {
     toggleNotificationsPanel, 
     unreadNotificationCount, 
     setUnreadNotificationCount: setUnreadNotificationCountInStore,
-    fetchInitialUnreadCount: fetchInitialUnreadCountFromStore // Renamed to avoid conflict
+    fetchInitialUnreadCount: fetchInitialUnreadCountFromStore,
+    isAgentSetupModalOpen, toggleAgentSetupModal
   } = useUiStateStore();
   const [notificationsInitialized, setNotificationsInitialized] = useState(false);
 
@@ -94,86 +103,81 @@ export default function AppHeader() {
 
   // Safely define typedUser only if session and session.user exist
   const typedUser = session && session.user 
-    ? session.user as (typeof session.user & { xId?: string | null }) 
+    ? session.user as (typeof session.user & { xId?: string | null, image?: string | null, name?: string | null }) 
     : null;
 
+  // If still loading auth status or not client yet, render a placeholder or null to prevent hydration mismatch
+  if (authStatus === 'loading' || !isClient) {
+    return (
+      <header className="sticky top-0 z-50 w-full bg-black/80 backdrop-blur-md shadow-md">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex h-16 items-center justify-between">
+            <div className="flex items-center">
+              <Link href="/" className="flex items-center space-x-2">
+                <DeFAILogo className="h-8 w-auto" textClassName="text-xl" />
+              </Link>
+            </div>
+            <div className="h-8 w-24 bg-slate-700 animate-pulse rounded-md"></div> {/* Placeholder for button area */}
+          </div>
+        </div>
+      </header>
+    );
+  }
+  
   return (
-    <header className="w-full bg-white/80 backdrop-blur-md shadow-sm sticky top-0 z-40 border-b border-border">
-      {/* END DEBUG INFO */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16 md:h-20">
-          {/* Logo – hide on mobile (<640px) to keep the header uncluttered */}
-          <div className="hidden sm:flex flex-shrink-0">
-            <Link href="/" passHref>
-              <div className="text-[#2563EB] font-orbitron font-semibold text-3xl cursor-pointer hover:scale-105 transition-all">
-                DeFAI Rewards
-              </div>
+    <header className="sticky top-0 z-50 w-full bg-black/80 backdrop-blur-md shadow-md">
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex h-16 items-center justify-between">
+          {/* Logo and Nav Links */}
+          <div className="flex items-center">
+            <Link href="/" className="flex items-center space-x-2">
+              <DeFAILogo className="h-8 w-auto" textClassName="text-xl" />
             </Link>
-          </div>
-          <div className="flex-1 min-w-0 ml-2 sm:ml-4 md:ml-6">
-            <AppNav navItems={navItems} />
-          </div>
-          <div className="flex items-center space-x-3 sm:space-x-4">
-            {authStatus === "authenticated" && connected && (
-              <button 
-                onClick={handleOpenNotifications} 
-                className="relative p-2 rounded-full text-[#2563EB] hover:bg-[#2563EB]/10 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#2563EB] transition-all hover:scale-105"
-                aria-label="View notifications"
-              >
-                <BellIcon className="h-6 w-6"/>
-                {unreadNotificationCount > 0 && (
-                  <span className="absolute top-0 right-0 block h-4 w-4 transform -translate-y-1/2 translate-x-1/2 rounded-full bg-red-500 text-white text-xs flex items-center justify-center shadow-lg">
-                    {unreadNotificationCount > 9 ? '9+' : unreadNotificationCount}
-                  </span>
-                )}
-              </button>
+            {/* Desktop Nav Links - Show if authenticated */}
+            {isClient && authStatus === "authenticated" && (
+              <nav className="hidden md:flex md:items-center md:space-x-4 md:ml-6">
+                <Link href="/dashboard" className="text-sm font-medium text-slate-300 hover:text-white transition-colors">Dashboard</Link>
+                <Link href="/quests" className="text-sm font-medium text-slate-300 hover:text-white transition-colors">Quests</Link>
+                <Link href="/squads" className="text-sm font-medium text-slate-300 hover:text-white transition-colors">Squads</Link>
+                {/* <Link href="/leaderboard" className="text-sm font-medium text-slate-300 hover:text-white transition-colors">Leaderboard</Link> */}
+              </nav>
             )}
+          </div>
 
-            {/* Wallet Button */}
-            <WalletMultiButtonDynamic style={{
-              backgroundColor: '#2563EB',
-              color: 'white',
-              borderRadius: '9999px',
-              paddingLeft: '24px',
-              paddingRight: '24px',
-              paddingTop: '12px',
-              paddingBottom: '12px',
-              fontSize: '0.875rem',
-              lineHeight: '1.25rem',
-              fontWeight: 500,
-              transition: 'all 0.3s ease',
-            }} />
-
-            {/* X Login Button: Show only if not X authenticated and on client */}
+          {/* Right side: Wallet Connector / Profile */}
+          <div className="flex items-center">
             {isClient && authStatus !== "authenticated" && (
-              <button
-                onClick={() => signIn('twitter')}
-                className="ml-2 flex items-center space-x-1 hover:opacity-90 transition-opacity"
-                style={{
-                  backgroundColor: '#2B96F1', // Or black: '#000000'
-                  color: 'white',
-                  borderRadius: '9999px',
-                  paddingLeft: '12px',
-                  paddingRight: '12px',
-                  fontSize: '0.875rem',
-                  height: '36px'
-                }}
-              >
-                <XIcon />
-                <span className="hidden sm:inline">Login with X</span>
-              </button>
+              // Replace X login button with CrossmintLoginButton
+              // Apply similar styling or wrap it if needed to match the X button
+              <div className="ml-2">
+                <CrossmintLoginButton />
+              </div>
             )}
 
             {/* User Avatar/Profile Button - Show if X authenticated and on client */}
-            {/* Note: session.user should be typed by next-auth.d.ts */}
+            {/* This part regarding 'typedUser' and 'signOut' will need to adapt to the new cookie auth */}
             {isClient && authStatus === "authenticated" && typedUser && (
               <>
+                {/* Wallet Multi Button - Show if authenticated and on client */}
+                <WalletMultiButtonDynamic style={{ height: '36px', borderRadius: '9999px', backgroundColor: '#3B82F6', fontSize: '0.875rem' }} />
+                
+                {/* Notification Bell - Show if authenticated and on client */}
+                <button 
+                  onClick={handleOpenNotifications} 
+                  className="ml-2 p-1.5 rounded-full text-slate-300 hover:text-white hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-800 focus:ring-white relative transition-colors"
+                >
+                  <BellIcon className="h-5 w-5" />
+                  {unreadNotificationCount > 0 && (
+                    <span className="absolute top-0 right-0 block h-2.5 w-2.5 rounded-full bg-red-500 ring-1 ring-slate-800" />
+                  )}
+                </button>
+
                 <UserAvatar 
-                  profileImageUrl={typedUser.image}
-                  username={typedUser.name || typedUser.xId || 'User'}
+                  profileImageUrl={typedUser.image} // This will need to come from the new auth/user object
+                  username={typedUser.name || typedUser.xId || 'User'} // Same as above
                 />
                 <button 
-                  onClick={() => signOut()} 
+                  onClick={() => signOut()} // signOut will need to be adapted for cookie removal
                   className="ml-2 px-3 py-1.5 text-xs font-medium text-white bg-red-600 hover:bg-red-700 rounded-full transition-colors"
                 >
                   Sign Out
@@ -184,8 +188,9 @@ export default function AppHeader() {
         </div>
       </div>
 
-      {/* Render Notifications Panel globally, controlled by Zustand state */}
-      {/* Show if X authenticated, wallet connected, panel open, and on client */}
+      {/* Modals and Panels */}
+      {isClient && isAgentSetupModalOpen && <AgentSetupModal />}
+
       {isClient && isNotificationsPanelOpen && authStatus === "authenticated" && connected && (
         <NotificationsPanel 
           isOpen={isNotificationsPanelOpen} 

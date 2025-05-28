@@ -8,6 +8,16 @@ interface UiState {
   setUnreadNotificationCount: (count: number) => void;
   fetchInitialUnreadCount: (walletAddress: string | null | undefined, isUserAuthenticated: boolean) => Promise<void>; // Pass walletAddress & auth status
   // Potentially add notifications array here in the future if panel should not fetch on every open
+
+  // Modal states
+  isQuestModalOpen: boolean;
+  isAirdropModalOpen: boolean;
+  isAgentSetupModalOpen: boolean;
+
+  // Modal toggles
+  toggleQuestModal: () => void;
+  toggleAirdropModal: () => void;
+  toggleAgentSetupModal: () => void;
 }
 
 const useUiStateStore = create<UiState>()((set, get) => ({
@@ -37,6 +47,16 @@ const useUiStateStore = create<UiState>()((set, get) => ({
       set({ unreadNotificationCount: 0 }); // Reset on error
     }
   },
+
+  // Initial modal states
+  isQuestModalOpen: false,
+  isAirdropModalOpen: false,
+  isAgentSetupModalOpen: false,
+
+  // Modal toggle implementations
+  toggleQuestModal: () => set((state) => ({ isQuestModalOpen: !state.isQuestModalOpen })),
+  toggleAirdropModal: () => set((state) => ({ isAirdropModalOpen: !state.isAirdropModalOpen })),
+  toggleAgentSetupModal: () => set((state) => ({ isAgentSetupModalOpen: !state.isAgentSetupModalOpen })),
 }));
 
 export default useUiStateStore; 

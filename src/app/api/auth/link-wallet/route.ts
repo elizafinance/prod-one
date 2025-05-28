@@ -1,8 +1,9 @@
-import { NextResponse } from 'next/server';
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/lib/auth"; // Adjust path as necessary
-import { connectToDatabase, UserDocument } from "@/lib/mongodb"; // Adjust path as necessary
+import { NextResponse, NextRequest } from 'next/server';
+// import { getServerSession } from "next-auth/next"; // Replaced by getUserFromRequest
+// import { authOptions } from "@/lib/auth"; 
+import { connectToDatabase, UserDocument } from "@/lib/mongodb";
 import { ObjectId } from 'mongodb';
+import { getUserFromRequest, AuthenticatedUser } from '@/lib/authSession'; // Import the new helper
 // crypto needed for randomUUID if that part of W3C VC example is used
 // import crypto from 'crypto'; 
 
@@ -69,13 +70,15 @@ async function mintAgentOwnershipVC(xUserId: string, walletAddress: string, chai
 */
 // --- END VC Minting Function ---
 
-export async function POST(request: Request) {
-  const session = await getServerSession(authOptions) as any; 
-  if (!session || !session.user || !session.user.dbId || !session.user.xId) {
-    console.warn("[Link Wallet API] Authentication failed: No session, user.dbId, or user.xId missing.");
-    return NextResponse.json({ error: 'User not authenticated or critical session data missing' }, { status: 401 });
+export async function POST(request: NextRequest) { // Changed from Request to NextRequest
+  const authenticatedUser = getUserFromRequest(request);
+
+  if (!authenticatedUser) {
+    console.warn("[Link Wallet API] Authentication failed: No valid JWT auth cookie found.");
+    return NextResponse.json({ error: 'User not authenticated' }, { status: 401 });
   }
-  // const userDbIdForVcContext = session.user.dbId; // Not needed if VC minting is disabled
+  
+  const { dbId: userDbIdString, walletAddress: authenticatedWalletAddress, chain: authenticatedChain } = authenticatedUser;
 
   let requestBody;
   try {
@@ -85,11 +88,20 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
   }
   const { walletAddress, chain } = requestBody;
+
   if (!walletAddress || typeof walletAddress !== 'string') {
     return NextResponse.json({ error: 'walletAddress is required and must be a string' }, { status: 400 });
   }
   if (!chain || typeof chain !== 'string') {
     return NextResponse.json({ error: 'chain is required and must be a string' }, { status: 400 });
+  }
+
+  // Optional: Validate if the provided walletAddress and chain match the authenticated user's wallet from the JWT.
+  // This depends on whether this route is intended to *change* the linked wallet or just confirm/update details for the *authenticated* wallet.
+  // For now, we'll assume the request body's walletAddress and chain are the source of truth for this specific operation.
+  if (walletAddress.toLowerCase() !== authenticatedWalletAddress.toLowerCase()) {
+    console.warn(`[Link Wallet API] Request walletAddress ${walletAddress} differs from authenticated JWT wallet ${authenticatedWalletAddress}. Proceeding with request body's address.`);
+    // Depending on security model, you might want to return an error here if they don't match.
   }
   
   let isValidAddressFormat = EVM_ADDRESS_REGEX.test(walletAddress);
@@ -104,9 +116,9 @@ export async function POST(request: Request) {
   try {
     const { db } = await connectToDatabase();
     const usersCollection = db.collection<UserDocument>('users');
-    const userDbId = new ObjectId(session.user.dbId);
+    const userDbId = new ObjectId(userDbIdString);
 
-    console.log(`[Link Wallet API] User ${userDbId} (xId: ${session.user.xId}) attempting to link wallet ${walletAddress} (chain: ${chain})`);
+    console.log(`[Link Wallet API] User ${userDbId} (Authenticated Wallet: ${authenticatedWalletAddress}, Chain: ${authenticatedChain}) attempting to link/update wallet ${walletAddress} (chain: ${chain})`);
     const now = new Date();
     
     // --- VC Minting Temporarily Disabled --- 
@@ -114,45 +126,54 @@ export async function POST(request: Request) {
     console.log("[Link Wallet API] VC Minting is temporarily disabled. Using placeholder VC ID.");
     // --- End VC Minting (Disabled) --- 
 
+    // The primary role of wallet-login is to create the user and establish the link.
+    // This route now primarily serves to ensure data consistency or update specific fields 
+    // like vcAgentOwnership if it wasn't handled by wallet-login, or if it's a separate step.
+    // We find the user by their dbId from the JWT.
     const result = await usersCollection.updateOne(
-      { _id: userDbId, xId: session.user.xId }, 
+      { _id: userDbId }, 
       { 
         $set: { 
-          walletAddress: walletAddress,
-          walletChain: chain,
-          walletLinkedAt: now,
-          vcAgentOwnership: agentOwnershipVCHash, // Store placeholder
+          walletAddress: walletAddress, // Update to the wallet address from the request body
+          walletChain: chain,           // Update to the chain from the request body
+          walletLinkedAt: now,        // Re-affirm or set walletLinkedAt
+          vcAgentOwnership: agentOwnershipVCHash, 
           updatedAt: now
         },
-        $addToSet: { completedActions: 'wallet_linked' } 
+        $addToSet: { completedActions: 'wallet_linked_confirmed' } // Action type changed to reflect confirmation/update
       }
     );
 
     if (result.matchedCount === 0) {
-      console.error(`[Link Wallet API] User not found or xId mismatch during update. User dbId: ${userDbId}`);
-      return NextResponse.json({ error: 'User not found or xId mismatch.' }, { status: 404 });
+      // This should ideally not happen if wallet-login created the user and set the cookie correctly.
+      console.error(`[Link Wallet API] User not found during update. User dbId from JWT: ${userDbIdString}`);
+      return NextResponse.json({ error: 'Authenticated user not found in database.' }, { status: 404 });
     }
     
     if (result.modifiedCount === 0 && result.matchedCount === 1) {
-        console.log(`[Link Wallet API] Wallet address/chain for user ${userDbId} likely already set.`);
+        console.log(`[Link Wallet API] Wallet address/chain for user ${userDbIdString} likely already set or no change made.`);
     } else {
-        console.log(`[Link Wallet API] Wallet ${walletAddress} (chain: ${chain}) successfully linked/updated for user ${userDbId}. Placeholder VC ID: ${agentOwnershipVCHash}`);
+        console.log(`[Link Wallet API] Wallet ${walletAddress} (chain: ${chain}) successfully linked/updated for user ${userDbIdString}. Placeholder VC ID: ${agentOwnershipVCHash}`);
     }
 
     return NextResponse.json({ 
         success: true, 
-        message: 'Wallet linked successfully. (VC Minting Disabled)', 
+        message: 'Wallet details processed successfully. (VC Minting Disabled)', 
         walletAddress: walletAddress,
         chain: chain,
         vcAgentOwnership: agentOwnershipVCHash 
     });
 
   } catch (error: any) {
-    console.error(`[Link Wallet API] General error linking wallet for user ${session.user.dbId}:`, error);
+    console.error(`[Link Wallet API] General error for user ${userDbIdString}:`, error);
     if (error.name === 'MongoServerError' && error.code === 11000) {
         console.warn(`[Link Wallet API] Duplicate key error on walletAddress: ${walletAddress}.`, error);
+        // This error might still occur if another user already has this walletAddress.
+        // The wallet-login route handles finding an existing user by walletAddress.
+        // If this route is called, and a *different* authenticated user tries to link a wallet
+        // that's already taken by *another* user, this unique index conflict can happen.
         return NextResponse.json({ error: 'This wallet address may already be linked to another account.' }, { status: 409 });
     }
-    return NextResponse.json({ error: 'Internal server error while linking wallet.' }, { status: 500 });
+    return NextResponse.json({ error: 'Internal server error while processing wallet details.' }, { status: 500 });
   }
 } 

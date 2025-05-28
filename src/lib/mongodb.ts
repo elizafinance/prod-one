@@ -70,6 +70,8 @@ export interface UserDocument {
   _id?: ObjectId; // Prefer ObjectId, but main had 'any'
   auth0Id?: string; 
   walletAddress?: string;
+  walletChain?: string; // Added for wallet-login consistency
+  walletLinkedAt?: Date; // Added for wallet-login consistency
   xUserId?: string; 
   xUsername?: string;
   xProfileImageUrl?: string;
@@ -89,6 +91,13 @@ export interface UserDocument {
   updatedAt?: Date;
   current_tier_name?: string;
   tier_updated_at?: Date;
+
+  // Agent-related fields
+  agentId?: string;
+  agentStatus?: 'PENDING' | 'DEPLOYING' | 'RUNNING' | 'FAILED' | 'ARCHIVED';
+  agentDeployedAt?: Date;
+  agentUrl?: string;
+  agentType?: string; // Added as it was used in deploy route
 }
 
 export interface ReferralBoost {

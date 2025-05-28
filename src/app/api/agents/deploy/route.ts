@@ -1,6 +1,5 @@
-import { NextResponse } from 'next/server';
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/lib/auth"; 
+import { NextResponse, NextRequest } from 'next/server';
+import { getUserFromRequest, AuthenticatedUser } from '@/lib/authSession';
 import { connectToDatabase, UserDocument } from "@/lib/mongodb";
 import { ObjectId } from 'mongodb';
 import { exec } from 'child_process'; // For calling Fleek CLI
@@ -174,40 +173,48 @@ async function executeFleekCommand(commandArgs: string): Promise<{ stdout: strin
   }
 }
 
-export async function POST(request: Request) {
-  const session = await getServerSession(authOptions) as any;
-  let userForCatchBlock: any = null; 
+export async function POST(request: NextRequest) {
+  const authenticatedUser = getUserFromRequest(request);
+  let userForCatchBlock: Partial<UserDocument> & { _id?: ObjectId } | null = null;
 
-  if (!session || !session.user || !session.user.dbId || !session.user.walletAddress) {
-    console.warn("[Agent Deploy API] Auth failed: session/user/dbId/walletAddress missing.");
-    return NextResponse.json({ error: 'User not authenticated or wallet not linked' }, { status: 401 });
+  if (!authenticatedUser) {
+    console.warn("[Agent Deploy API] Auth failed: No valid JWT auth cookie found.");
+    return NextResponse.json({ error: 'User not authenticated' }, { status: 401 });
   }
+  
+  const { dbId: userDbIdString, walletAddress: userWalletAddressFromJwt, chain: userWalletChainFromJwt } = authenticatedUser;
 
   try {
     const STAKING_REQUIREMENT = 1000000; 
-    const userDefaiBalance = await getDefaiTokenBalance(session.user.walletAddress);
+    const userDefaiBalance = await getDefaiTokenBalance(userWalletAddressFromJwt);
     if (userDefaiBalance < STAKING_REQUIREMENT) {
-      console.warn(`[Agent Deploy API] User ${session.user.dbId} does not meet staking requirement.`);
+      console.warn(`[Agent Deploy API] User ${userDbIdString} (Wallet: ${userWalletAddressFromJwt}) does not meet staking requirement.`);
       return NextResponse.json({ 
         error: `Staking requirement not met. Min ${STAKING_REQUIREMENT.toLocaleString()} DEFAI needed.`,
         details: { required: STAKING_REQUIREMENT, current: userDefaiBalance }
       }, { status: 403 });
     }
-    console.log(`[Agent Deploy API] User ${session.user.dbId} meets staking requirement.`);
+    console.log(`[Agent Deploy API] User ${userDbIdString} (Wallet: ${userWalletAddressFromJwt}) meets staking requirement.`);
 
     const { db } = await connectToDatabase();
     const usersCollection = db.collection<UserDocument>('users');
-    const userDbId = new ObjectId(session.user.dbId);
-    const user = await usersCollection.findOne({ _id: userDbId }) as any; 
+    const userDbId = new ObjectId(userDbIdString);
+    const user = await usersCollection.findOne({ _id: userDbId }); 
     userForCatchBlock = user; 
 
     if (!user) {
-      console.error(`[Agent Deploy API] User not found with dbId: ${userDbId}`);
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+      console.error(`[Agent Deploy API] Authenticated user not found in DB with dbId: ${userDbIdString}`);
+      return NextResponse.json({ error: 'Authenticated user not found' }, { status: 404 });
+    }
+
+    // Ensure user has critical wallet info; wallet-login and link-wallet should have set this.
+    if (!user.walletAddress || !user.walletChain) {
+      console.error(`[Agent Deploy API] User ${userDbIdString} is missing walletAddress or walletChain in DB. Wallet must be fully linked.`);
+      return NextResponse.json({ error: 'User wallet information incomplete. Please ensure wallet is linked.' }, { status: 400 });
     }
 
     if (user.agentId && user.agentStatus === 'RUNNING') {
-      console.log(`[Agent Deploy API] Agent for user ${userDbId} is already RUNNING.`);
+      console.log(`[Agent Deploy API] Agent for user ${userDbIdString} is already RUNNING.`);
       return NextResponse.json({ 
         success: true, message: `Agent is already RUNNING.`, 
         agentId: user.agentId, status: user.agentStatus,
@@ -221,24 +228,17 @@ export async function POST(request: Request) {
     let agentUrl = user.agentUrl; 
     let agentStatus = user.agentStatus || 'PENDING';
 
-    console.log(`[Agent Deploy API] Preparing agent deployment for user ${userDbId}.`);
+    console.log(`[Agent Deploy API] Preparing agent deployment for user ${userDbIdString}.`);
     
     const agentSiteName = `defai-agent-${userDbId.toHexString()}`; 
-    const agentTemplatePath = process.env.FLEEK_AGENT_TEMPLATE_PATH || "./default-fleek-agent-template"; // ** USER ACTION: Ensure this path is correct **
+    const agentTemplatePath = process.env.FLEEK_AGENT_TEMPLATE_PATH || "./default-fleek-agent-template";
     
-    // ** USER ACTION REQUIRED: Ensure these ENV VARS are correctly sourced from the 'user' object **
-    // (user.xId, user.walletAddress, user.walletChain should be populated by NextAuth and link-wallet API)
     const agentEnvVars = [
         `USER_DB_ID=${userDbId.toHexString()}`,
-        `USER_X_ID=${user.xId || 'UNKNOWN_XID'}`, // Fallback if xId somehow missing
         `AGENT_ID=${agentId}`,
         `AGENT_WALLET_ADDRESS=${user.walletAddress || 'MISSING_WALLET'}`,
         `AGENT_WALLET_CHAIN=${user.walletChain || 'UNKNOWN_CHAIN'}`,
-        // Example: `SCOPED_CROSSMINT_KEY=${process.env.AGENT_SPECIFIC_CROSSMINT_KEY}` // If you generate such keys
     ];
-    // Ensure values with spaces or special characters are properly quoted for the CLI.
-    // The exact quoting depends on your shell and the Fleek CLI's argument parsing.
-    // Using JSON.stringify for each value part of KEY=VALUE can be a robust way to handle special chars.
     const envStringForCli = agentEnvVars.map(v => { 
         const parts = v.split('='); 
         const key = parts[0]; 
@@ -246,15 +246,7 @@ export async function POST(request: Request) {
         return `--env ${key}=${JSON.stringify(value)}`;
     }).join(' ');
 
-    // ** CRITICAL USER ACTION: Construct your ACTUAL Fleek CLI deployment command below. **
-    // This is a highly illustrative placeholder.
-    // Consult Fleek CLI documentation for the correct command and options for your agent type (site, service, Docker, etc.)
-    // Example for a static site from a template directory:
     let fleekDeployCommandArgs = `site:create --name "${agentSiteName}" --template "${agentTemplatePath}" ${envStringForCli}`;
-    // Example for a Docker image (if your agent is containerized):
-    // fleekDeployCommandArgs = `service:deploy --name "${agentSiteName}" --image "your_dockerhub_username/your_agent_image:latest" ${envStringForCli}`;
-    // Example for deploying from a Git repository:
-    // fleekDeployCommandArgs = `site:create --name "${agentSiteName}" --git "https://github.com/your_org/your_agent_template_repo.git" --branch "main" ${envStringForCli}`;
     
     console.log(`[Agent Deploy API] Intended Fleek CLI arguments: ${fleekDeployCommandArgs}`);
     await usersCollection.updateOne( { _id: userDbId }, { $set: { agentStatus: 'DEPLOYING', agentId: agentId, agentType: agentType, updatedAt: new Date() } } );
@@ -262,12 +254,9 @@ export async function POST(request: Request) {
     const deployResult = await executeFleekCommand(fleekDeployCommandArgs);
 
     if (deployResult.success) {
-      // ** CRITICAL USER ACTION: Parse deployResult.stdout to get the actual deployed URL/ID. **
-      // This is highly dependent on the Fleek CLI output. It might be JSON or specific log lines.
-      // Example parsing for a line like \"Live URL: https://foo-bar.on-fleek.app\":
       const urlMatch = deployResult.stdout.match(/Live URL: (https?:\/\/[^\s]+)/i) || 
                        deployResult.stdout.match(/Service URL: (https?:\/\/[^\s]+)/i) ||
-                       deployResult.stdout.match(/Site deployed: (https?:\/\/[^\s]+)/i); // Common Fleek outputs
+                       deployResult.stdout.match(/Site deployed: (https?:\/\/[^\s]+)/i);
       
       agentUrl = urlMatch ? urlMatch[1] : `https://check-fleek-dashboard-for-${agentSiteName}`; 
       agentStatus = 'RUNNING';
@@ -296,7 +285,7 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: `Agent deployment failed: ${deployResult.stderr || 'Unknown CLI error'}` }, { status: 500 });
     }
 
-    console.log(`[Agent Deploy API] Agent for user ${userDbId} status: ${agentStatus}.`);
+    console.log(`[Agent Deploy API] Agent for user ${userDbIdString} status: ${agentStatus}.`);
     return NextResponse.json({
       success: true, message: `Agent deployment ${agentStatus === 'RUNNING' ? 'successful' : 'failed but status updated'}.`,
       agentId: agentId, status: agentStatus, agentType: agentType,
@@ -305,14 +294,21 @@ export async function POST(request: Request) {
 
   } catch (error: any) {
     console.error("[Agent Deploy API] Outer error deploying agent:", error);
-    try {
-        const userDbIdFromSession = new ObjectId(session.user.dbId); 
-        const { db } = await connectToDatabase();
-        const usersCollection = db.collection<UserDocument>('users');
-        const agentIdToSet = userForCatchBlock?.agentId || `defai_agent_prod_${userDbIdFromSession.toHexString()}_outer_fail`;
-        await usersCollection.updateOne({_id: userDbIdFromSession}, {$set: {agentStatus: 'FAILED', updatedAt: new Date(), agentId: agentIdToSet}});
-    } catch (dbError) {
-        console.error("[Agent Deploy API] Failed to update agent status to FAILED on outer error:", dbError);
+    // Use userDbIdString from JWT if available, otherwise try to get from userForCatchBlock if it was populated.
+    const finalUserDbIdString = userDbIdString || userForCatchBlock?._id?.toHexString();
+    if (finalUserDbIdString) {
+      try {
+          const userDbIdForErrorUpdate = new ObjectId(finalUserDbIdString);
+          const { db } = await connectToDatabase();
+          const usersCollection = db.collection<UserDocument>('users');
+          // Ensure agentId is set, even if it's a fallback, to prevent it from being undefined in the DB
+          const agentIdToSet = userForCatchBlock?.agentId || `defai_agent_prod_${finalUserDbIdString}_outer_fail`;
+          await usersCollection.updateOne({_id: userDbIdForErrorUpdate}, {$set: {agentStatus: 'FAILED', updatedAt: new Date(), agentId: agentIdToSet}});
+      } catch (dbError) {
+          console.error(`[Agent Deploy API] Failed to update agent status to FAILED for user ${finalUserDbIdString} on outer error:`, dbError);
+      }
+    } else {
+      console.error("[Agent Deploy API] Could not determine user ID to update agent status to FAILED on outer error.");
     }
     return NextResponse.json({ error: 'Internal server error during agent deployment process.' }, { status: 500 });
   }

@@ -9,7 +9,10 @@
 # testing
 /coverage
 
-#backend
+
+users.json
+
+#backend scripts
 backend_script.md
 
 # next.js

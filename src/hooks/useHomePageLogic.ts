@@ -355,7 +355,7 @@ export function useHomePageLogic() {
       setIsWalletSigningIn(true);
       setWalletSignInAttempted(true);
       // Use the `wallet` credentials provider we added in auth.ts
-      signIn('wallet', { walletAddress: wallet.publicKey.toBase58() }, { redirect: false })
+      signIn('wallet', { walletAddress: wallet.publicKey.toBase58(), redirect: false })
         .then((res) => {
           if (res?.error) {
             console.error('[HomePageLogic] Wallet sign-in returned error:', res.error);

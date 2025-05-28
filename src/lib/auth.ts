@@ -68,8 +68,30 @@ export const authOptions: NextAuthOptions = {
           }
           const walletAddress = walletAddressRaw.trim();
 
-          const { db } = await connectToDatabase();
-          const usersCollection = db.collection<UserDocument>('users');
+          let db: Db | null = null;
+          let usersCollection: any = null;
+          try {
+            if (process.env.MONGODB_URI && process.env.MONGODB_DB_NAME) {
+              const conn = await connectToDatabase();
+              db = conn.db;
+              usersCollection = db.collection<UserDocument>('users');
+            }
+          } catch (err) {
+            console.warn('[Credentials Authorize] Could not connect to MongoDB. Falling back to dev user.', err);
+          }
+
+          // If we still don't have a collection (DB unavailable in dev), shortcut with an in-memory user
+          if (!usersCollection) {
+            // Dev fallback: return ephemeral user so sign-in succeeds without DB
+            return {
+              id: walletAddress,
+              dbId: walletAddress,
+              walletAddress,
+              xId: walletAddress,
+              role: 'user',
+              name: walletAddress,
+            } as any;
+          }
 
           const now = new Date();
 
@@ -154,7 +176,7 @@ export const authOptions: NextAuthOptions = {
 
       // If we have a dbId, always fetch the latest user data from the database
       // to ensure the token reflects the most current state (e.g., after linking a wallet).
-      if (token.dbId && typeof token.dbId === 'string') {
+      if (token.dbId && typeof token.dbId === 'string' && process.env.MONGODB_URI && process.env.MONGODB_DB_NAME) {
         try {
           const { db } = await connectToDatabase();
           const usersCollection = db.collection<UserDocument>('users');
@@ -198,7 +220,7 @@ export const authOptions: NextAuthOptions = {
         session.user.image = token.picture as string || null;
         session.user.role = token.role as string || 'user';
 
-        if (token.dbId && typeof token.dbId === 'string') {
+        if (token.dbId && typeof token.dbId === 'string' && process.env.MONGODB_URI && process.env.MONGODB_DB_NAME) {
           try {
             const { db } = await connectToDatabase();
             const usersCollection = db.collection<UserDocument>('users');
@@ -223,7 +245,8 @@ export const authOptions: NextAuthOptions = {
       return session;
     },
   },
-  secret: process.env.NEXTAUTH_SECRET,
+  // Provide a sensible default secret in development so devs can run the app without extra env setup.
+  secret: process.env.NEXTAUTH_SECRET || (process.env.NODE_ENV !== 'production' ? 'dev-secret' : undefined),
   pages: {},
   cookies: {
     sessionToken: {

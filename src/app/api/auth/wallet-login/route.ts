@@ -7,8 +7,13 @@ import { ObjectId } from "mongodb";
 // Re-use the regexes from link-wallet
 const EVM_ADDRESS_REGEX = /^0x[a-fA-F0-9]{40}$/;
 
-const signJwt = (payload: any) =>
-  jwt.sign(payload, process.env.NEXTAUTH_SECRET!, { expiresIn: "30d" });
+const getSecret = () => process.env.NEXTAUTH_SECRET || (process.env.NODE_ENV !== 'production' ? 'dev-secret' : undefined);
+
+const signJwt = (payload: any) => {
+  const secret = getSecret();
+  if (!secret) throw new Error('NEXTAUTH_SECRET is not set');
+  return jwt.sign(payload, secret, { expiresIn: '30d' });
+};
 
 export async function POST(request: Request) {
   const { walletAddress, chain } = await request.json();

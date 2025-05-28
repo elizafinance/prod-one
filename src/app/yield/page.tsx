@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import ErrorBoundary from '@/components/ErrorBoundary';
-import { Award, ArrowLeft, TrendingUp, Clock, Zap, AlertCircle, X } from "lucide-react";
+import { Award, ArrowLeft, TrendingUp, Clock, Zap, AlertCircle, X, Bot, Play, Square } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -473,6 +473,43 @@ export default function YieldPage() {
     }
   };
   
+  /* =======================
+   * AI AGENT STATE & HANDLERS
+   * ======================= */
+  const [agentGoal, setAgentGoal] = useState("");
+  const [allowedFunctions, setAllowedFunctions] = useState<Record<string, boolean>>({
+    stake: true,
+    unstake: true,
+    harvest: true,
+    checkStake: true,
+  });
+  const [isAgentRunning, setIsAgentRunning] = useState(false);
+  const [agentLog, setAgentLog] = useState<string[]>([]);
+
+  const toggleFunction = (func: string) => {
+    setAllowedFunctions((prev) => ({ ...prev, [func]: !prev[func] }));
+  };
+
+  const runAgent = () => {
+    if (!agentGoal.trim()) return;
+    setIsAgentRunning(true);
+    setAgentLog((log) => [
+      ...log,
+      `▶️ Agent started with goal: "${agentGoal}"`,
+    ]);
+
+    // Simulate agent processing for now
+    setTimeout(() => {
+      setAgentLog((log) => [...log, "✅ Agent finished execution (simulation)"]);
+      setIsAgentRunning(false);
+    }, 3000);
+  };
+
+  const stopAgent = () => {
+    setIsAgentRunning(false);
+    setAgentLog((log) => [...log, "⏹️ Agent stopped by user"]);
+  };
+
   return (
     <ErrorBoundary>
       <DashboardShell>
@@ -530,6 +567,75 @@ export default function YieldPage() {
             </CardHeader>
             <CardContent>
               <PoolInformation />
+            </CardContent>
+          </Card>
+
+          {/* AI Agent Control Panel */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <Bot className="mr-2 h-5 w-5 text-primary" />
+                Yield Agent
+              </CardTitle>
+              <CardDescription>
+                Delegate yield farming tasks to your AI agent. Configure permissions and provide a goal, then let the agent act using the available functions.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Goal Input */}
+              <div>
+                <label className="block text-sm font-medium mb-1" htmlFor="agent-goal">Agent Goal / Instruction</label>
+                <textarea
+                  id="agent-goal"
+                  value={agentGoal}
+                  onChange={(e) => setAgentGoal(e.target.value)}
+                  rows={3}
+                  className="w-full rounded-md border border-border bg-background p-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                  placeholder="E.g. Stake 50% of my available LP, harvest rewards daily, and compound earnings."
+                />
+              </div>
+
+              {/* Function Permissions */}
+              <div>
+                <h4 className="text-sm font-medium mb-2">Allowed Functions</h4>
+                <div className="grid grid-cols-2 gap-2">
+                  {Object.keys(allowedFunctions).map((fnKey) => (
+                    <label key={fnKey} className="flex items-center space-x-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={allowedFunctions[fnKey]}
+                        onChange={() => toggleFunction(fnKey)}
+                        className="accent-primary"
+                      />
+                      <span className="capitalize">{fnKey}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Control Buttons */}
+              <div className="flex gap-3">
+                <Button onClick={runAgent} disabled={isAgentRunning || !agentGoal.trim()} className="flex items-center gap-1 flex-1">
+                  <Play className="h-4 w-4" />
+                  {isAgentRunning ? "Running..." : "Run Agent"}
+                </Button>
+                <Button onClick={stopAgent} disabled={!isAgentRunning} variant="destructive" className="flex items-center gap-1 flex-1">
+                  <Square className="h-4 w-4" />
+                  Stop Agent
+                </Button>
+              </div>
+
+              {/* Agent Log */}
+              {agentLog.length > 0 && (
+                <div>
+                  <h4 className="text-sm font-medium mb-1">Agent Log</h4>
+                  <div className="h-32 overflow-auto border border-border rounded-md p-2 bg-muted text-xs space-y-1">
+                    {agentLog.map((msg, idx) => (
+                      <div key={idx}>{msg}</div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>

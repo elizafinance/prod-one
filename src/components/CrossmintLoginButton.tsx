@@ -154,17 +154,22 @@ export default function CrossmintLoginButton() {
         setIsSdkLoading(false);
       }
     } else if (!clientRef.current) {
-      // This case means:
-      // 1. window.crossmintUiService was falsy (e.g. undefined, null) OR
-      // 2. clientRef.current was already set (but this elseif checks !clientRef.current, so this sub-condition means clientRef.current is null)
-      // Effectively, this path is taken if window.crossmintUiService is not available AND clientRef.current is null.
-      console.warn("[CrossmintButton] initializeCrossmint: Skipped main init logic. window.crossmintUiService not available or clientRef already set, yet clientRef is null. SDK may not be ready.");
-      // Consider if isSdkLoading should be set to false here if crossmintUiService is definitively not available after script load.
-      // For now, leaving as is to see logs. If window.crossmintUiService is consistently undefined here after script load,
-      // it means the script isn't setting it up as expected, and we might need to set isSdkLoading to false and show an error.
+      // This path is taken if:
+      // 1. window.crossmintUiService was falsy (e.g. undefined, null) when initializeCrossmint was called, AND
+      // 2. clientRef.current is null (meaning SDK hasn't been successfully initialized and stored yet).
+      // This situation is typically observed when initializeCrossmint is called from the Script's onLoad,
+      // and window.crossmintUiService isn't immediately available.
+      console.error("[CrossmintButton] initializeCrossmint: Failed to find window.crossmintUiService immediately after script onLoad or clientRef is unexpectedly null. SDK cannot be initialized.");
+      setErrorState("Wallet services (Crossmint SDK) could not be found after loading. Please refresh the page or check adblockers.");
+      setIsSdkLoading(false); // Ensure loading state is cleared and an error is shown.
     } else {
       // This case means clientRef.current is already set. SDK should be initialized.
-      console.log("[CrossmintButton] initializeCrossmint: Client already initialized.");
+      console.log("[CrossmintButton] initializeCrossmint: Client already initialized (clientRef.current exists).");
+      // If clientRef is already set, isSdkLoading should ideally be false.
+      // We can add a safety check here, though it should have been set when clientRef was first populated.
+      if (isSdkLoading) {
+        setIsSdkLoading(false);
+      }
     }
   };
 

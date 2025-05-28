@@ -44,6 +44,10 @@ export default function CrossmintLoginButton() {
   const [vcHash, setVcHash] = useState<string | null>(null);
   const [agentStatus, setAgentStatus] = useState<string | null>(null);
 
+  // Constants for polling
+  const MAX_POLL_ATTEMPTS = 25; // 25 * 200ms = 5 seconds
+  const POLLING_INTERVAL = 200; // ms
+
   useEffect(() => {
     if (session?.user?.walletAddress) {
       setCurrentStep("AGENT");
@@ -92,7 +96,13 @@ export default function CrossmintLoginButton() {
   const initializeCrossmint = () => {
     console.log("[CrossmintButton] initializeCrossmint called. window.crossmintUiService exists:", !!window.crossmintUiService, "clientRef.current exists:", !!clientRef.current);
 
-    if (typeof window !== "undefined" && (window.crossmintUiService as CrossmintUiService) && !clientRef.current) {
+    if (clientRef.current) {
+      console.log("[CrossmintButton] initializeCrossmint: Client already initialized.");
+      if (isSdkLoading) setIsSdkLoading(false);
+      return;
+    }
+
+    if (typeof window !== "undefined" && window.crossmintUiService) {
       try {
         const clientId = process.env.NEXT_PUBLIC_CROSSMINT_CLIENT_SIDE;
         if (!clientId) {
@@ -153,46 +163,57 @@ export default function CrossmintLoginButton() {
         setErrorState(error?.message || "Could not initialize Crossmint. Please refresh.");
         setIsSdkLoading(false);
       }
-    } else if (!clientRef.current) {
-      // This path is taken if:
-      // 1. window.crossmintUiService was falsy (e.g. undefined, null) when initializeCrossmint was called, AND
-      // 2. clientRef.current is null (meaning SDK hasn't been successfully initialized and stored yet).
-      // This situation is typically observed when initializeCrossmint is called from the Script's onReady,
-      // and window.crossmintUiService isn't immediately available.
-      console.error("[CrossmintButton] initializeCrossmint: Failed to find window.crossmintUiService immediately after script onReady or clientRef is unexpectedly null. SDK cannot be initialized.");
-      setErrorState("Wallet services (Crossmint SDK) could not be found after loading. Please refresh the page or check adblockers.");
-      setIsSdkLoading(false); // Ensure loading state is cleared and an error is shown.
     } else {
-      // This case means clientRef.current is already set. SDK should be initialized.
-      console.log("[CrossmintButton] initializeCrossmint: Client already initialized (clientRef.current exists).");
-      // If clientRef is already set, isSdkLoading should ideally be false.
-      // We can add a safety check here, though it should have been set when clientRef was first populated.
-      if (isSdkLoading) {
-        setIsSdkLoading(false);
-      }
+      // This case should ideally not be reached if polling is effective.
+      console.error("[CrossmintButton] initializeCrossmint: window.crossmintUiService not available at time of call. This should have been caught by polling.");
+      // Do not set global error state here, polling handles timeout error.
+      // If polling calls this function, it means window.crossmintUiService was found, so this path is unlikely.
+      // However, if called from somewhere else prematurely, this log is useful.
+      // Ensure isSdkLoading remains true or is handled by the caller context (polling).
     }
   };
 
+  // New useEffect for polling window.crossmintUiService
   useEffect(() => {
-    // This useEffect acts as a fallback or secondary check.
-    // The primary initialization path is via the Script tag's onReady.
-    // If, for some reason, onReady doesn't trigger initializeCrossmint or it fails silently,
-    // this effect might catch it if crossmintUiService becomes available later.
-    if (!clientRef.current && typeof window !== "undefined") {
-        // If the service isn't immediately available, try to initialize after a short delay.
-        // This can help if the service attaches itself slightly after the initial component render.
-        const timer = setTimeout(() => {
-            if (window.crossmintUiService && !clientRef.current) {
-                console.log("[CrossmintButton] useEffect: Initializing Crossmint via setTimeout as service found and client not set.");
-                initializeCrossmint();
-            } else if (!window.crossmintUiService) {
-                console.warn("[CrossmintButton] useEffect: window.crossmintUiService still not found after delay. SDK may not have loaded correctly or is blocked.");
-                // Optionally, set an error state here if it's critical and not handled elsewhere
-            }
-        }, 200); // Increased delay slightly for this fallback.
-        return () => clearTimeout(timer);
+    if (clientRef.current) { // If already initialized, do nothing.
+      setIsSdkLoading(false); // Ensure loading state is correct if already initialized
+      return;
     }
-  }, []); // Empty dependency array means this runs once on mount.
+
+    // Start with SDK loading true
+    setIsSdkLoading(true);
+    setErrorState(null); // Clear previous errors
+
+    let attempts = 0;
+    const intervalId = setInterval(() => {
+      if (typeof window !== "undefined" && window.crossmintUiService) {
+        if (!clientRef.current) {
+          console.log(`[CrossmintButton] Polling: window.crossmintUiService found after ${attempts + 1} attempts. Initializing.`);
+          initializeCrossmint();
+        } else {
+          // This case means it got initialized by some other means after polling started but before this check.
+          console.log("[CrossmintButton] Polling: window.crossmintUiService found, but clientRef already set. Halting poll.");
+          setIsSdkLoading(false); // SDK is initialized
+        }
+        clearInterval(intervalId);
+      } else {
+        attempts++;
+        console.log(`[CrossmintButton] Polling: window.crossmintUiService not found. Attempt ${attempts}/${MAX_POLL_ATTEMPTS}`);
+        if (attempts >= MAX_POLL_ATTEMPTS) {
+          clearInterval(intervalId);
+          console.error("[CrossmintButton] Polling: Failed to find window.crossmintUiService after max attempts.");
+          if (!clientRef.current) { // Only set error if not somehow initialized
+              setErrorState("Wallet services (Crossmint SDK) could not be found after extended loading. Please refresh or check adblockers.");
+              setIsSdkLoading(false);
+          }
+        }
+      }
+    }, POLLING_INTERVAL);
+
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, []); // Run once on mount
 
   useEffect(() => {
     if (authStatus === "authenticated" && currentStep === "WALLET" && clientRef.current && crossmintModalOpened.current && !isSdkLoading) {
@@ -292,8 +313,8 @@ export default function CrossmintLoginButton() {
         src="https://unpkg.com/@crossmint/client-sdk-vanilla-ui@latest/dist/index.global.js"
         strategy="afterInteractive"
         onReady={() => {
-          console.log("[CrossmintButton] Crossmint SDK script ready (onReady). Attempting to initialize.");
-          initializeCrossmint();
+          console.log("[CrossmintButton] Crossmint SDK script reported as ready by Next/Script. Polling will handle initialization.");
+          // No direct call to initializeCrossmint() here. Polling mechanism takes over.
         }}
         onError={(e) => {
             console.error("[CrossmintButton] Failed to load Crossmint SDK script:", e);

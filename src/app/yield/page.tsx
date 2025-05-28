@@ -13,6 +13,8 @@ import { useWallet } from '@solana/wallet-adapter-react';
 import { useConnection } from '@solana/wallet-adapter-react';
 import { BN } from '@project-serum/anchor';
 import { PublicKey } from '@solana/web3.js';
+import { Slider } from "@/components/ui/slider";
+import { Input } from "@/components/ui/input";
 
 // Import our new hooks
 import { useStaking } from '@/hooks/useStaking';
@@ -510,6 +512,11 @@ export default function YieldPage() {
     setAgentLog((log) => [...log, "⏹️ Agent stopped by user"]);
   };
 
+  // NEW: Yield optimisation states
+  const [riskTolerance, setRiskTolerance] = useState<number>(50);
+  const [lpSize, setLpSize] = useState<string>('');
+  const [lpDuration, setLpDuration] = useState<string>('');
+
   return (
     <ErrorBoundary>
       <DashboardShell>
@@ -538,106 +545,161 @@ export default function YieldPage() {
             />
           )}
           
-          {/* Display active staking details if user has staked position */}
-          {!checkStakeLoading && isStaked && stakedPosition && (
-            <ActiveStakingDetails 
-              stakedPosition={stakedPosition} 
-              onUnstake={handleUnstake}
-              onClaimRewards={handleClaimRewards}
-              isUnstaking={isUnstaking}
-              isClaiming={isClaiming}
-            />
-          )}
-          
-          {/* Split the layout into two columns on larger screens */}
-            {/* Right column - Create Position Component */}
-            {/* Temporarily remove CreatePosition placeholder */}
-          
-          {/* Staking Form */}
-          <Pool />
-          
-          {/* Pool Information */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Clock className="mr-2 h-5 w-5" />
-                Pool Information
-              </CardTitle>
-              <CardDescription>Current staking pool statistics</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <PoolInformation />
-            </CardContent>
-          </Card>
-
-          {/* AI Agent Control Panel */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Bot className="mr-2 h-5 w-5 text-primary" />
-                Yield Agent
-              </CardTitle>
-              <CardDescription>
-                Delegate yield farming tasks to your AI agent. Configure permissions and provide a goal, then let the agent act using the available functions.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {/* Goal Input */}
-              <div>
-                <label className="block text-sm font-medium mb-1" htmlFor="agent-goal">Agent Goal / Instruction</label>
-                <textarea
-                  id="agent-goal"
-                  value={agentGoal}
-                  onChange={(e) => setAgentGoal(e.target.value)}
-                  rows={3}
-                  className="w-full rounded-md border border-border bg-background p-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                  placeholder="E.g. Stake 50% of my available LP, harvest rewards daily, and compound earnings."
-                />
-              </div>
-
-              {/* Function Permissions */}
-              <div>
-                <h4 className="text-sm font-medium mb-2">Allowed Functions</h4>
-                <div className="grid grid-cols-2 gap-2">
-                  {Object.keys(allowedFunctions).map((fnKey) => (
-                    <label key={fnKey} className="flex items-center space-x-2 text-sm">
-                      <input
-                        type="checkbox"
-                        checked={allowedFunctions[fnKey]}
-                        onChange={() => toggleFunction(fnKey)}
-                        className="accent-primary"
-                      />
-                      <span className="capitalize">{fnKey}</span>
+          {/* Main 3-column layout */}
+          <div className="grid gap-6 lg:grid-cols-3">
+            {/* LEFT COLUMN – Yield Optimisation */}
+            <div className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center">
+                    <TrendingUp className="mr-2 h-5 w-5 text-primary" />
+                    Yield Optimisation
+                  </CardTitle>
+                  <CardDescription>Set your desired risk and LP parameters.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {/* Risk tolerance slider */}
+                  <div>
+                    <label className="block text-sm font-medium mb-1">
+                      Risk Tolerance: <span className="font-semibold">{riskTolerance}%</span>
                     </label>
-                  ))}
-                </div>
-              </div>
-
-              {/* Control Buttons */}
-              <div className="flex gap-3">
-                <Button onClick={runAgent} disabled={isAgentRunning || !agentGoal.trim()} className="flex items-center gap-1 flex-1">
-                  <Play className="h-4 w-4" />
-                  {isAgentRunning ? "Running..." : "Run Agent"}
-                </Button>
-                <Button onClick={stopAgent} disabled={!isAgentRunning} variant="destructive" className="flex items-center gap-1 flex-1">
-                  <Square className="h-4 w-4" />
-                  Stop Agent
-                </Button>
-              </div>
-
-              {/* Agent Log */}
-              {agentLog.length > 0 && (
-                <div>
-                  <h4 className="text-sm font-medium mb-1">Agent Log</h4>
-                  <div className="h-32 overflow-auto border border-border rounded-md p-2 bg-muted text-xs space-y-1">
-                    {agentLog.map((msg, idx) => (
-                      <div key={idx}>{msg}</div>
-                    ))}
+                    <Slider
+                      min={0}
+                      max={100}
+                      step={1}
+                      value={[riskTolerance]}
+                      onValueChange={(val) => setRiskTolerance(val[0])}
+                    />
                   </div>
-                </div>
+                  {/* LP Size */}
+                  <div>
+                    <label className="block text-sm font-medium mb-1" htmlFor="lp-size">LP Size (USD)</label>
+                    <Input
+                      id="lp-size"
+                      type="number"
+                      value={lpSize}
+                      onChange={(e) => setLpSize(e.target.value)}
+                      placeholder="e.g. 5000"
+                    />
+                  </div>
+                  {/* LP Duration */}
+                  <div>
+                    <label className="block text-sm font-medium mb-1" htmlFor="lp-duration">Planned LP Duration (days)</label>
+                    <Input
+                      id="lp-duration"
+                      type="number"
+                      value={lpDuration}
+                      onChange={(e) => setLpDuration(e.target.value)}
+                      placeholder="e.g. 30"
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* MIDDLE COLUMN – Agent UI */}
+            <div className="space-y-6">
+              {/* AI Agent Control Panel */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center">
+                    <Bot className="mr-2 h-5 w-5 text-primary" />
+                    Yield Agent
+                  </CardTitle>
+                  <CardDescription>
+                    Delegate yield farming tasks to your AI agent. Configure permissions and provide a goal, then let the agent act using the available functions.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {/* Goal Input */}
+                  <div>
+                    <label className="block text-sm font-medium mb-1" htmlFor="agent-goal">Agent Goal / Instruction</label>
+                    <textarea
+                      id="agent-goal"
+                      value={agentGoal}
+                      onChange={(e) => setAgentGoal(e.target.value)}
+                      rows={3}
+                      className="w-full rounded-md border border-border bg-background p-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                      placeholder="E.g. Stake 50% of my available LP, harvest rewards daily, and compound earnings."
+                    />
+                  </div>
+
+                  {/* Function Permissions */}
+                  <div>
+                    <h4 className="text-sm font-medium mb-2">Allowed Functions</h4>
+                    <div className="grid grid-cols-2 gap-2">
+                      {Object.keys(allowedFunctions).map((fnKey) => (
+                        <label key={fnKey} className="flex items-center space-x-2 text-sm">
+                          <input
+                            type="checkbox"
+                            checked={allowedFunctions[fnKey]}
+                            onChange={() => toggleFunction(fnKey)}
+                            className="accent-primary"
+                          />
+                          <span className="capitalize">{fnKey}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Control Buttons */}
+                  <div className="flex gap-3">
+                    <Button onClick={runAgent} disabled={isAgentRunning || !agentGoal.trim()} className="flex items-center gap-1 flex-1">
+                      <Play className="h-4 w-4" />
+                      {isAgentRunning ? "Running..." : "Run Agent"}
+                    </Button>
+                    <Button onClick={stopAgent} disabled={!isAgentRunning} variant="destructive" className="flex items-center gap-1 flex-1">
+                      <Square className="h-4 w-4" />
+                      Stop Agent
+                    </Button>
+                  </div>
+
+                  {/* Agent Log */}
+                  {agentLog.length > 0 && (
+                    <div>
+                      <h4 className="text-sm font-medium mb-1">Agent Log</h4>
+                      <div className="h-32 overflow-auto border border-border rounded-md p-2 bg-muted text-xs space-y-1">
+                        {agentLog.map((msg, idx) => (
+                          <div key={idx}>{msg}</div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* RIGHT COLUMN – Staking & Pool Info */}
+            <div className="space-y-6">
+              {/* Active staking details */}
+              {!checkStakeLoading && isStaked && stakedPosition && (
+                <ActiveStakingDetails 
+                  stakedPosition={stakedPosition} 
+                  onUnstake={handleUnstake}
+                  onClaimRewards={handleClaimRewards}
+                  isUnstaking={isUnstaking}
+                  isClaiming={isClaiming}
+                />
               )}
-            </CardContent>
-          </Card>
+
+              {/* Staking Form */}
+              <Pool />
+
+              {/* Pool Information */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center">
+                    <Clock className="mr-2 h-5 w-5" />
+                    Pool Information
+                  </CardTitle>
+                  <CardDescription>Current staking pool statistics</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <PoolInformation />
+                </CardContent>
+              </Card>
+            </div>
+          </div>
         </div>
       </DashboardShell>
     </ErrorBoundary>

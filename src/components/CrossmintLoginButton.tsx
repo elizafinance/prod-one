@@ -157,9 +157,9 @@ export default function CrossmintLoginButton() {
       // This path is taken if:
       // 1. window.crossmintUiService was falsy (e.g. undefined, null) when initializeCrossmint was called, AND
       // 2. clientRef.current is null (meaning SDK hasn't been successfully initialized and stored yet).
-      // This situation is typically observed when initializeCrossmint is called from the Script's onLoad,
+      // This situation is typically observed when initializeCrossmint is called from the Script's onReady,
       // and window.crossmintUiService isn't immediately available.
-      console.error("[CrossmintButton] initializeCrossmint: Failed to find window.crossmintUiService immediately after script onLoad or clientRef is unexpectedly null. SDK cannot be initialized.");
+      console.error("[CrossmintButton] initializeCrossmint: Failed to find window.crossmintUiService immediately after script onReady or clientRef is unexpectedly null. SDK cannot be initialized.");
       setErrorState("Wallet services (Crossmint SDK) could not be found after loading. Please refresh the page or check adblockers.");
       setIsSdkLoading(false); // Ensure loading state is cleared and an error is shown.
     } else {
@@ -174,10 +174,25 @@ export default function CrossmintLoginButton() {
   };
 
   useEffect(() => {
-    if (window.crossmintUiService) {
-      initializeCrossmint();
+    // This useEffect acts as a fallback or secondary check.
+    // The primary initialization path is via the Script tag's onReady.
+    // If, for some reason, onReady doesn't trigger initializeCrossmint or it fails silently,
+    // this effect might catch it if crossmintUiService becomes available later.
+    if (!clientRef.current && typeof window !== "undefined") {
+        // If the service isn't immediately available, try to initialize after a short delay.
+        // This can help if the service attaches itself slightly after the initial component render.
+        const timer = setTimeout(() => {
+            if (window.crossmintUiService && !clientRef.current) {
+                console.log("[CrossmintButton] useEffect: Initializing Crossmint via setTimeout as service found and client not set.");
+                initializeCrossmint();
+            } else if (!window.crossmintUiService) {
+                console.warn("[CrossmintButton] useEffect: window.crossmintUiService still not found after delay. SDK may not have loaded correctly or is blocked.");
+                // Optionally, set an error state here if it's critical and not handled elsewhere
+            }
+        }, 200); // Increased delay slightly for this fallback.
+        return () => clearTimeout(timer);
     }
-  }, []);
+  }, []); // Empty dependency array means this runs once on mount.
 
   useEffect(() => {
     if (authStatus === "authenticated" && currentStep === "WALLET" && clientRef.current && crossmintModalOpened.current && !isSdkLoading) {
@@ -267,7 +282,7 @@ export default function CrossmintLoginButton() {
   return (
     <div className="p-4 border rounded-lg max-w-md mx-auto">
       <h2 className="text-xl font-semibold mb-3 text-center">Your AI Agent Setup</h2>
-      <div className="flex justify-between mb-4 text-xs">
+      <div className={`flex justify-between mb-4 text-xs`}>
         <span className={`p-1 ${(currentStep === "WALLET" || currentStep === "AGENT" || currentStep === "COMPLETED") ? (session?.user?.walletAddress ? 'font-bold text-blue-600' : 'font-bold') : 'text-gray-500'}`}>1. Link Wallet</span>
         <span className={`p-1 ${(currentStep === "AGENT" || currentStep === "COMPLETED") ? (agentStatus === "Running" ? 'font-bold text-blue-600' : 'font-bold') : 'text-gray-500'}`}>2. Deploy Agent</span>
         <span className={`p-1 ${currentStep === "COMPLETED" ? 'font-bold text-blue-600' : 'text-gray-500'}`}>3. Completed</span>
@@ -275,9 +290,9 @@ export default function CrossmintLoginButton() {
 
       <Script
         src="https://unpkg.com/@crossmint/client-sdk-vanilla-ui@latest/dist/index.global.js"
-        strategy="lazyOnload"
-        onLoad={() => {
-          console.log("[CrossmintButton] Crossmint SDK script loaded via onLoad.");
+        strategy="afterInteractive"
+        onReady={() => {
+          console.log("[CrossmintButton] Crossmint SDK script ready (onReady). Attempting to initialize.");
           initializeCrossmint();
         }}
         onError={(e) => {

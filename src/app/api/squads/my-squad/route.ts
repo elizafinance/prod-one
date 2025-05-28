@@ -43,10 +43,26 @@ export async function GET(request: Request) {
     const squadsCollection = db.collection<SquadDocument>('squads');
 
     // Step 2: Fetch the user from DB using the authenticated xId to get their canonical walletAddress
-    const userFromDb = await usersCollection.findOne({ xUserId: userXId });
+    let userFromDb = await usersCollection.findOne({ xUserId: userXId });
     console.log('[MySquadAPI] DB lookup result for xUserId', userXId, ':', userFromDb);
+
+    // Fallback: No record matched by xUserId – try by wallet address if provided
+    if (!userFromDb && clientProvidedWalletAddress) {
+      console.warn('[MySquadAPI] No user found by xUserId – attempting wallet lookup:', clientProvidedWalletAddress);
+      const userByWallet = await usersCollection.findOne({ walletAddress: clientProvidedWalletAddress });
+      if (userByWallet) {
+        console.info('[MySquadAPI] Found user by wallet address. Updating record with xUserId to self-heal.');
+        await usersCollection.updateOne(
+          { _id: userByWallet._id },
+          { $set: { xUserId: userXId, updatedAt: new Date() } }
+        );
+        // Merge the xUserId into the in-memory object while preserving _id
+        userFromDb = { ...userByWallet, xUserId: userXId } as any;
+      }
+    }
+
     if (!userFromDb) {
-      console.error('[MySquadAPI] User not found in DB for xUserId:', userXId);
+      console.error('[MySquadAPI] User not found in DB after wallet fallback for xUserId:', userXId);
       return NextResponse.json({ error: 'User record not found in database for authenticated xId.' }, { status: 404 });
     }
     

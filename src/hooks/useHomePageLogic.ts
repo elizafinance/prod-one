@@ -1,6 +1,6 @@
 // @ts-nocheck
 import React, { useState, useEffect, useCallback } from 'react';
-import { useSession } from "next-auth/react";
+import { useSession, signIn } from "next-auth/react";
 import { useWallet } from '@solana/wallet-adapter-react';
 import { useConnection } from '@solana/wallet-adapter-react';
 import { useRouter } from 'next/navigation';
@@ -52,6 +52,7 @@ export function useHomePageLogic() {
   const [isDesktop, setIsDesktop] = useState(false);
   const [totalCommunityPoints, setTotalCommunityPoints] = useState<number | null>(null);
   const [defaiBalance, setDefaiBalance] = useState<number | null>(null);
+  const [isWalletSigningIn, setIsWalletSigningIn] = useState(false);
 
   // Combine userData from userAirdrop hook and otherUserData
   const combinedUserData = {
@@ -339,6 +340,27 @@ export function useHomePageLogic() {
     userAirdrop.isLoading, // Add hook loading state as dependency
   ]);
 
+  // ===== New Effect: Automatically authenticate with wallet credentials =====
+  useEffect(() => {
+    // If wallet is connected but NextAuth is not authenticated, attempt credentials sign in
+    if (
+      wallet.connected &&
+      wallet.publicKey &&
+      authStatus !== 'authenticated' &&
+      !isWalletSigningIn
+    ) {
+      console.log('[HomePageLogic] Wallet connected but not authenticated – attempting credentials sign-in');
+      setIsWalletSigningIn(true);
+      // Use the `wallet` credentials provider we will add in auth.ts
+      signIn('wallet', { walletAddress: wallet.publicKey.toBase58() }, { redirect: false })
+        .catch((err) => {
+          console.error('[HomePageLogic] Wallet sign-in failed:', err);
+        })
+        .finally(() => {
+          setIsWalletSigningIn(false);
+        });
+    }
+  }, [wallet.connected, wallet.publicKey, authStatus, isWalletSigningIn]);
 
   // Other effects: largely unchanged
   useEffect(() => {

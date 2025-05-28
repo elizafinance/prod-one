@@ -2,6 +2,7 @@
 
 import { JWT } from "next-auth/jwt";
 import TwitterProvider from "next-auth/providers/twitter";
+import CredentialsProvider from "next-auth/providers/credentials";
 import { connectToDatabase, UserDocument, ActionDocument } from "@/lib/mongodb"; // Assuming mongodb.ts is also in @/lib
 import { randomBytes } from 'crypto';
 import { Db, ObjectId } from 'mongodb';
@@ -54,11 +55,72 @@ async function logAuthFailure(reason: string, context: Record<string, any> = {})
 
 export const authOptions: NextAuthOptions = {
   providers: [
-    TwitterProvider({
-      clientId: process.env.X_CLIENT_ID!,
-      clientSecret: process.env.X_CLIENT_SECRET!,
-      version: "2.0", // Add explicit version
+    CredentialsProvider({
+      id: 'wallet',
+      name: 'Wallet',
+      credentials: {
+        walletAddress: { label: 'Wallet Address', type: 'text' },
+      },
+      async authorize(credentials, req) {
+        try {
+          const walletAddressRaw = credentials?.walletAddress as string | undefined;
+          if (!walletAddressRaw) {
+            throw new Error('walletAddress is required');
+          }
+          const walletAddress = walletAddressRaw.trim();
+
+          const { db } = await connectToDatabase();
+          const usersCollection = db.collection<UserDocument>('users');
+
+          const now = new Date();
+
+          // Attempt to find existing user by walletAddress
+          let userDoc = await usersCollection.findOne({ walletAddress });
+
+          if (!userDoc) {
+            // Create new user with INITIAL_LOGIN points and referralCode
+            const referralCode = await generateUniqueReferralCode(db);
+            const newUser = {
+              walletAddress,
+              xUserId: walletAddress, // Use wallet address as xUserId placeholder
+              points: AIR.INITIAL_LOGIN,
+              referralCode,
+              completedActions: ['initial_connection'],
+              createdAt: now,
+              updatedAt: now,
+              lastLoginAt: now,
+              role: 'user',
+              isActive: true,
+            } as Omit<UserDocument, '_id'> as UserDocument;
+
+            const insert = await usersCollection.insertOne(newUser);
+            userDoc = { _id: insert.insertedId, ...newUser } as UserDocument;
+
+            if (!userDoc.xUserId) {
+              await usersCollection.updateOne({ _id: userDoc._id }, { $set: { xUserId: walletAddress } });
+              userDoc.xUserId = walletAddress;
+            }
+          } else {
+            // Update lastLoginAt and updatedAt
+            await usersCollection.updateOne({ _id: userDoc._id }, { $set: { lastLoginAt: now, updatedAt: now } });
+          }
+
+          // Return user object expected by NextAuth
+          return {
+            id: userDoc._id.toHexString(),
+            dbId: userDoc._id.toHexString(),
+            walletAddress: userDoc.walletAddress,
+            xId: userDoc.walletAddress, // For compatibility with existing logic expecting xId
+            role: userDoc.role || 'user',
+            name: userDoc.walletAddress,
+          } as any;
+        } catch (err) {
+          console.error('[Credentials Authorize] Error:', err);
+          return null;
+        }
+      },
     }),
+    // TwitterProvider kept for legacy but can be removed if desired
   ],
   debug: true, // Enable debug logs
   session: {
@@ -67,6 +129,12 @@ export const authOptions: NextAuthOptions = {
   },
   callbacks: {
     async signIn({ user, account, profile }: any) {
+      // Allow credentials (wallet) provider to sign in directly
+      if (account?.provider === 'wallet' || account?.provider === 'credentials') {
+        // authorize has already created/fetched the user and populated required fields.
+        return true;
+      }
+
       // Debug logging
       console.log('==== NextAuth SignIn Debug ====');
       console.log('Environment:', {

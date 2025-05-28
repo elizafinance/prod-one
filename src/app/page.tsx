@@ -10,7 +10,7 @@ import { toast } from 'sonner'; // Import sonner toast
 import { useWallet } from '@solana/wallet-adapter-react'; // Import useWallet
 import { useWalletModal } from '@solana/wallet-adapter-react-ui';
 import dynamic from 'next/dynamic'; // Import dynamic
-import { useSession, signIn, signOut } from "next-auth/react"; // NextAuth hooks
+import { useSession, signOut } from "next-auth/react"; // NextAuth hooks (signIn removed)
 import { ReferralBoost, SquadDocument, SquadInvitationDocument } from '@/lib/mongodb'; // Import the ReferralBoost interface and SquadDocument
 import { BellIcon } from '@heroicons/react/24/outline'; // Example icon, install @heroicons/react
 import UserAvatar from "@/components/UserAvatar";
@@ -428,14 +428,8 @@ export default function HomePage() {
         <div className="flex flex-col justify-center items-center lg:w-1/2 w-full bg-gradient-to-b from-black to-[#111] text-white px-8 py-12 space-y-8">
           <DeFAILogo className="h-16 w-16" />
           <h1 className="text-4xl md:text-5xl font-orbitron font-bold text-center">Welcome to DEFAI Rewards</h1>
-          <p className="text-base md:text-lg text-center max-w-sm">Log in with X, then connect your wallet to start earning rewards.</p>
+          <p className="text-base md:text-lg text-center max-w-sm">Connect your wallet to start earning rewards.</p>
           <div className="flex flex-col gap-4 w-full max-w-xs items-center">
-            <button
-              onClick={() => signIn('twitter')}
-              className="w-full rounded bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700 transition-colors"
-            >
-              Log in with X
-            </button>
             <WalletMultiButtonDynamic />
           </div>
         </div>

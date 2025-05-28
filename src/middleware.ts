@@ -16,6 +16,8 @@ export async function middleware(request: NextRequest) {
     publicPaths.includes(pathname) ||
     pathname.startsWith('/_next') ||
     pathname.startsWith('/api/auth') ||
+    pathname.startsWith('/api/stats') || // Public statistics endpoints
+    pathname.startsWith('/api/users/points') || // Public endpoint to fetch points for any wallet
     pathname.includes('.') // static files
   ) {
     return NextResponse.next()

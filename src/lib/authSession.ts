@@ -21,7 +21,8 @@ export function getUserFromRequest(request: NextRequest): AuthenticatedUser | nu
     return null;
   }
 
-  const secret = process.env.NEXTAUTH_SECRET;
+  // In development fall back to a fixed secret so local setup works out-of-the-box.
+  const secret = process.env.NEXTAUTH_SECRET || (process.env.NODE_ENV !== 'production' ? 'dev-secret' : undefined);
   if (!secret) {
     console.error('[AuthSession] NEXTAUTH_SECRET is not set. Cannot verify JWT.');
     return null; // Cannot verify without a secret

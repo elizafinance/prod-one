@@ -16,6 +16,12 @@ export default async function handler(
   }
 
   try {
+    // If DB credentials are missing in development, gracefully return 0 instead of 500.
+    if (!process.env.MONGODB_URI || !process.env.MONGODB_DB_NAME) {
+      console.warn('[total-points] MongoDB env vars are missing – returning 0 for dev.');
+      return res.status(200).json({ totalCommunityPoints: 0 });
+    }
+
     const { db } = await connectToDatabase();
     const usersCollection = db.collection('users');
 
@@ -36,6 +42,10 @@ export default async function handler(
     return res.status(200).json({ totalCommunityPoints });
   } catch (error: any) {
     console.error("Error fetching total community points:", error);
+    // In dev, respond with 0 instead of 500 to keep UI functional
+    if (process.env.NODE_ENV !== 'production') {
+      return res.status(200).json({ totalCommunityPoints: 0 });
+    }
     return res.status(500).json({ error: 'Failed to fetch total community points: ' + error.message });
   }
 } 

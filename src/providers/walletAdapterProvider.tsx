@@ -14,7 +14,6 @@ import "@solana/wallet-adapter-react-ui/styles.css";
 import {
   PhantomWalletAdapter,
   SolflareWalletAdapter,
-  UnsafeBurnerWalletAdapter,
 } from "@solana/wallet-adapter-wallets";
 
 import { WalletAdapterNetwork } from "@solana/wallet-adapter-base";
@@ -59,8 +58,6 @@ export const WalletAdapterProvider: FC<Props> = ({ children }) => {
     () => [
       new PhantomWalletAdapter(), // Phantom (desktop & mobile)
       new SolflareWalletAdapter({ network }), // Solflare (desktop & mobile with deeplink)
-      // Unsafe burner – useful fallback on unsupported devices or during development.
-      new UnsafeBurnerWalletAdapter(),
     ],
     [network]
   );

@@ -37,6 +37,7 @@ const XIcon = () => (
 const navItems: NavItem[] = [
   { href: "/", label: "Dashboard", exact: true },
   { href: "/leaderboard", label: "Leaderboard" },
+  { href: "/quests", label: "Quests" },
   { href: "/squads", label: "Squads" },
   { href: "/squads/browse", label: "Squads Browse" },
   { href: "/proposals", label: "Proposals" },
@@ -136,10 +137,15 @@ export default function AppHeader() {
             {/* Desktop Nav Links - Show if authenticated */}
             {isClient && authStatus === "authenticated" && (
               <nav className="hidden md:flex md:items-center md:space-x-4 md:ml-6">
-                <Link href="/" className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors">Dashboard</Link>
-                <Link href="/quests" className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors">Quests</Link>
-                <Link href="/squads" className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors">Squads</Link>
-                {/* <Link href="/leaderboard" className="text-sm font-medium text-slate-300 hover:text-white transition-colors">Leaderboard</Link> */}
+                {navItems.map(({ href, label }) => (
+                  <Link
+                    key={href}
+                    href={href}
+                    className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
+                  >
+                    {label}
+                  </Link>
+                ))}
               </nav>
             )}
           </div>

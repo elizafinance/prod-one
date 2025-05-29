@@ -13,6 +13,9 @@ import { useWallet } from '@solana/wallet-adapter-react';
 import { useConnection } from '@solana/wallet-adapter-react';
 import { BN } from '@project-serum/anchor';
 import { PublicKey } from '@solana/web3.js';
+import { useAuth } from "@crossmint/client-sdk-react-ui";
+import CrossmintLoginButton from '@/components/CrossmintLoginButton';
+import AgentOnboardingFlow from '@/components/agentic/AgentOnboardingFlow';
 
 // Import our new hooks
 import { useStaking } from '@/hooks/useStaking';
@@ -288,6 +291,7 @@ export default function YieldPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [stakeEntryAccount, setStakeEntryAccount] = useState<any>(null);
+  const { user: crossmintUser, status: crossmintStatus } = useAuth();
   
   // Use our imported hooks correctly
   const staking = useStaking();
@@ -510,8 +514,55 @@ export default function YieldPage() {
     setAgentLog((log) => [...log, "⏹️ Agent stopped by user"]);
   };
 
+  /* =========================
+   * Crossmint UI helpers
+   * ========================= */
+  const renderCrossmintSection = () => {
+    const statusStr = crossmintStatus as string;
+    if (statusStr === 'connected' && crossmintUser) {
+      return (
+        <div className="my-6 p-6 bg-muted border border-border rounded-lg shadow-md">
+          <h2 className="text-sm font-semibold text-purple-700 uppercase tracking-wider mb-3">Account Details (Connected via Crossmint)</h2>
+          <div className="space-y-2 text-sm">
+            {crossmintUser.email && (
+              <p><strong>Email:</strong> {crossmintUser.email}</p>
+            )}
+            {(crossmintUser as any).google?.name && (
+              <div>
+                <p><strong>Google:</strong> {(crossmintUser as any).google.name} {(crossmintUser as any).google.picture && (
+                  <a href={(crossmintUser as any).google.picture} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline ml-1">view pic</a>
+                )}</p>
+              </div>
+            )}
+            {(crossmintUser as any).farcaster?.username && (
+              <div>
+                <p><strong>Farcaster:</strong> @{(crossmintUser as any).farcaster.username} (FID: {(crossmintUser as any).farcaster.fid})</p>
+                {(crossmintUser as any).farcaster.pfpUrl && (
+                  <p><a href={(crossmintUser as any).farcaster.pfpUrl} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">View Farcaster PFP</a></p>
+                )}
+              </div>
+            )}
+            {/* Add other social logins or wallet info if needed */}
+          </div>
+        </div>
+      );
+    }
+
+    // Not connected yet -> show connect button
+    return (
+      <div className="my-6 p-6 bg-muted border border-border rounded-lg shadow-md text-center">
+        <h2 className="text-sm font-semibold text-purple-700 uppercase tracking-wider mb-3">Connect Crossmint Wallet</h2>
+        <p className="text-sm text-muted-foreground mb-4">Link a Crossmint Smart Wallet to manage your on-chain AI agent.</p>
+        <div className="flex justify-center">
+          <CrossmintLoginButton />
+        </div>
+      </div>
+    );
+  };
+
   return (
     <ErrorBoundary>
+      <AgentOnboardingFlow>
       <DashboardShell>
         <DashboardHeader 
           heading="Yield Farming (Coming Soon)" 
@@ -638,8 +689,12 @@ export default function YieldPage() {
               )}
             </CardContent>
           </Card>
+
+          {/* Crossmint Integration Section */}
+          {renderCrossmintSection()}
         </div>
       </DashboardShell>
+      </AgentOnboardingFlow>
     </ErrorBoundary>
   );
 }

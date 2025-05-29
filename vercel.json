@@ -3,6 +3,10 @@
     {
       "path": "/api/cron/process-proposals",
       "schedule": "0 0 * * 5"
+    },
+    {
+      "path": "api/cron/agent-policy-sync",
+      "schedule": "0 * * * *"
     }
   ]
 } 

@@ -124,11 +124,22 @@ export default function CrossmintLoginButton() {
     if (sdkError) {
         console.error("[CrossmintButton] SDK Error state detected:", sdkError);
         setAppErrorState(sdkError);
-    } else if (currentAuthStatus !== 'error' && currentAuthStatus !== 'requires_mfa') { // Clear error if status is not a persistent error state
-        // Clearing appErrorState only if it's not a generic 'error' or 'requires_mfa' which might need user action
-        // This prevents clearing a valid error message if a non-error status update comes through.
-        // Only clear if sdkError was not set and it's not a known error state.
-        // setAppErrorState(null); // Be cautious with clearing errors like this, might hide issues
+    } else {
+        // If there's no specific SDK error, but there was a previous appErrorState,
+        // and the current status isn't an error/pending state, consider clearing.
+        // Avoid clearing if status is still loading, connecting, or initializing.
+        const nonErrorNonLoadingStatus = 
+            currentAuthStatus !== 'error' && 
+            currentAuthStatus !== 'requires_mfa' && 
+            currentAuthStatus !== 'connecting' && 
+            currentAuthStatus !== 'loading-embedded-wallet' && 
+            currentAuthStatus !== 'loading-wallet-config' && 
+            currentAuthStatus !== 'initializing';
+
+        if (appErrorState && nonErrorNonLoadingStatus) {
+            // console.log("[CrossmintButton] Clearing previous appErrorState as current status is stable and not an error:", currentAuthStatus);
+            // setAppErrorState(null); // Decided to leave explicit error clearing to user/specific actions for now.
+        }
     }
 
     if (currentAuthStatus === 'connected' && user) {
@@ -146,11 +157,18 @@ export default function CrossmintLoginButton() {
     }
     // Add other status handlings as needed, e.g., for 'requires_mfa', 'error'
     if(currentAuthStatus === 'error'){
-        console.error("[CrossmintButton] General 'error' status from useAuth(). Check for specific error details if available or Crossmint console.");
-        setAppErrorState("A general Crossmint error occurred. Please try again or check console.");
+        console.error("[CrossmintButton] General 'error' status from useAuth(). Check for specific error details. Error message in UI might be:", appErrorState );
+        // Set appErrorState here only if it's not already set to something more specific by the sdkError logic above
+        if (!appErrorState) {
+             setAppErrorState("A general Crossmint error occurred. Please check console or try again.");
+        }
+    }
+    if(currentAuthStatus === 'error-initializing') { // More explicit handling
+        console.error("[CrossmintButton] 'error-initializing' status from useAuth(). Check API key and allowed origins.");
+        setAppErrorState("Crossmint failed to initialize. Check API key & allowed origins in Crossmint console.");
     }
 
-  }, [authHookStatus, user, jwt, walletHookStatus, walletError, setAppErrorState]); // Added setAppErrorState to dependency array
+  }, [authHookStatus, user, jwt, walletHookStatus, walletError, appErrorState, setAppErrorState]); // appErrorState added to dep array
 
   // Your existing useEffects for onboarding steps and agent deployment (adapt as needed)
   useEffect(() => {
@@ -232,9 +250,9 @@ export default function CrossmintLoginButton() {
     console.log("[CrossmintButton] Calling Crossmint login().");
     try {
       login(); // This will open the Crossmint modal
-    } catch (e) {
+    } catch (e: any) { // Added type for e
       console.error("[CrossmintButton] Error directly invoking login():", e);
-      setAppErrorState("Failed to initiate Crossmint login. Please try again.");
+      setAppErrorState(e.message || "Failed to initiate Crossmint login. Please try again."); // Set error message from exception
     }
   };
 

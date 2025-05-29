@@ -98,6 +98,14 @@ export interface UserDocument {
   agentDeployedAt?: Date;
   agentUrl?: string;
   agentType?: string; // Added as it was used in deploy route
+
+  // Crossmint-specific fields for Hybrid Auth & Yield/Agent section
+  crossmintUserId?: string;       // Crossmint user ID (from JWT `sub` claim)
+  crossmintWalletAddress?: string; // Primary wallet address from Crossmint
+  crossmintWalletChain?: string;   // Chain of the Crossmint wallet
+
+  // Agent risk tolerance (already used by /api/agents/risk)
+  agentRiskTolerance?: number; // 1-5
 }
 
 export interface ReferralBoost {

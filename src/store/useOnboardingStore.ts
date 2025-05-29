@@ -5,7 +5,7 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 export type OnboardingStep =
   | "WELCOME"
   | "CONNECT_WALLET"
-  | "STAKE"
+  | "FUND_SMART_WALLET"
   | "DEPLOY_AGENT"
   | "SET_RISK"
   | "DONE";

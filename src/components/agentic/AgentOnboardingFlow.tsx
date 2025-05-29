@@ -53,7 +53,7 @@ export default function AgentOnboardingFlow({
   // primaryWalletSendTransaction,
   // primaryWalletConnection,
 }: AgentOnboardingFlowProps) {
-  const { status: crossmintStatus, jwt, user: crossmintUser } = useAuth();
+  const { status: crossmintStatus, jwt, logout: crossmintLogout } = useAuth();
   const { wallet: crossmintSmartWallet } = useCrossmintWallet(); // This is the target smart wallet
 
   // Get primary wallet (Phantom etc.) and connection from Solana wallet adapter context
@@ -313,9 +313,34 @@ export default function AgentOnboardingFlow({
   };
 
   const renderContent = () => {
-    // For testing: button to reset onboarding state
     const resetButton = process.env.NODE_ENV === 'development' ? (
-        <Button onClick={resetOnboarding} variant="link" size="sm" className="absolute top-3 right-12 text-xs z-20">Reset</Button>
+        <Button onClick={resetOnboarding} variant="link" size="sm" className="absolute top-3 right-12 text-xs z-20">Reset Flow</Button>
+    ) : null;
+
+    const crossmintSessionActive = isAuthConnected(crossmintStatus as string);
+    
+    const handleCrossmintDisconnect = async () => {
+        if (crossmintLogout) {
+            try {
+                await crossmintLogout();
+                toast.info("Crossmint session ended.");
+                resetOnboarding();
+            } catch (err: any) {
+                console.error("Crossmint logout error:", err);
+                toast.error(`Crossmint logout error: ${err.message || "Unknown error"}`);
+            }
+        }
+    };
+
+    const devDisconnectButton = process.env.NODE_ENV === 'development' && crossmintSessionActive ? (
+        <Button 
+            onClick={handleCrossmintDisconnect}
+            variant="outline"
+            size="sm"
+            className="absolute top-10 right-3 text-xs p-1 bg-orange-100 text-orange-700 hover:bg-orange-200 rounded z-20 border-orange-300"
+        >
+            Disconnect CM (Dev)
+        </Button>
     ) : null;
 
     switch (step) {
@@ -323,6 +348,7 @@ export default function AgentOnboardingFlow({
         return (
           <Modal>
             {resetButton}
+            {devDisconnectButton}
             <h2 className="text-lg font-semibold mb-2 flex items-center gap-2"><Bot className="h-5 w-5 text-blue-600" /> Human-Agent Symbiosis</h2>
             <p className="mb-4 text-sm leading-relaxed text-slate-700">Welcome to DEFAI Yield. Together, you and your on-chain AI agent
               will optimise liquidity-provision strategies while you retain
@@ -335,6 +361,7 @@ export default function AgentOnboardingFlow({
         return (
           <Modal showBackButton onBack={() => setStep("WELCOME")}>
             {resetButton}
+            {devDisconnectButton}
             <h2 className="text-lg font-semibold mb-2">1. Link Your Smart Wallet</h2>
             <p className="mb-4 text-sm text-slate-600">
               Your agent needs a secure home. Connect or create a Crossmint smart
@@ -358,6 +385,7 @@ export default function AgentOnboardingFlow({
         return (
           <Modal showBackButton onBack={() => setStep("CONNECT_WALLET")}>
             {resetButton}
+            {devDisconnectButton}
             <h2 className="text-lg font-semibold mb-2">2. Fund Your Agent&apos;s Wallet</h2>
             <p className="mb-2 text-sm text-slate-600">
               To activate your agent, its smart wallet needs SOL for transaction fees and DEFAI tokens to manage.
@@ -403,6 +431,7 @@ export default function AgentOnboardingFlow({
         return (
           <Modal showBackButton onBack={() => setStep("FUND_SMART_WALLET")}>
             {resetButton}
+            {devDisconnectButton}
             <h2 className="text-lg font-semibold mb-2">3. Deploy Your AI Agent</h2>
             <p className="mb-4 text-sm text-slate-600">Your personalised agent will be deployed to Fleek&rsquo;s serverless
               infrastructure with secure key-management and its own smart wallet.
@@ -415,6 +444,7 @@ export default function AgentOnboardingFlow({
         return (
           <Modal showBackButton onBack={() => setStep("DEPLOY_AGENT")}>
             {resetButton}
+            {devDisconnectButton}
             <h2 className="text-lg font-semibold mb-2">4. Set Agent Risk Preferences</h2>
             <div className="mb-4 text-sm text-slate-600 space-y-1">
                 <p>Define your agent&rsquo;s operational boundaries. This setting guides its decisions when selecting Liquidity Pools (LPs).</p>

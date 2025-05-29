@@ -1,5 +1,5 @@
 import { NextResponse, NextRequest } from 'next/server';
-import { getUserFromRequest, AuthenticatedUser } from '@/lib/authSession';
+import { getHybridUser, HybridAuthResult } from '@/lib/hybridAuth';
 import { connectToDatabase, UserDocument } from "@/lib/mongodb";
 import { ObjectId } from 'mongodb';
 import { exec } from 'child_process'; // For calling Fleek CLI
@@ -174,14 +174,15 @@ async function executeFleekCommand(commandArgs: string): Promise<{ stdout: strin
 }
 
 export async function POST(request: NextRequest) {
-  const authenticatedUser = getUserFromRequest(request);
+  const hybridAuthResult = await getHybridUser(request);
   let userForCatchBlock: Partial<UserDocument> & { _id?: ObjectId } | null = null;
 
-  if (!authenticatedUser) {
-    console.warn("[Agent Deploy API] Auth failed: No valid JWT auth cookie found.");
+  if (!hybridAuthResult) {
+    console.warn("[Agent Deploy API] Auth failed: No valid session cookie or Crossmint JWT found.");
     return NextResponse.json({ error: 'User not authenticated' }, { status: 401 });
   }
   
+  const authenticatedUser = hybridAuthResult.user;
   const { dbId: userDbIdString, walletAddress: userWalletAddressFromJwt, chain: userWalletChainFromJwt } = authenticatedUser;
 
   try {

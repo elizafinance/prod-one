@@ -398,22 +398,22 @@ export default function AgentOnboardingFlow({
           <Modal showBackButton onBack={() => setStep("CONNECT_WALLET")}>
             {resetButton}
             {devDisconnectButton}
-            {process.env.NODE_ENV === 'development' && <Button onClick={resetOnboarding} variant="link" size="sm" className="absolute top-3 right-12 text-xs z-20">Reset Flow</Button>}
-            {process.env.NODE_ENV === 'development' && isAuthConnected(crossmintStatus as string) && <Button onClick={async () => { if(crossmintLogout) { await crossmintLogout(); toast.info("CM disconnected."); resetOnboarding();}}} variant="outline" size="sm" className="absolute top-10 right-3 text-xs p-1 bg-orange-100 text-orange-700 hover:bg-orange-200 rounded z-20 border-orange-300">Disconnect CM (Dev)</Button>}
-
             <h2 className="text-lg font-semibold mb-2">2. Fund Your Agent&apos;s Wallet</h2>
             <p className="mb-2 text-sm text-slate-600">
-              To activate your agent, its smart wallet needs SOL for transaction fees and DEFAI tokens to manage.
+              Send at least <strong>{requiredSolAmount} SOL</strong> and <strong>{requiredDefaiAmount} DEFAI</strong> to the smart wallet below using your preferred Solana wallet or exchange. The first incoming SPL&nbsp;token will automatically create the required token account.
+            </p>
+            <p className="text-xs font-bold text-red-600 mb-3">
+              ⚠️ Tokens sent to a <u>different address</u> or on <u>any network other than Solana&nbsp;mainnet</u> will be <span className="uppercase">lost forever</span>.
             </p>
             <div className="my-3 p-3 bg-slate-100 rounded-md text-xs text-slate-700 space-y-2">
               <div>
                 <span className="font-semibold">Target Smart Wallet:</span>
                 {smartWalletAddr ? (
                   <div className="flex items-center gap-2 mt-1">
-                    <a 
+                    <a
                       href={`https://solscan.io/account/${smartWalletAddr}`}
-                      target="_blank" 
-                      rel="noopener noreferrer" 
+                      target="_blank"
+                      rel="noopener noreferrer"
                       className="text-blue-600 hover:underline break-all text-xs font-mono"
                       title="View on Solscan"
                     >
@@ -429,10 +429,17 @@ export default function AgentOnboardingFlow({
                   <p className="text-xs font-mono">Not connected yet</p>
                 )}
               </div>
-              <p><span className="font-semibold">Required:</span> {requiredSolAmount} SOL & {requiredDefaiAmount} DEFAI</p>
+              <p><span className="font-semibold">Required:</span> {requiredSolAmount} SOL &amp; {requiredDefaiAmount} DEFAI</p>
             </div>
-            {!primaryWalletPublicKey && <p className="text-xs text-amber-600 mb-2">Connect primary wallet to proceed.</p>}
-            <Button className="w-full mt-2" onClick={handleFundSmartWallet} disabled={isProcessingPayment || !primaryWalletPublicKey || !smartWalletAddr}>{isProcessingPayment ? "Processing Funds..." : "Fund Agent Wallet"}</Button>
+
+            <Button
+              className="w-full mt-4"
+              onClick={() => setStep("DEPLOY_AGENT")}
+              disabled={!smartWalletAddr}
+            >
+              I&apos;ve funded my Smart Wallet
+            </Button>
+
             {onboardingError && <p className="text-xs text-red-500 mt-2">Error: {onboardingError}</p>}
           </Modal>
         );

@@ -59,7 +59,7 @@ export default function AgentOnboardingFlow({
   // Simple modal wrapper
   const Modal = ({ children }: { children: React.ReactNode }) => (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-      <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl dark:bg-slate-900">{children}</div>
+      <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl text-slate-900">{children}</div>
     </div>
   );
 
@@ -69,9 +69,9 @@ export default function AgentOnboardingFlow({
         return (
           <Modal>
             <h2 className="text-lg font-semibold mb-2 flex items-center gap-2">
-              <Bot className="h-5 w-5 text-primary" /> Human-Agent Symbiosis
+              <Bot className="h-5 w-5 text-blue-600" /> Human-Agent Symbiosis
             </h2>
-            <p className="mb-4 text-sm leading-relaxed">
+            <p className="mb-4 text-sm leading-relaxed text-slate-700">
               Welcome to DEFAI Yield. Together, you and your on-chain AI agent
               will optimise liquidity-provision strategies while you retain
               full sovereignty.
@@ -83,7 +83,7 @@ export default function AgentOnboardingFlow({
         return (
           <Modal>
             <h2 className="text-lg font-semibold mb-2">1. Link a Smart Wallet</h2>
-            <p className="mb-4 text-sm text-muted-foreground">
+            <p className="mb-4 text-sm text-slate-600">
               Your agent needs a secure home. Connect or create a Crossmint smart
               wallet to continue.
             </p>
@@ -94,11 +94,10 @@ export default function AgentOnboardingFlow({
         return (
           <Modal>
             <h2 className="text-lg font-semibold mb-2">2. Stake DEFAI Tokens</h2>
-            <p className="mb-4 text-sm text-muted-foreground">
+            <p className="mb-4 text-sm text-slate-600">
               Stake a minimum amount of DEFAI to bootstrap your agent&rsquo;s fuel
               reserves and unlock deployment.
             </p>
-            {/* The actual staking form lives on the underlying page. We just guide the user. */}
             <Button className="w-full" onClick={() => setStep("DEPLOY_AGENT")}>I&rsquo;ve Staked</Button>
           </Modal>
         );
@@ -149,7 +148,7 @@ export default function AgentOnboardingFlow({
         return (
           <Modal>
             <h2 className="text-lg font-semibold mb-2">3. Deploy Agent on Fleek</h2>
-            <p className="mb-4 text-sm text-muted-foreground">
+            <p className="mb-4 text-sm text-slate-600">
               Your personalised agent will be deployed to Fleek&rsquo;s serverless
               infrastructure with secure key-management.
             </p>
@@ -198,7 +197,7 @@ export default function AgentOnboardingFlow({
         return (
           <Modal>
             <h2 className="text-lg font-semibold mb-2">4. Set Risk Preferences</h2>
-            <p className="mb-4 text-sm text-muted-foreground">
+            <p className="mb-4 text-sm text-slate-600">
               Adjust the slider to indicate how adventurous your agent may be
               when selecting LP pools.
             </p>
@@ -209,9 +208,9 @@ export default function AgentOnboardingFlow({
               step={1}
               value={riskTolerance}
               onChange={(e) => setRiskTolerance(parseInt(e.target.value))}
-              className="w-full mb-4"
+              className="w-full mb-4 accent-blue-600"
             />
-            <div className="text-center mb-4 text-sm">Risk Level: {riskTolerance}</div>
+            <div className="text-center mb-4 text-sm text-slate-700">Risk Level: {riskTolerance}</div>
             <Button className="w-full" onClick={handleSetRiskAndComplete} disabled={isSettingRisk}>
               {isSettingRisk ? "Saving..." : "Continue to Dashboard"}
             </Button>

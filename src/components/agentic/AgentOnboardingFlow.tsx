@@ -5,7 +5,8 @@ import CrossmintLoginButton from "@/components/CrossmintLoginButton";
 import { useAuth } from "@crossmint/client-sdk-react-ui";
 import { Bot } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useOnboardingStore, OnboardingStep } from "@/store/useOnboardingStore"; // Import the store and type
+import { useOnboardingStore, OnboardingStep } from "@/store/useOnboardingStore";
+import { isAuthConnected, isAuthLoading, isAuthError } from "@/lib/crossmintStatus";
 
 // API Payload Interfaces
 interface DeployAgentRequest {
@@ -34,7 +35,6 @@ export default function AgentOnboardingFlow({
   children: React.ReactNode;
 }) {
   const { status: crossmintStatus } = useAuth();
-  // Use Zustand store for step and riskTolerance
   const { step, setStep, riskTolerance, setRiskTolerance, resetOnboarding } = useOnboardingStore();
   
   // Local UI state for API call loading/errors within the modals
@@ -42,14 +42,14 @@ export default function AgentOnboardingFlow({
   const [isSettingRisk, setIsSettingRisk] = useState(false);
   const [onboardingError, setOnboardingError] = useState<string | null>(null);
 
-  // Automatically advance once wallet is connected
+  // Automatically advance once wallet is connected/logged-in
   useEffect(() => {
-    // Only advance if we are in the connect wallet step and Crossmint status becomes connected.
-    if (step === "CONNECT_WALLET" && (crossmintStatus as string) === "connected") {
-      console.log("[AgentOnboardingFlow] Crossmint connected, advancing to STAKE step.");
+    const statusString = crossmintStatus as string;
+    if (step === "CONNECT_WALLET" && isAuthConnected(statusString)) {
+      console.log("[AgentOnboardingFlow] Crossmint connected/logged-in, advancing to STAKE step.");
       setStep("STAKE");
     }
-  }, [step, crossmintStatus, setStep]);
+  }, [step, crossmintStatus, setStep, isAuthConnected]);
 
   // Simple modal wrapper
   const Modal = ({ children: modalChildren }: { children: React.ReactNode }) => (

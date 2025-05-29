@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useAuth, useWallet } from "@crossmint/client-sdk-react-ui";
 import { useSession } from "next-auth/react"; // Keep for existing session logic if needed
+import { isAuthConnected, isAuthLoading, isAuthError } from "@/lib/crossmintStatus"; // Import helpers
 
 // Define Step type for UI stepper - this seems related to your app's logic, not Crossmint directly
 type OnboardingStep = "WALLET" | "AGENT" | "COMPLETED";
@@ -76,12 +77,10 @@ export default function CrossmintLoginButton() {
     setIsLoading(true);
     setAppErrorState(null);
     try {
-      const response = await fetch('/api/auth/link-wallet', {
+      const response = await fetch('/api/auth/wallet-login', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ walletAddress, chain: chainId || "unknown" }), // Provide a default if chain is undefined
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ walletAddress, chain: chainId || "unknown" }),
       });
       const data = await response.json();
       if (response.ok && data.success) {
@@ -104,19 +103,12 @@ export default function CrossmintLoginButton() {
 
   // Effect to sync Crossmint auth state with your app's auth state if needed
   useEffect(() => {
+    const statusString = authHookStatus as string;
+    console.log("[CrossmintButton] authHookStatus changed:", statusString);
+
     let sdkError: string | undefined = undefined;
-    // Explicitly cast for safety, though it might be a string type already
-    const currentAuthStatus = authHookStatus as string; 
-
-    // Log the raw status from the hook
-    console.log("[CrossmintButton] authHookStatus changed:", authHookStatus);
-
-    if (currentAuthStatus === 'error-connecting' || 
-        currentAuthStatus === 'error-creating-wallet' || 
-        currentAuthStatus === 'error-verifying-ownership' ||
-        currentAuthStatus === 'error-initializing' // Added this potential error status
-      ) {
-        sdkError = `Crossmint Auth Error: ${currentAuthStatus}`;
+    if (isAuthError(statusString)) {
+        sdkError = `Crossmint Auth Error: ${statusString}`;
     } else if (walletHookStatus === 'loading-error') {
         sdkError = walletError || "Crossmint Wallet Error";
     }
@@ -124,51 +116,24 @@ export default function CrossmintLoginButton() {
     if (sdkError) {
         console.error("[CrossmintButton] SDK Error state detected:", sdkError);
         setAppErrorState(sdkError);
-    } else {
-        // If there's no specific SDK error, but there was a previous appErrorState,
-        // and the current status isn't an error/pending state, consider clearing.
-        // Avoid clearing if status is still loading, connecting, or initializing.
-        const nonErrorNonLoadingStatus = 
-            currentAuthStatus !== 'error' && 
-            currentAuthStatus !== 'requires_mfa' && 
-            currentAuthStatus !== 'connecting' && 
-            currentAuthStatus !== 'loading-embedded-wallet' && 
-            currentAuthStatus !== 'loading-wallet-config' && 
-            currentAuthStatus !== 'initializing';
-
-        if (appErrorState && nonErrorNonLoadingStatus) {
-            // console.log("[CrossmintButton] Clearing previous appErrorState as current status is stable and not an error:", currentAuthStatus);
-            // setAppErrorState(null); // Decided to leave explicit error clearing to user/specific actions for now.
-        }
     }
+    // Note: Removed automatic clearing of appErrorState to avoid hiding persistent issues.
+    // Errors should be cleared more explicitly, e.g., when a user retries an action.
 
-    if (currentAuthStatus === 'connected' && user) {
-      console.log("[CrossmintButton] Crossmint user connected:", user);
-      console.log("[CrossmintButton] Crossmint JWT:", jwt);
+    if (isAuthConnected(statusString) && user) {
+      console.log("[CrossmintButton] Crossmint user connected/logged-in:", user);
       setAppAuthStatus("authenticated");
-    } else if (currentAuthStatus === 'idle' && !user) {
+    } else if (statusString === 'idle' && !user) {
       setAppAuthStatus("unauthenticated");
-    } else if (currentAuthStatus === 'connecting' || 
-               currentAuthStatus === 'loading-embedded-wallet' || 
-               currentAuthStatus === 'loading-wallet-config' ||
-               currentAuthStatus === 'initializing' // Added initializing status
-              ) {
+    } else if (isAuthLoading(statusString)) {
       setAppAuthStatus("loading");
     }
-    // Add other status handlings as needed, e.g., for 'requires_mfa', 'error'
-    if(currentAuthStatus === 'error'){
-        console.error("[CrossmintButton] General 'error' status from useAuth(). Check for specific error details. Error message in UI might be:", appErrorState );
-        // Set appErrorState here only if it's not already set to something more specific by the sdkError logic above
-        if (!appErrorState) {
-             setAppErrorState("A general Crossmint error occurred. Please check console or try again.");
-        }
-    }
-    if(currentAuthStatus === 'error-initializing') { // More explicit handling
-        console.error("[CrossmintButton] 'error-initializing' status from useAuth(). Check API key and allowed origins.");
+
+    if (statusString === 'error-initializing' && !appErrorState) { 
         setAppErrorState("Crossmint failed to initialize. Check API key & allowed origins in Crossmint console.");
     }
 
-  }, [authHookStatus, user, jwt, walletHookStatus, walletError, appErrorState, setAppErrorState]); // appErrorState added to dep array
+  }, [authHookStatus, user, jwt, walletHookStatus, walletError, appErrorState, setAppErrorState]);
 
   // Your existing useEffects for onboarding steps and agent deployment (adapt as needed)
   useEffect(() => {
@@ -185,19 +150,16 @@ export default function CrossmintLoginButton() {
   // The login success callback logic (fetching /api/auth/wallet-login, then linkWalletToAccount)
   // needs to be re-integrated, likely within the useEffect that watches `status === 'connected'`.
   useEffect(() => {
-    const currentAuthStatus = authHookStatus as string; 
-    // TODO: Determine how to get chain info. For now, passing undefined or a default.
-    const chainToUse: string | undefined = undefined; // Set to undefined, or a sensible default like "polygon-amoy"
-                                                // This line is the source of the build error if we try to access wallet.chain
+    const statusString = authHookStatus as string;
+    const chainToUse: string | undefined = undefined; 
 
-    if (currentAuthStatus === 'connected' && wallet?.address) { 
-      console.log(`Crossmint login success (detected via status change). Address: ${wallet.address}`);
-      
+    if (isAuthConnected(statusString) && wallet?.address) { 
+      console.log(`Crossmint login success (detected via status change ${statusString}). Address: ${wallet.address}`);
       const processLogin = async () => {
         setIsLoading(true);
         setAppErrorState(null);
         try {
-          const loginRes = await fetch("/api/auth/wallet-login", {
+          const loginRes = await fetch("/api/auth/wallet-login", { // Or the new crossmint-yield-login if separation is complete
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ walletAddress: wallet.address, chain: chainToUse || "unknown" }),
@@ -206,13 +168,11 @@ export default function CrossmintLoginButton() {
           if (!loginRes.ok || !loginData.success) {
             throw new Error(loginData.error || "Wallet login failed. Please try again.");
           }
-          console.log("Wallet login successful, auth cookie (potentially) set by your API.", loginData);
+          console.log("Wallet login successful, auth cookie set by API.", loginData);
           setSession({ user: { id: loginData.userId, walletAddress: wallet.address, walletChain: chainToUse || "unknown" } });
-          setAppAuthStatus("authenticated");
-
+          // setAppAuthStatus("authenticated") is already handled by the other useEffect
           await linkWalletToAccount(wallet.address, chainToUse);
           await updateSession();
-
         } catch (e: any) {
           console.error("Error during wallet login/linking process (post-Crossmint connection):", e);
           setAppErrorState(e.message || "An error occurred during wallet processing.");
@@ -223,47 +183,39 @@ export default function CrossmintLoginButton() {
       };
       processLogin();
     }
-  }, [authHookStatus, wallet, updateSession, linkWalletToAccount]); // Added linkWalletToAccount
+  }, [authHookStatus, wallet, updateSession, linkWalletToAccount, setAppErrorState]); // Added setAppErrorState
 
   const handleConnectWallet = () => {
-    setAppErrorState(null); // Clear previous errors before attempting
-    const currentAuthStatus = authHookStatus as string;
+    setAppErrorState(null);
+    const statusString = authHookStatus as string;
 
-    // Log current state before calling login()
     console.log("[CrossmintButton] Attempting login. Current useAuth() state:", {
-      status: currentAuthStatus,
-      user,
-      jwt: !!jwt, // just log if JWT exists
-      walletStatus: walletHookStatus,
-      walletAddress: wallet?.address,
-      walletError
+      status: statusString, user, jwt: !!jwt, walletStatus: walletHookStatus, walletAddress: wallet?.address, walletError
     });
 
-    if (currentAuthStatus === 'connecting' || 
-        currentAuthStatus === 'loading-embedded-wallet' || 
-        currentAuthStatus === 'initializing' // Prevent login if already in a loading state
-       ) {
-        console.warn("[CrossmintButton] Login call skipped: SDK is already in a loading/connecting state (", currentAuthStatus, ")");
+    if (isAuthLoading(statusString) || isAuthConnected(statusString)) {
+        console.warn(`[CrossmintButton] Login call skipped: SDK status is '${statusString}'.`);
         return; 
     }
     
     console.log("[CrossmintButton] Calling Crossmint login().");
     try {
-      login(); // This will open the Crossmint modal
-    } catch (e: any) { // Added type for e
+      login();
+    } catch (e: any) {
       console.error("[CrossmintButton] Error directly invoking login():", e);
-      setAppErrorState(e.message || "Failed to initiate Crossmint login. Please try again."); // Set error message from exception
+      setAppErrorState(e.message || "Failed to initiate Crossmint login. Please try again.");
     }
   };
 
   const handleClick = () => {
-    const currentAuthStatus = authHookStatus as string; // Cast for comparison
-    if (isLoading || currentAuthStatus === 'connecting' || currentAuthStatus === 'loading-embedded-wallet') return; 
+    const statusString = authHookStatus as string;
+    if (isLoading || isAuthLoading(statusString)) return; 
 
     switch (currentStep) {
       case "WALLET":
-        if (currentAuthStatus === 'connected') {
+        if (isAuthConnected(statusString)) {
             if (wallet?.address) {
+                console.log("[CrossmintButton] handleClick: Already connected/logged-in, proceeding to AGENT step.");
                 setCurrentStep("AGENT");
                 deployAgent();
             } else {
@@ -277,38 +229,35 @@ export default function CrossmintLoginButton() {
         deployAgent();
         break;
       case "COMPLETED":
-        console.log("Process completed. Agent should be running. Consider navigation to dashboard.");
-        // Example: router.push('/dashboard');
+        console.log("Process completed. Agent should be running.");
         break;
     }
   };
   
   const getButtonText = () => {
-    const currentAuthStatus = authHookStatus as string; // Cast for comparison
-    if (currentAuthStatus === 'connecting' || 
-        currentAuthStatus === 'loading-embedded-wallet' || 
-        currentAuthStatus === 'loading-wallet-config') return "Initializing Wallet...";
-    if (isLoading) return "Processing..."; // Your app's general loading state
+    const statusString = authHookStatus as string;
+    if (isAuthLoading(statusString)) return "Initializing Wallet...";
+    if (isLoading) return "Processing...";
     
     switch (currentStep) {
       case "WALLET":
-        return user ? "Proceed to Agent Setup" : "Connect Wallet with Crossmint";
+        // If connected/logged-in but still on WALLET step (e.g. wallet.address missing), button should reflect this.
+        return isAuthConnected(statusString) ? "Proceed to Agent Setup" : "Connect Wallet with Crossmint";
       case "AGENT": 
         return agentStatus === "Deploying..." ? "Deploying Agent..." : (agentStatus === "Running" ? "Agent Running" : "Deploy Agent");
       case "COMPLETED": 
-        return "View Agent Dashboard"; // Or "Agent Active"
+        return "View Agent Dashboard";
       default: 
         return "Connect Wallet with Crossmint";
     }
   };
 
   const isButtonDisabled = () => {
-    const currentAuthStatus = authHookStatus as string; // Cast for comparison
-    if (isLoading || 
-        currentAuthStatus === 'connecting' || 
-        currentAuthStatus === 'loading-embedded-wallet') return true;
+    const statusString = authHookStatus as string;
+    if (isLoading || isAuthLoading(statusString)) return true;
+    // if (currentStep === "WALLET" && isAuthConnected(statusString) && !wallet?.address) return true; // Disable if connected but no wallet address yet
     if (currentStep === "AGENT" && agentStatus === "Running") return true;
-    if (currentStep === "COMPLETED") return true; // Or false if it's a navigation button
+    if (currentStep === "COMPLETED") return true;
     return false;
   };
 

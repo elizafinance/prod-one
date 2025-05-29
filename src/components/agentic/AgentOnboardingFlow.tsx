@@ -109,7 +109,6 @@ export default function AgentOnboardingFlow({
   const handleFundSmartWallet = useCallback(async () => {
     if (!primaryWalletPublicKey || !crossmintSmartWallet?.address || !primaryWalletConnection || !defaiMintAddress) {
       toast.error("Wallet connection or configuration details are missing for funding.");
-      console.error("Funding prerequisites missing:", { primaryWalletPublicKey, crossmintSmartWallet, defaiMintAddress, primaryWalletConnection });
       setOnboardingError("Wallet connection or configuration details are missing.");
       return;
     }
@@ -139,37 +138,48 @@ export default function AgentOnboardingFlow({
 
       // 2. Add DEFAI Token Transfer Instruction
       const sourceAta = await getOrCreateAssociatedTokenAccount(
-        primaryWalletConnection!,
-        primaryWalletPublicKey as any,
-        defaiMintPubkey,
-        primaryWalletPublicKey!
+        primaryWalletConnection,
+        primaryWalletPublicKey as any, 
+        defaiMintPubkey,            
+        primaryWalletPublicKey      
       );
       console.log(`Source DEFAI ATA: ${sourceAta.address.toBase58()}`);
 
-      const destinationAta = await getOrCreateAssociatedTokenAccount(
-        primaryWalletConnection!,
-        primaryWalletPublicKey as any,
-        defaiMintPubkey,
-        crossmintSmartWalletPubkey,
-        true
-      );
-      console.log(`Destination DEFAI ATA for smart wallet: ${destinationAta.address.toBase58()}`);
+      // --- Start Diagnostic for Destination ATA ---
+      let destinationAtaAddress: PublicKey;
+      try {
+        console.log("[Debug] Attempting to get/create destination ATA for Crossmint Smart Wallet:", crossmintSmartWallet.address);
+        const destinationAtaAccount = await getOrCreateAssociatedTokenAccount(
+          primaryWalletConnection,
+          primaryWalletPublicKey as any,     
+          defaiMintPubkey,            
+          crossmintSmartWalletPubkey, 
+          true                        
+        );
+        destinationAtaAddress = destinationAtaAccount.address;
+        console.log("[Debug] Successfully got/prepared destination ATA:", destinationAtaAddress.toBase58());
+      } catch (ataError: any) {
+        console.error("[Debug] Error specifically during destination ATA creation for Crossmint Smart Wallet:", ataError);
+        toast.error("Debug: Failed to get/create destination ATA for Smart Wallet. Check console.");
+        // Re-throw to be caught by the main try-catch, or handle more gracefully if needed
+        throw new Error(`Failed to prepare token account for smart wallet: ${ataError.message}`, { cause: ataError });
+      }
+      // --- End Diagnostic for Destination ATA ---
 
       const defaiAmountLamports = BigInt(Math.floor(requiredDefaiAmount * Math.pow(10, 9)));
 
       transaction.add(
         createTransferInstruction(
           sourceAta.address,
-          destinationAta.address,
-          primaryWalletPublicKey,
+          destinationAtaAddress, // Use the address obtained from the diagnostic block
+          primaryWalletPublicKey,   
           defaiAmountLamports,
           [],
           TOKEN_PROGRAM_ID
         )
       );
-      console.log(`Added DEFAI transfer to transaction: ${requiredDefaiAmount} DEFAI to ATA ${destinationAta.address.toBase58()}`);
+      console.log(`Added DEFAI transfer to transaction: ${requiredDefaiAmount} DEFAI to ATA ${destinationAtaAddress.toBase58()}`);
 
-      // Send the combined transaction
       console.log("Sending combined SOL and DEFAI transaction...");
       const signature = await primaryWalletSendTransaction!(transaction, primaryWalletConnection);
       console.log("Combined transaction sent, signature:", signature);
@@ -192,14 +202,16 @@ export default function AgentOnboardingFlow({
       setStep("DEPLOY_AGENT");
 
     } catch (error: any) {
-      console.error("[AgentOnboardingFlow] Combined funding error:", error, error?.logs);
-      // Attempt to provide more specific error messages based on common Solana error types
+      console.error("[AgentOnboardingFlow] Combined funding error:", error, error.cause ? `Cause: ${error.cause}`: '' , error?.logs);
       let displayError = error.message || "Transaction failed or was rejected.";
-      if (error.name === 'TokenOwnerOffCurveError' || error.message?.includes('TokenOwnerOffCurveError')) {
-        displayError = "Failed to create token account for the smart wallet. The smart wallet address might not be compatible as a direct token account owner. Please contact support.";
+      // Check cause for specific ATA error if re-thrown from diagnostic block
+      const cause = error.cause as any;
+      if (cause && (cause.name === 'TokenAccountNotFoundError' || cause.message?.includes('TokenAccountNotFoundError'))) {
+        displayError = "Failed to resolve token account for smart wallet. It might not exist or there was an issue creating it.";
+      } else if (error.name === 'TokenOwnerOffCurveError' || error.message?.includes('TokenOwnerOffCurveError')) {
+        displayError = "Failed to create token account for the smart wallet due to an ownership issue (off-curve address). This may require a different method for sending tokens to this smart wallet type.";
       } else if (error.logs) {
-        // Try to find a more specific error in Solana transaction logs if available
-        const logs = error.logs.join('\n');
+        const logs = Array.isArray(error.logs) ? error.logs.join('\n') : String(error.logs);
         if (logs.includes('insufficient lamports')) displayError = "Insufficient SOL balance for transaction fees or transfer.";
         else if (logs.includes('insufficient funds')) displayError = "Insufficient DEFAI token balance."; 
       }
@@ -386,6 +398,9 @@ export default function AgentOnboardingFlow({
           <Modal showBackButton onBack={() => setStep("CONNECT_WALLET")}>
             {resetButton}
             {devDisconnectButton}
+            {process.env.NODE_ENV === 'development' && <Button onClick={resetOnboarding} variant="link" size="sm" className="absolute top-3 right-12 text-xs z-20">Reset Flow</Button>}
+            {process.env.NODE_ENV === 'development' && isAuthConnected(crossmintStatus as string) && <Button onClick={async () => { if(crossmintLogout) { await crossmintLogout(); toast.info("CM disconnected."); resetOnboarding();}}} variant="outline" size="sm" className="absolute top-10 right-3 text-xs p-1 bg-orange-100 text-orange-700 hover:bg-orange-200 rounded z-20 border-orange-300">Disconnect CM (Dev)</Button>}
+
             <h2 className="text-lg font-semibold mb-2">2. Fund Your Agent&apos;s Wallet</h2>
             <p className="mb-2 text-sm text-slate-600">
               To activate your agent, its smart wallet needs SOL for transaction fees and DEFAI tokens to manage.
@@ -396,13 +411,13 @@ export default function AgentOnboardingFlow({
                 {smartWalletAddr ? (
                   <div className="flex items-center gap-2 mt-1">
                     <a 
-                      href={`https://solscan.io/account/${smartWalletAddr}?cluster=devnet`} // Assuming devnet for now, make cluster dynamic if needed
+                      href={`https://solscan.io/account/${smartWalletAddr}`}
                       target="_blank" 
                       rel="noopener noreferrer" 
                       className="text-blue-600 hover:underline break-all text-xs font-mono"
                       title="View on Solscan"
                     >
-                      {smartWalletAddr} {/* Display full address */}
+                      {smartWalletAddr}
                       <ExternalLink className="h-3 w-3 inline-block ml-1 opacity-70" />
                     </a>
                     <Button onClick={handleCopyAddress} variant="outline" size="icon" className="h-6 w-6 shrink-0">
@@ -417,13 +432,7 @@ export default function AgentOnboardingFlow({
               <p><span className="font-semibold">Required:</span> {requiredSolAmount} SOL & {requiredDefaiAmount} DEFAI</p>
             </div>
             {!primaryWalletPublicKey && <p className="text-xs text-amber-600 mb-2">Connect primary wallet to proceed.</p>}
-            <Button 
-                className="w-full mt-2" /* Added mt-2 */
-                onClick={handleFundSmartWallet} 
-                disabled={isProcessingPayment || !primaryWalletPublicKey || !smartWalletAddr}
-            >
-              {isProcessingPayment ? "Processing Funds..." : "Fund Agent Wallet"}
-            </Button>
+            <Button className="w-full mt-2" onClick={handleFundSmartWallet} disabled={isProcessingPayment || !primaryWalletPublicKey || !smartWalletAddr}>{isProcessingPayment ? "Processing Funds..." : "Fund Agent Wallet"}</Button>
             {onboardingError && <p className="text-xs text-red-500 mt-2">Error: {onboardingError}</p>}
           </Modal>
         );

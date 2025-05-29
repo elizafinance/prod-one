@@ -31,6 +31,7 @@ import { useTotalLiquidity } from '@/hooks/useTotalLiquidity';
 // Import from constants
 import { YIELD_TIERS, poolState, usdtTrxWhirlpool } from '@/constants/constants';
 import { Pool } from "@/components/Pool";
+import SmartWalletBalances from "@/components/SmartWalletBalances";
 
 export const dynamic = 'force-dynamic';
 
@@ -503,6 +504,9 @@ export default function YieldPage() {
               )}
             </CardContent>
           </Card>
+
+          {/* Conditionally render SmartWalletBalances if Crossmint wallet is available */}
+          {crossmintUser && <SmartWalletBalances />}
 
           {renderCrossmintSection()} {/* Shows connected Crossmint user details if available */}
         </div>

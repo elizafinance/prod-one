@@ -11,12 +11,17 @@ import { isAuthConnected, isAuthLoading, isAuthError } from "@/lib/crossmintStat
 // API Payload Interfaces
 interface DeployAgentRequest {
   riskTolerance: number;
+  // Fleek-specific or agent config might be added here if needed by backend
 }
 
 interface DeployAgentResponse {
   agentId: string;
-  status: "PENDING" | "DEPLOYING" | "ACTIVE" | "ERROR";
+  status: "PENDING" | "DEPLOYING" | "ACTIVE" | "ERROR" | "RUNNING";
   message?: string;
+  agentUrl?: string;
+  deployedAt?: string;
+  success?: boolean;
+  error?: string;
 }
 
 interface SetRiskPreferenceRequest {
@@ -34,7 +39,7 @@ export default function AgentOnboardingFlow({
 }: {
   children: React.ReactNode;
 }) {
-  const { status: crossmintStatus } = useAuth();
+  const { status: crossmintStatus, jwt, user: crossmintUser } = useAuth();
   const { step, setStep, riskTolerance, setRiskTolerance, resetOnboarding } = useOnboardingStore();
   
   // Local UI state for API call loading/errors within the modals
@@ -49,7 +54,7 @@ export default function AgentOnboardingFlow({
       console.log("[AgentOnboardingFlow] Crossmint connected/logged-in, advancing to STAKE step.");
       setStep("STAKE");
     }
-  }, [step, crossmintStatus, setStep, isAuthConnected]);
+  }, [step, crossmintStatus, setStep]);
 
   // Simple modal wrapper
   const Modal = ({ children: modalChildren }: { children: React.ReactNode }) => (
@@ -63,13 +68,51 @@ export default function AgentOnboardingFlow({
     setIsDeploying(true);
     setOnboardingError(null);
     console.log("[AgentOnboardingFlow] Attempting to deploy agent with risk tolerance:", riskTolerance);
+
+    if (!jwt) {
+      console.error("[AgentOnboardingFlow] No JWT found. Cannot deploy agent.");
+      setOnboardingError("Authentication token not found. Please try logging in again.");
+      setIsDeploying(false);
+      return;
+    }
+
     try {
       const payload: DeployAgentRequest = { riskTolerance };
-      // const response = await fetch("/api/agents/deploy", { /* ... */ });
-      await new Promise(resolve => setTimeout(resolve, 1500)); // Simulate API call
-      const mockResponse: DeployAgentResponse = { agentId: "mock-agent-id-123", status: "DEPLOYING", message: "Agent deployment initiated."};
-      console.log("[AgentOnboardingFlow] Mock deploy response:", mockResponse);
-      setStep("SET_RISK");
+      const response = await fetch("/api/agents/deploy", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${jwt}`,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      let data: DeployAgentResponse;
+      try {
+        data = await response.json();
+      } catch (e) {
+        if (!response.ok) {
+          throw new Error(`Agent deployment failed: ${response.status} ${response.statusText}`);
+        }
+        throw new Error("Agent deployment response was not valid JSON.");
+      }
+
+      if (!response.ok) {
+        throw new Error(data.error || data.message || `Failed to deploy agent. Status: ${response.status}`);
+      }
+      
+      console.log("[AgentOnboardingFlow] Deploy agent API response:", data);
+      
+      if (data.success === false) {
+        throw new Error(data.message || data.error || "Agent deployment indicated failure.");
+      }
+
+      if (data.status === "RUNNING" || data.status === "DEPLOYING" || data.status === "PENDING" || data.status === "ACTIVE") {
+         setStep("SET_RISK"); 
+      } else {
+         throw new Error(data.message || data.error || `Agent deployment status is unexpected: ${data.status}`);
+      }
+
     } catch (error: any) {
       console.error("[AgentOnboardingFlow] Error deploying agent:", error);
       setOnboardingError(error.message || "An unexpected error occurred during deployment.");
@@ -83,21 +126,31 @@ export default function AgentOnboardingFlow({
     setIsSettingRisk(true);
     setOnboardingError(null);
     console.log("[AgentOnboardingFlow] Attempting to set risk preference:", riskTolerance);
+
+    if (!jwt) {
+      console.error("[AgentOnboardingFlow] No JWT found. Cannot set risk preference.");
+      setOnboardingError("Authentication token not found. Please try logging in again.");
+      setIsSettingRisk(false);
+      return;
+    }
+
     try {
       const payload: SetRiskPreferenceRequest = { riskTolerance };
-      // Actual fetch to /api/agents/risk (or new dedicated user preference endpoint)
       const response = await fetch("/api/agents/risk", { 
         method: "PATCH", 
-        headers: { "Content-Type": "application/json" },
+        headers: {
+           "Content-Type": "application/json",
+           "Authorization": `Bearer ${jwt}`,
+        },
         body: JSON.stringify(payload),
       });
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to set risk preference.");
+        throw new Error(errorData.error || "Failed to set risk preference.");
       }
       const data = await response.json();
       console.log("[AgentOnboardingFlow] Set risk preference success:", data);
-      setStep("DONE"); // This will also trigger localStorage update via the store
+      setStep("DONE");
     } catch (error: any) {
       console.error("[AgentOnboardingFlow] Error setting risk preference:", error);
       setOnboardingError(error.message || "An unexpected error occurred while setting risk.");
@@ -156,7 +209,7 @@ export default function AgentOnboardingFlow({
             <h2 className="text-lg font-semibold mb-2">3. Deploy Agent on Fleek</h2>
             <p className="mb-4 text-sm text-slate-600">
               Your personalised agent will be deployed to Fleek&rsquo;s serverless
-              infrastructure with secure key-management.
+              infrastructure with secure key-management and its own smart wallet.
             </p>
             <Button className="w-full" onClick={handleDeployAgent} disabled={isDeploying}>
               {isDeploying ? "Deploying..." : "Deploy Agent"}
@@ -168,24 +221,19 @@ export default function AgentOnboardingFlow({
         return (
           <Modal>
             {resetButton}
-            <h2 className="text-lg font-semibold mb-2">4. Set Risk Preferences</h2>
-            <p className="mb-4 text-sm text-slate-600">
-              Adjust the slider to indicate how adventurous your agent may be
-              when selecting LP pools.
-            </p>
-            <input
-              type="range"
-              min={1}
-              max={5}
-              step={1}
-              value={riskTolerance}
-              onChange={(e) => setRiskTolerance(parseInt(e.target.value))}
-              className="w-full mb-4 accent-blue-600"
-            />
-            <div className="text-center mb-4 text-sm text-slate-700">Risk Level: {riskTolerance}</div>
-            <Button className="w-full" onClick={handleSetRiskAndComplete} disabled={isSettingRisk}>
-              {isSettingRisk ? "Saving..." : "Continue to Dashboard"}
-            </Button>
+            <h2 className="text-lg font-semibold mb-2">4. Set Agent Risk Preferences</h2>
+            <div className="mb-4 text-sm text-slate-600 space-y-1">
+                <p>Define your agent&rsquo;s operational boundaries. This setting guides its decisions when selecting Liquidity Pools (LPs).</p>
+                <ul className="list-disc list-inside text-xs pl-2 text-slate-500">
+                    <li><strong>Level 1-2 (Conservative):</strong> Prefers established, lower-yield LPs with higher TVL and audit scores.</li>
+                    <li><strong>Level 3 (Balanced):</strong> Aims for a mix of safety and good returns. May explore newer LPs with caution.</li>
+                    <li><strong>Level 4-5 (Adventurous):</strong> May allocate to higher-yield, newer, or unaudited LPs. Higher potential reward, higher risk.</li>
+                </ul>
+                <p className="pt-2">Your agent will primarily operate within this risk comfort zone.</p>
+            </div>
+            <input type="range" min={1} max={5} step={1} value={riskTolerance} onChange={(e) => setRiskTolerance(parseInt(e.target.value))} className="w-full mb-2 accent-blue-600"/>
+            <div className="text-center mb-4 text-sm font-medium text-slate-800">Selected Risk Level: <span className="text-blue-600 font-bold">{riskTolerance}</span></div>
+            <Button className="w-full" onClick={handleSetRiskAndComplete} disabled={isSettingRisk}>{isSettingRisk ? "Saving..." : "Confirm & Launch Agent"}</Button>
             {onboardingError && <p className="text-xs text-red-500 mt-2">Error: {onboardingError}</p>}
           </Modal>
         );

@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import CrossmintLoginButton from "@/components/CrossmintLoginButton";
 import { useAuth, useWallet as useCrossmintWallet } from "@crossmint/client-sdk-react-ui";
-import { Bot, ArrowLeft } from "lucide-react";
+import { Bot, ArrowLeft, X as XIcon, Copy as CopyIcon, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useOnboardingStore, OnboardingStep } from "@/store/useOnboardingStore";
 import { isAuthConnected, isAuthLoading, isAuthError } from "@/lib/crossmintStatus";
@@ -11,6 +11,7 @@ import { useWallet as usePrimarySolanaWallet, useConnection } from '@solana/wall
 import { PublicKey, SystemProgram, Transaction, LAMPORTS_PER_SOL, Signer } from '@solana/web3.js';
 import { TOKEN_PROGRAM_ID, getOrCreateAssociatedTokenAccount, createTransferInstruction } from '@solana/spl-token';
 import { toast } from "sonner";
+import { useRouter } from 'next/navigation';
 
 // API Payload Interfaces
 interface DeployAgentRequest {
@@ -71,6 +72,8 @@ export default function AgentOnboardingFlow({
   const requiredSolAmount = parseFloat(process.env.NEXT_PUBLIC_REQUIRED_SOL_FOR_AGENT || "0.01");
   const defaiMintAddress = process.env.NEXT_PUBLIC_DEFAI_TOKEN_MINT_ADDRESS;
 
+  const router = useRouter();
+
   useEffect(() => {
     const statusString = crossmintStatus as string;
     // If user connects Crossmint wallet, and we are on that step, advance to funding.
@@ -80,87 +83,128 @@ export default function AgentOnboardingFlow({
     }
   }, [step, crossmintStatus, crossmintSmartWallet?.address, setStep]);
 
+  const handleCloseFlow = () => {
+    resetOnboarding();
+    router.push("/");
+  };
+
   const Modal = ({ children: modalChildren, showBackButton, onBack }: { children: React.ReactNode, showBackButton?: boolean, onBack?: () => void }) => (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-      <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl text-slate-900 relative">
+      <div className="w-full max-w-lg rounded-lg bg-white p-6 pt-10 shadow-xl text-slate-900 relative">
         {showBackButton && (
-          <Button onClick={onBack} variant="ghost" size="sm" className="absolute top-4 left-4 text-slate-600 hover:text-slate-900">
+          <Button onClick={onBack} variant="ghost" size="sm" className="absolute top-3 left-4 text-slate-600 hover:text-slate-900 z-10">
             <ArrowLeft className="h-4 w-4 mr-1" /> Back
           </Button>
         )}
-        {modalChildren}
+        <Button onClick={handleCloseFlow} variant="ghost" size="icon" className="absolute top-3 right-3 text-slate-500 hover:text-slate-900 z-10">
+          <XIcon className="h-5 w-5" />
+        </Button>
+        <div className="pt-2">
+         {modalChildren}
+        </div>
       </div>
     </div>
   );
 
   const handleFundSmartWallet = useCallback(async () => {
     if (!primaryWalletPublicKey || !crossmintSmartWallet?.address || !primaryWalletConnection || !defaiMintAddress) {
-      toast.error("Wallet connection or configuration details are missing.");
+      toast.error("Wallet connection or configuration details are missing for funding.");
+      console.error("Funding prerequisites missing:", { primaryWalletPublicKey, crossmintSmartWallet, defaiMintAddress, primaryWalletConnection });
+      setOnboardingError("Wallet connection or configuration details are missing.");
       return;
     }
     setIsProcessingPayment(true);
     setOnboardingError(null);
-    toast.info("Preparing funding transactions...");
+    toast.info("Preparing funding transaction... Please approve in your wallet.");
 
     try {
       const crossmintSmartWalletPubkey = new PublicKey(crossmintSmartWallet.address);
       const defaiMintPubkey = new PublicKey(defaiMintAddress);
+      const latestBlockhash = await primaryWalletConnection.getLatestBlockhash('confirmed');
 
-      // SOL Transfer Transaction
-      const solTransaction = new Transaction({
+      const transaction = new Transaction({
         feePayer: primaryWalletPublicKey,
-        recentBlockhash: (await primaryWalletConnection.getLatestBlockhash('confirmed')).blockhash,
-      }).add(
+        recentBlockhash: latestBlockhash.blockhash,
+      });
+
+      // 1. Add SOL Transfer Instruction
+      transaction.add(
         SystemProgram.transfer({
           fromPubkey: primaryWalletPublicKey,
           toPubkey: crossmintSmartWalletPubkey,
           lamports: requiredSolAmount * LAMPORTS_PER_SOL,
         })
       );
-      console.log(`Attempting to send ${requiredSolAmount} SOL...`);
-      const solSignature = await primaryWalletSendTransaction!(solTransaction, primaryWalletConnection);
-      await primaryWalletConnection.confirmTransaction({ signature: solSignature, blockhash: solTransaction.recentBlockhash!, lastValidBlockHeight: (await primaryWalletConnection.getLatestBlockhash()).lastValidBlockHeight }, 'confirmed');
-      toast.success(`${requiredSolAmount} SOL sent successfully!`);
+      console.log(`Added SOL transfer to transaction: ${requiredSolAmount} SOL to ${crossmintSmartWallet.address}`);
 
-      // DEFAI Token Transfer Transaction
+      // 2. Add DEFAI Token Transfer Instruction
       const sourceAta = await getOrCreateAssociatedTokenAccount(
         primaryWalletConnection!,
         primaryWalletPublicKey as any,
         defaiMintPubkey,
         primaryWalletPublicKey!
       );
+      console.log(`Source DEFAI ATA: ${sourceAta.address.toBase58()}`);
+
       const destinationAta = await getOrCreateAssociatedTokenAccount(
         primaryWalletConnection!,
         primaryWalletPublicKey as any,
         defaiMintPubkey,
-        crossmintSmartWalletPubkey
+        crossmintSmartWalletPubkey,
+        true
       );
-      const defaiAmountLamports = BigInt(Math.floor(requiredDefaiAmount * Math.pow(10, 9))); // Ensure it's an integer, then BigInt for DEFAI (9 decimals)
+      console.log(`Destination DEFAI ATA for smart wallet: ${destinationAta.address.toBase58()}`);
 
-      const defaiTransaction = new Transaction({
-        feePayer: primaryWalletPublicKey,
-        recentBlockhash: (await primaryWalletConnection.getLatestBlockhash('confirmed')).blockhash,
-      }).add(
+      const defaiAmountLamports = BigInt(Math.floor(requiredDefaiAmount * Math.pow(10, 9)));
+
+      transaction.add(
         createTransferInstruction(
           sourceAta.address,
           destinationAta.address,
-          primaryWalletPublicKey, // Authority for the sourceAta
+          primaryWalletPublicKey,
           defaiAmountLamports,
           [],
           TOKEN_PROGRAM_ID
         )
       );
-      console.log(`Attempting to send ${requiredDefaiAmount} DEFAI...`);
-      const defaiSignature = await primaryWalletSendTransaction!(defaiTransaction, primaryWalletConnection);
-      await primaryWalletConnection.confirmTransaction({ signature: defaiSignature, blockhash: defaiTransaction.recentBlockhash!, lastValidBlockHeight: (await primaryWalletConnection.getLatestBlockhash()).lastValidBlockHeight }, 'confirmed');
-      toast.success(`${requiredDefaiAmount} DEFAI sent successfully!`);
+      console.log(`Added DEFAI transfer to transaction: ${requiredDefaiAmount} DEFAI to ATA ${destinationAta.address.toBase58()}`);
+
+      // Send the combined transaction
+      console.log("Sending combined SOL and DEFAI transaction...");
+      const signature = await primaryWalletSendTransaction!(transaction, primaryWalletConnection);
+      console.log("Combined transaction sent, signature:", signature);
+      
+      toast.info("Confirming transaction...", { id: signature });
+      const confirmation = await primaryWalletConnection.confirmTransaction({
+         signature, 
+         blockhash: latestBlockhash.blockhash, 
+         lastValidBlockHeight: latestBlockhash.lastValidBlockHeight 
+        }, 'confirmed');
+
+      if (confirmation.value.err) {
+        console.error("Transaction confirmation error:", confirmation.value.err);
+        throw new Error(`Transaction failed to confirm: ${JSON.stringify(confirmation.value.err)}`);
+      }
+
+      toast.success(`Successfully funded Smart Wallet with ${requiredSolAmount} SOL and ${requiredDefaiAmount} DEFAI!`, { id: signature });
+      console.log("Combined transaction confirmed.");
       
       setStep("DEPLOY_AGENT");
 
     } catch (error: any) {
-      console.error("[AgentOnboardingFlow] Funding error:", error);
-      setOnboardingError(error.message || "Transaction failed or was rejected.");
-      toast.error(`Funding error: ${error.message || "Unknown error"}`);
+      console.error("[AgentOnboardingFlow] Combined funding error:", error, error?.logs);
+      // Attempt to provide more specific error messages based on common Solana error types
+      let displayError = error.message || "Transaction failed or was rejected.";
+      if (error.name === 'TokenOwnerOffCurveError' || error.message?.includes('TokenOwnerOffCurveError')) {
+        displayError = "Failed to create token account for the smart wallet. The smart wallet address might not be compatible as a direct token account owner. Please contact support.";
+      } else if (error.logs) {
+        // Try to find a more specific error in Solana transaction logs if available
+        const logs = error.logs.join('\n');
+        if (logs.includes('insufficient lamports')) displayError = "Insufficient SOL balance for transaction fees or transfer.";
+        else if (logs.includes('insufficient funds')) displayError = "Insufficient DEFAI token balance."; 
+      }
+      setOnboardingError(displayError);
+      toast.error(`Funding failed: ${displayError}`);
     } finally {
       setIsProcessingPayment(false);
     }
@@ -271,7 +315,7 @@ export default function AgentOnboardingFlow({
   const renderContent = () => {
     // For testing: button to reset onboarding state
     const resetButton = process.env.NODE_ENV === 'development' ? (
-        <Button onClick={resetOnboarding} variant="link" size="sm" className="absolute top-2 right-2 text-xs">Reset Onboarding</Button>
+        <Button onClick={resetOnboarding} variant="link" size="sm" className="absolute top-3 right-12 text-xs z-20">Reset</Button>
     ) : null;
 
     switch (step) {
@@ -301,22 +345,54 @@ export default function AgentOnboardingFlow({
           </Modal>
         );
       case "FUND_SMART_WALLET":
+        const smartWalletAddr = crossmintSmartWallet?.address;
+
+        const handleCopyAddress = () => {
+          if (smartWalletAddr) {
+            navigator.clipboard.writeText(smartWalletAddr)
+              .then(() => toast.success("Smart Wallet address copied!"))
+              .catch(err => toast.error("Failed to copy address."));
+          }
+        };
+
         return (
           <Modal showBackButton onBack={() => setStep("CONNECT_WALLET")}>
             {resetButton}
             <h2 className="text-lg font-semibold mb-2">2. Fund Your Agent&apos;s Wallet</h2>
             <p className="mb-2 text-sm text-slate-600">
-              To activate your agent, its smart wallet needs a small amount of SOL for transaction fees and DEFAI tokens to manage.
+              To activate your agent, its smart wallet needs SOL for transaction fees and DEFAI tokens to manage.
             </p>
-            <div className="my-3 p-3 bg-slate-100 rounded-md text-xs text-slate-700 space-y-1">
-              <p><strong>Target Smart Wallet:</strong><br/><span className="break-all">{crossmintSmartWallet?.address || "Not connected yet"}</span></p>
-              <p><strong>Required:</strong> {requiredSolAmount} SOL & {requiredDefaiAmount} DEFAI</p>
+            <div className="my-3 p-3 bg-slate-100 rounded-md text-xs text-slate-700 space-y-2">
+              <div>
+                <span className="font-semibold">Target Smart Wallet:</span>
+                {smartWalletAddr ? (
+                  <div className="flex items-center gap-2 mt-1">
+                    <a 
+                      href={`https://solscan.io/account/${smartWalletAddr}?cluster=devnet`} // Assuming devnet for now, make cluster dynamic if needed
+                      target="_blank" 
+                      rel="noopener noreferrer" 
+                      className="text-blue-600 hover:underline break-all text-xs font-mono"
+                      title="View on Solscan"
+                    >
+                      {smartWalletAddr} {/* Display full address */}
+                      <ExternalLink className="h-3 w-3 inline-block ml-1 opacity-70" />
+                    </a>
+                    <Button onClick={handleCopyAddress} variant="outline" size="icon" className="h-6 w-6 shrink-0">
+                      <CopyIcon className="h-3 w-3" />
+                      <span className="sr-only">Copy address</span>
+                    </Button>
+                  </div>
+                ) : (
+                  <p className="text-xs font-mono">Not connected yet</p>
+                )}
+              </div>
+              <p><span className="font-semibold">Required:</span> {requiredSolAmount} SOL & {requiredDefaiAmount} DEFAI</p>
             </div>
-            {!primaryWalletPublicKey && <p className="text-xs text-amber-600 mb-2">Please connect your primary Solana wallet (e.g., Phantom) to proceed.</p>}
+            {!primaryWalletPublicKey && <p className="text-xs text-amber-600 mb-2">Connect primary wallet to proceed.</p>}
             <Button 
-                className="w-full"
+                className="w-full mt-2" /* Added mt-2 */
                 onClick={handleFundSmartWallet} 
-                disabled={isProcessingPayment || !primaryWalletPublicKey || !crossmintSmartWallet?.address}
+                disabled={isProcessingPayment || !primaryWalletPublicKey || !smartWalletAddr}
             >
               {isProcessingPayment ? "Processing Funds..." : "Fund Agent Wallet"}
             </Button>

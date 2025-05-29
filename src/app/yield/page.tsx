@@ -17,6 +17,8 @@ import { useAuth } from "@crossmint/client-sdk-react-ui";
 import CrossmintLoginButton from '@/components/CrossmintLoginButton';
 import AgentOnboardingFlow from '@/components/agentic/AgentOnboardingFlow';
 import CrossmintProviders from '@/providers/CrossmintProviders';
+import { useOnboardingStore } from '@/store/useOnboardingStore';
+import { useRouter } from 'next/navigation';
 
 // Import our new hooks
 import { useStaking } from '@/hooks/useStaking';
@@ -358,6 +360,26 @@ export default function YieldPage() {
   const handleClaimRewards = async () => { /* ... your claim logic ... */ setError("Claiming not fully implemented in this view."); };
   // --- End Staking Handlers ---
 
+  const { step: onboardingStep } = useOnboardingStore();
+  const router = useRouter();
+
+  useEffect(() => {
+    // If onboarding is not marked as DONE in the store, and the user lands here,
+    // redirect them to the homepage. AgentOnboardingFlow will kick in if they navigate back to /yield.
+    // This prevents direct access to a partially complete yield page if they abandon the flow.
+    if (onboardingStep !== "DONE") {
+      // Check if localStorage also confirms not done, to handle cases where store might rehydrate after this effect runs
+      // This is a bit redundant if store is initialized from localStorage but acts as a safeguard.
+      if (typeof window !== 'undefined') {
+        const isCompletedInStorage = localStorage.getItem('defai_onboard_complete') === 'true';
+        if (!isCompletedInStorage) {
+          console.log("[YieldPage] Onboarding not complete (step !== DONE or localStorage flag not set), redirecting to home.");
+          router.replace("/"); // Use replace to not add yield to history if they shouldn't be here
+        }
+      }
+    }
+  }, [onboardingStep, router]);
+
   const YieldPageContent = () => {
     const { user: crossmintUser, status: crossmintStatus } = useAuth(); // Get from context
 
@@ -508,11 +530,16 @@ export default function YieldPage() {
     );
   };
 
+  // The main return of YieldPage
   return (
     <CrossmintProviders>
       <ErrorBoundary>
         <AgentOnboardingFlow>
-          {/* The actual content of the yield page is now a child of AgentOnboardingFlow */}
+          {/* 
+            AgentOnboardingFlow handles showing its modals if onboardingStep is not DONE.
+            If onboardingStep is DONE, it renders its children (YieldPageContent).
+            The useEffect above handles redirecting away from /yield if onboarding isn't complete on initial load.
+          */}
           <YieldPageContent />
         </AgentOnboardingFlow>
       </ErrorBoundary>

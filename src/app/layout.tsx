@@ -9,7 +9,7 @@ import { Toaster as SonnerToaster } from "sonner";
 import SessionProviderWrapper from "@/providers/sessionProviderWrapper";
 import ConditionalAppHeader from "@/components/layout/ConditionalAppHeader";
 import AgentSetupModal from "@/components/modals/AgentSetupModal";
-import CrossmintProviders from "@/providers/CrossmintProviders";
+// import CrossmintProviders from "@/providers/CrossmintProviders"; // Now scoped to Yield page
 
 const inter = Inter({ subsets: ["latin"], variable: '--font-inter' });
 const orbitron = Orbitron({ 
@@ -51,23 +51,23 @@ export default function RootLayout({
     <html lang="en" className={`${inter.variable} ${orbitron.variable}`} suppressHydrationWarning>
       <head />
       <body className="flex flex-col min-h-screen font-sans bg-background text-foreground">
-        <CrossmintProviders>
-          <SessionProviderWrapper>
-            <WalletAdapterProvider>
-              <UmiProvider>
-                <ThemeProviderWrapper>
-                  <ConditionalAppHeader />
-                  <main className="flex-grow container mx-auto px-4 py-8">
-                    {children}
-                  </main>
-                  <ShadcnToaster />
-                  <SonnerToaster richColors position="bottom-right" />
-                  <AgentSetupModal />
-                </ThemeProviderWrapper>
-              </UmiProvider>
-            </WalletAdapterProvider>
-          </SessionProviderWrapper>
-        </CrossmintProviders>
+        {/* <CrossmintProviders> */}
+        <SessionProviderWrapper>
+          <WalletAdapterProvider>
+            <UmiProvider>
+              <ThemeProviderWrapper>
+                <ConditionalAppHeader />
+                <main className="flex-grow container mx-auto px-4 py-8">
+                  {children}
+                </main>
+                <ShadcnToaster />
+                <SonnerToaster richColors position="bottom-right" />
+                <AgentSetupModal />
+              </ThemeProviderWrapper>
+            </UmiProvider>
+          </WalletAdapterProvider>
+        </SessionProviderWrapper>
+        {/* </CrossmintProviders> */}
       </body>
     </html>
   );

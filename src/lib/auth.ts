@@ -200,8 +200,12 @@ export const authOptions: NextAuthOptions = {
             if (userFromDb) {
               token.walletAddress = userFromDb.walletAddress || token.walletAddress; 
               token.role = userFromDb.role || 'user'; 
-              token.chain = userFromDb.walletChain || token.chain || 'unknown'; // Update chain from DB's walletChain
-              // console.log("[NextAuth DEBUG - jwt callback] Token updated from DB. New chain:", token.chain);
+              token.chain = userFromDb.walletChain || token.chain || 'unknown';
+              token.linkedXUsername = userFromDb.linkedXUsername;
+              token.followsDefAIRewards = userFromDb.followsDefAIRewards;
+              token.linkedXProfileImageUrl = userFromDb.linkedXProfileImageUrl;
+              // console.log("[NextAuth JWT DEBUG] userFromDb.linkedXProfileImageUrl:", userFromDb.linkedXProfileImageUrl); // Commented out
+              // console.log("[NextAuth JWT DEBUG] token.linkedXProfileImageUrl set to:", token.linkedXProfileImageUrl); // Commented out
             } else {
               console.warn('[NextAuth JWT] User not found in DB for dbId:', token.dbId);
               // If user not found, might indicate an issue. Could clear parts of token or invalidate.
@@ -225,7 +229,11 @@ export const authOptions: NextAuthOptions = {
       session.user.walletAddress = token.walletAddress as string || null;
       session.user.role = token.role as string || 'user'; 
       session.user.chain = token.chain as string || 'unknown'; 
-      // console.log("[NextAuth DEBUG - session callback] Session object to be returned:", JSON.stringify(session, null, 2));
+      session.user.linkedXUsername = token.linkedXUsername as string || null;
+      session.user.followsDefAIRewards = typeof token.followsDefAIRewards === 'boolean' ? token.followsDefAIRewards : null;
+      session.user.linkedXProfileImageUrl = token.linkedXProfileImageUrl as string || null;
+      // console.log("[NextAuth Session DEBUG] token.linkedXProfileImageUrl:", token.linkedXProfileImageUrl); // Commented out
+      // console.log("[NextAuth Session DEBUG] session.user.linkedXProfileImageUrl set to:", session.user.linkedXProfileImageUrl); // Commented out
       return session;
     },
   },

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, ComponentProps } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { useSession, signOut as nextAuthSignOut } from "next-auth/react";
 import { useWallet } from '@solana/wallet-adapter-react';
@@ -55,10 +55,23 @@ export default function AppHeader() {
   const [isClient, setIsClient] = useState(false);
   const uiState = useUiStateStore(); // Get the whole store or specific items
   const [notificationsInitialized, setNotificationsInitialized] = useState(false); // Reinstated local state
+  const prevConnectedRef = useRef<boolean | undefined>(undefined); // For disconnect watcher
 
   useEffect(() => {
     setIsClient(true);
   }, []);
+
+  // Temporary log for session data
+  /* // Commenting out the multi-line debug block
+  useEffect(() => {
+    if (session?.user) {
+      console.log("[AppHeader DEBUG] session.user:", JSON.stringify(session.user, null, 2));
+      const user = session.user as any; 
+      console.log("[AppHeader DEBUG] session.user.linkedXProfileImageUrl:", user.linkedXProfileImageUrl);
+      console.log("[AppHeader DEBUG] session.user.image (original/fallback):", user.image);
+    }
+  }, [session]);
+  */
 
   const fetchNotificationsData = useCallback(async () => {
     if (authStatus === "authenticated" && connected && session?.user?.walletAddress && !notificationsInitialized) {
@@ -84,6 +97,36 @@ export default function AppHeader() {
     }
   }, [authStatus, connected, uiState.setUnreadNotificationCount]);
 
+  // Global Disconnect Watcher Effect (moved from useHomePageLogic)
+  useEffect(() => {
+    // console.log(`[AppHeader Disconnect Watcher] Running. Wallet Connected: ${connected}, Auth Status: ${authStatus}`);
+    if (prevConnectedRef.current === true && !connected && authStatus === 'authenticated') {
+      console.log("[AppHeader Disconnect Watcher] Wallet disconnected while authenticated. Initiating full NextAuth sign-out and redirect.");
+      toast.info("Wallet disconnected. Signing out...");
+
+      (async () => {
+        try {
+          // No need to clear other app-specific states here as AppHeader is more global
+          // The main app state clearing should happen based on authStatus changing to unauthenticated in respective hooks/pages
+          await nextAuthSignOut({ redirect: false }); // Key: don't let NextAuth redirect itself
+          console.log("[AppHeader Disconnect Watcher] NextAuth signOut successful. Setting logout flag and redirecting to /.");
+          
+          sessionStorage.setItem('logoutInProgress', 'true'); // Prevent wallet modal on landing page
+          window.location.href = '/'; // Force redirect to home page
+
+        } catch (e: any) {
+          console.error("[AppHeader Disconnect Watcher] Error during NextAuth signOut or redirection:", e);
+          toast.error("Error signing out after wallet disconnect.");
+          // Fallback redirect even if signout call itself errors
+          if (window.location.pathname !== '/') { // Avoid reload loop if already on home
+            window.location.href = '/'; 
+          }
+        }
+      })();
+    }
+    prevConnectedRef.current = connected; // Update the ref with the current connected state
+  }, [connected, authStatus, nextAuthSignOut]); // Dependencies: connected, authStatus, nextAuthSignOut
+
   const handleOpenNotifications = () => {
     if (!connected || authStatus !== "authenticated") {
       toast.info("Please log in and connect your wallet to view notifications.");
@@ -94,8 +137,20 @@ export default function AppHeader() {
 
   // Safely define typedUser only if session and session.user exist
   const typedUser = session && session.user 
-    ? session.user as (typeof session.user & { xId?: string | null, image?: string | null, name?: string | null, walletAddress?: string | null }) 
+    ? session.user as (typeof session.user & { 
+        xId?: string | null, 
+        image?: string | null, // This is the general/original image field
+        name?: string | null, 
+        walletAddress?: string | null,
+        linkedXProfileImageUrl?: string | null, // Added from X linking
+        linkedXUsername?: string | null // Added from X linking
+      }) 
     : null;
+
+  // Determine the avatar image URL: prioritize X profile image, then fallback to general image
+  const avatarImageUrl = typedUser?.linkedXProfileImageUrl || typedUser?.image || null;
+  const avatarUsername = typedUser?.linkedXUsername || typedUser?.name || typedUser?.xId || 'User';
+  // console.log("[AppHeader DEBUG] Determined avatarImageUrl:", avatarImageUrl); // Commented out
 
   // If still loading auth status or not client yet, render a placeholder or null to prevent hydration mismatch
   if (authStatus === 'loading' || !isClient) {
@@ -151,7 +206,6 @@ export default function AppHeader() {
             )}
 
             {/* User Avatar/Profile Button - Show if X authenticated and on client */}
-            {/* This part regarding 'typedUser' and 'signOut' will need to adapt to the new cookie auth */}
             {isClient && authStatus === "authenticated" && typedUser && (
               <>
                 {/* Notification Bell - Show if authenticated and on client */}
@@ -165,11 +219,13 @@ export default function AppHeader() {
                   )}
                 </button>
 
-                <UserAvatar 
-                  profileImageUrl={typedUser.image} // This will need to come from the new auth/user object
-                  username={typedUser.name || typedUser.xId || 'User'} // Same as above
-                  className="ml-2"
-                />
+                <Link href="/profile" className="ml-2" aria-label="View Profile">
+                  <UserAvatar 
+                    profileImageUrl={avatarImageUrl} // Use the prioritized image URL
+                    username={avatarUsername} // Use the prioritized username (e.g. X username if available)
+                    // className removed from UserAvatar itself, Link now handles margin
+                  />
+                </Link>
                 
                 {/* Wallet Multi Button - Show if authenticated and on client, now rightmost */}
                 <WalletMultiButtonDynamic 

@@ -106,6 +106,16 @@ export interface UserDocument {
 
   // Agent risk tolerance (already used by /api/agents/risk)
   agentRiskTolerance?: number; // 1-5
+
+  // Fields for X Account Linking (OAuth 2.0 based, not for app authentication)
+  linkedXId?: string;                 // X User ID (numerical string)
+  linkedXUsername?: string;           // X @handle
+  linkedXProfileImageUrl?: string;    // URL of X profile image
+  linkedXAccessToken?: string;        // Encrypted X Access Token
+  linkedXRefreshToken?: string;       // Encrypted X Refresh Token
+  linkedXScopes?: string[];           // Scopes granted by the user
+  linkedXConnectedAt?: Date;          // Timestamp of when X account was linked
+  followsDefAIRewards?: boolean;      // Tracks if the user follows the target X account
 }
 
 export interface ReferralBoost {

@@ -16,7 +16,7 @@ import { BellIcon } from '@heroicons/react/24/outline'; // Example icon, install
 import UserAvatar from "@/components/UserAvatar";
 import { PublicKey, Connection } from '@solana/web3.js';
 import { getAssociatedTokenAddress, getAccount } from '@solana/spl-token';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useConnection } from '@solana/wallet-adapter-react';
 import { checkRequiredEnvVars } from '@/utils/checkEnv';
 import DeFAILogo from '@/components/DeFAILogo';
@@ -32,6 +32,8 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import TopProposalCard from "@/components/dashboard/TopProposalCard";
 import SquadGoalQuestCard from "@/components/dashboard/SquadGoalQuestCard";
 import { useUserAirdrop, UserAirdropData as UserAirdropHookData } from '@/hooks/useUserAirdrop'; // Explicitly import type
+import ConnectXButton from '@/components/xauth/ConnectXButton'; // Updated path
+import VerifyFollowButton from '@/components/xauth/VerifyFollowButton'; // Updated path
 
 // Dynamically import WalletMultiButton
 const WalletMultiButtonDynamic = dynamic(
@@ -149,7 +151,13 @@ export default function HomePage() {
     fetchPendingInvites,
     checkDefaiBalance,
     activateRewardsAndFetchData,
+    update: updateSession, // Make sure updateSession is destructured if it comes from useHomePageLogic, or use useSession().update directly
   } = useHomePageLogic();
+
+  const { update: nextAuthUpdateSession } = useSession(); // Get update function directly from useSession
+
+  const router = useRouter(); // Already available via useHomePageLogic usually, or import directly
+  const searchParams = useSearchParams(); // Added for callback handling
 
   // Access the wallet modal controller so we can open it programmatically
   const { setVisible: setWalletModalVisible } = useWalletModal();
@@ -357,6 +365,38 @@ export default function HomePage() {
     }
   }, [authStatus, wallet.connected, wallet.connecting, setWalletModalVisible]);
 
+  // Effect to handle X OAuth callback parameters
+  useEffect(() => {
+    const xConnectSuccess = searchParams.get('x_connect_success');
+    const xConnectError = searchParams.get('x_connect_error');
+    const currentPath = window.location.pathname;
+
+    if (xConnectSuccess === 'true') {
+      toast.success("X account linked successfully!");
+      nextAuthUpdateSession(); // Refresh session to get linkedXUsername, etc.
+      // Clean the URL
+      router.replace(currentPath, undefined);
+    } else if (xConnectError) {
+      let errorMessage = "Failed to link X account. Please try again.";
+      if (xConnectError === 'config') {
+        errorMessage = "X connection is not configured correctly on the server.";
+      } else if (xConnectError === 'auth') {
+        errorMessage = "Authentication failed. Please log in and try again.";
+      } else if (xConnectError === 'missing_params') {
+        errorMessage = "OAuth parameters missing. Please try again.";
+      } else if (xConnectError === 'state_mismatch') {
+        errorMessage = "Invalid request (state mismatch). Please try again.";
+      } else if (xConnectError === 'no_code') {
+        errorMessage = "Authorization code not received from X. Please try again.";
+      } else if (xConnectError.length < 30) { // Avoid showing overly long technical errors
+        errorMessage = `Error linking X: ${xConnectError.replace(/_/g, ' ')}.`;
+      }
+      toast.error(errorMessage);
+      // Clean the URL
+      router.replace(currentPath, undefined);
+    }
+  }, [searchParams, nextAuthUpdateSession, router]);
+
   const airdropTokenSymbol = process.env.NEXT_PUBLIC_AIRDROP_TOKEN_SYMBOL || "AIR"; // Keep for one direct use or pass TOKEN_LABEL_AIR
   const snapshotDateString = process.env.NEXT_PUBLIC_AIRDROP_SNAPSHOT_DATE_STRING || "May 20th";
   const airdropPoolSize = parseInt(process.env.NEXT_PUBLIC_AIRDROP_POINTS_POOL_SIZE || '1000000000', 10);
@@ -507,13 +547,65 @@ export default function HomePage() {
                     isLoading={isActivatingRewards || isCheckingDefaiBalance} 
                   />
                 )}
-                 {(authStatus !== "authenticated" || !wallet.connected || !isRewardsActive || hasSufficientDefai === false) && (
+                 {/* Desktop: Activate Your Account Section */}
+                 {(authStatus === "authenticated" && wallet.connected && (!isRewardsActive || hasSufficientDefai === false)) && (
                   <div className="p-6 bg-white/60 backdrop-blur-md shadow-lg rounded-xl border border-gray-200/50 text-center">
-                    <h3 className="text-xl font-semibold mb-2">Activate Your Account</h3>
-                    <p className="text-sm text-muted-foreground mb-4">
-                      Connect your X account and wallet, and ensure you hold enough DEFAI to see your full airdrop snapshot and earn {AIR.LABEL}.
-                    </p>
-                    {/* Consider adding a primary CTA button here if appropriate */}
+                    <h3 className="text-xl font-semibold mb-4">Activate Your Rewards Account</h3>
+                    
+                    <div className="space-y-4 my-4 text-left max-w-md mx-auto">
+                      {/* Step 1: Link X Account */}
+                      <div className={`p-3 border rounded-lg ${session?.user?.linkedXUsername ? 'border-green-300 bg-green-50' : 'border-gray-300 bg-gray-50'}`}>
+                        <div className="flex items-center justify-between">
+                          <p className={`font-semibold ${session?.user?.linkedXUsername ? 'text-green-700' : 'text-gray-700'}`}>
+                            Step 1: Link X Account
+                          </p>
+                          {session?.user?.linkedXUsername && <span className="text-green-500 font-bold">✓</span>}
+                        </div>
+                        {!session?.user?.linkedXUsername && (
+                          <p className="text-sm text-gray-600 mt-1 mb-2">
+                            Connect your X account to enable features and earn potential bonuses.
+                          </p>
+                        )}
+                        {/* ConnectXButton will display linked info OR the connect button */}
+                        <ConnectXButton /> 
+                      </div>
+
+                      {/* Step 2: Verify Follow Status - Display only if X is linked */}
+                      {session?.user?.linkedXUsername && (
+                        <div className={`p-3 border rounded-lg ${session.user.followsDefAIRewards === true ? 'border-green-300 bg-green-50' : (session.user.followsDefAIRewards === false ? 'border-red-300 bg-red-50' : 'border-gray-300 bg-gray-50')}`}>
+                          <div className="flex items-center justify-between">
+                            <p className={`font-semibold ${session.user.followsDefAIRewards === true ? 'text-green-700' : (session.user.followsDefAIRewards === false ? 'text-red-700' : 'text-gray-700')}`}>
+                              Step 2: Verify Follow of @defAIRewards
+                            </p>
+                            {session.user.followsDefAIRewards === true && <span className="text-green-500 font-bold">✓</span>}
+                            {session.user.followsDefAIRewards === false && <span className="text-red-500 font-bold">✗</span>}
+                          </div>
+                          <p className="text-sm text-gray-600 mt-1 mb-2">
+                            Ensure you are following the <a href="https://x.com/defAIRewards" target="_blank" rel="noopener noreferrer" className="font-medium text-blue-600 hover:underline">@defAIRewards</a> X account.
+                          </p>
+                          {/* Render VerifyFollowButton here */}
+                          <VerifyFollowButton linkedXUsername={session.user.linkedXUsername} />
+                        </div>
+                      )}
+
+                      {/* Step 3: Hold DEFAI */}
+                      <div className={`p-3 border rounded-lg ${hasSufficientDefai === true ? 'border-green-300 bg-green-50' : 'border-gray-300 bg-gray-50'}`}>
+                         <div className="flex items-center justify-between">
+                          <p className={`font-semibold ${hasSufficientDefai === true ? 'text-green-700' : 'text-gray-700'}`}>
+                            Step 3: Hold Sufficient DEFAI
+                          </p>
+                          {hasSufficientDefai === true && <span className="text-green-500 font-bold">✓</span>}
+                        </div>
+                        <p className="text-sm text-gray-600 mt-1 mb-2">
+                          Hold at least {REQUIRED_DEFAI_AMOUNT} $DEFAI in your wallet ({wallet.publicKey?.toBase58().substring(0,6)}...) to activate all rewards.
+                        </p>
+                        {hasSufficientDefai !== true && (
+                            <Link href="https://dexscreener.com/solana/3jiwexdwzxjva2yd8aherfsrn7a97qbwmdz8i4q6mh7y" target="_blank" rel="noopener noreferrer" className="inline-block mt-1">
+                                <Button size="sm" className="bg-[#2B96F1] hover:bg-blue-600 text-white"><ChartIcon /> Buy DeFAI</Button>
+                            </Link>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 )}
 
@@ -677,8 +769,68 @@ export default function HomePage() {
               </div>
             ) : null}
             
-            {/* Existing Content Flow for Mobile when rewards active */}
-            {showInsufficientBalanceMessage && (
+            {/* Mobile: Activate Account Section (similar logic to desktop) */}
+            {(authStatus === "authenticated" && wallet.connected && (!isRewardsActive || hasSufficientDefai === false)) && (
+              <div className="w-full my-4 p-4 bg-white/60 backdrop-blur-md shadow-lg rounded-xl border border-gray-200/50 text-center">
+                <h3 className="text-xl font-semibold mb-4">Activate Your Rewards Account</h3>
+                <div className="space-y-4 my-4 text-left">
+                  {/* Step 1: Link X Account */}
+                  <div className={`p-3 border rounded-lg ${session?.user?.linkedXUsername ? 'border-green-300 bg-green-50' : 'border-gray-300 bg-gray-50'}`}>
+                    <div className="flex items-center justify-between">
+                      <p className={`font-semibold ${session?.user?.linkedXUsername ? 'text-green-700' : 'text-gray-700'}`}>
+                        Step 1: Link X Account
+                      </p>
+                      {session?.user?.linkedXUsername && <span className="text-green-500 font-bold">✓</span>}
+                    </div>
+                    {!session?.user?.linkedXUsername && (
+                        <p className="text-sm text-gray-600 mt-1 mb-2">
+                        Connect your X account.
+                        </p>
+                    )}
+                    <ConnectXButton />
+                  </div>
+
+                  {/* Step 2: Verify Follow Status - Display only if X is linked */}
+                  {session?.user?.linkedXUsername && (
+                    <div className={`p-3 border rounded-lg ${session.user.followsDefAIRewards === true ? 'border-green-300 bg-green-50' : (session.user.followsDefAIRewards === false ? 'border-red-300 bg-red-50' : 'border-gray-300 bg-gray-50')}`}>
+                      <div className="flex items-center justify-between">
+                        <p className={`font-semibold ${session.user.followsDefAIRewards === true ? 'text-green-700' : (session.user.followsDefAIRewards === false ? 'text-red-700' : 'text-gray-700')}`}>
+                          Step 2: Verify Follow of @defAIRewards
+                        </p>
+                        {session.user.followsDefAIRewards === true && <span className="text-green-500 font-bold">✓</span>}
+                        {session.user.followsDefAIRewards === false && <span className="text-red-500 font-bold">✗</span>}
+                      </div>
+                      <p className="text-sm text-gray-600 mt-1 mb-2">
+                        Follow <a href="https://x.com/defAIRewards" target="_blank" rel="noopener noreferrer" className="font-medium text-blue-600 hover:underline">@defAIRewards</a> to complete this step.
+                      </p>
+                      {/* Render VerifyFollowButton here */}
+                      <VerifyFollowButton linkedXUsername={session.user.linkedXUsername} />
+                    </div>
+                  )}
+
+                  {/* Step 3: Hold DEFAI */}
+                  <div className={`p-3 border rounded-lg ${hasSufficientDefai === true ? 'border-green-300 bg-green-50' : 'border-gray-300 bg-gray-50'}`}>
+                    <div className="flex items-center justify-between">
+                      <p className={`font-semibold ${hasSufficientDefai === true ? 'text-green-700' : 'text-gray-700'}`}>
+                        Step 3: Hold Sufficient DEFAI
+                      </p>
+                      {hasSufficientDefai === true && <span className="text-green-500 font-bold">✓</span>}
+                    </div>
+                    <p className="text-sm text-gray-600 mt-1 mb-2">
+                      Hold {REQUIRED_DEFAI_AMOUNT} $DEFAI in wallet ({wallet.publicKey?.toBase58().substring(0,4)}...).                    
+                    </p>
+                    {hasSufficientDefai !== true && (
+                        <Link href="https://dexscreener.com/solana/3jiwexdwzxjva2yd8aherfsrn7a97qbwmdz8i4q6mh7y" target="_blank" rel="noopener noreferrer" className="inline-block mt-1">
+                            <Button size="sm" className="bg-[#2B96F1] hover:bg-blue-600 text-white"><ChartIcon /> Buy DeFAI</Button>
+                        </Link>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Show Insufficient Balance Message Separately if Rewards Active but no DEFAI */}
+             {showInsufficientBalanceMessage && !(!isRewardsActive || hasSufficientDefai === false) /* Avoid double message */ && (
                 <div className="w-full my-4 p-4 bg-blue-50 border border-blue-200 rounded-lg text-center shadow-sm">
                     <h3 className="text-md font-semibold text-blue-700 mb-2">Hold DeFAI Tokens</h3>
                     <p className="text-xs text-foreground mb-3">

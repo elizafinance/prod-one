@@ -50,6 +50,8 @@ next-env.d.ts
 # env
 .env
 .env.local
+.env.staging
+.env.production
 
 # lockfiles
 pnpm-lock.yaml

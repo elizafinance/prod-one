@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, ComponentProps } from 'react';
 import Link from 'next/link';
-import { useSession, signIn, signOut } from "next-auth/react";
+import { useSession, signOut as nextAuthSignOut } from "next-auth/react";
 import { useWallet } from '@solana/wallet-adapter-react';
 import dynamic from 'next/dynamic';
 import { BellIcon } from '@heroicons/react/24/outline'; // Ensure this is installed
@@ -15,6 +15,7 @@ import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
 import CrossmintLoginButton from '@/components/CrossmintLoginButton'; // Import the button
 import DeFAILogo from '@/components/DeFAILogo'; // Assuming DeFAILogo is correctly located
 import AgentSetupModal from '@/components/modals/AgentSetupModal'; // Path confirmed
+import { useRouter } from 'next/navigation'; // For redirection
 
 // Type imports using ComponentProps for better robustness if props are not explicitly exported
 // This assumes NotificationsPanel and UserAvatar are functional or class components.
@@ -49,62 +50,51 @@ const navItems: NavItem[] = [
 
 export default function AppHeader() {
   const { data: session, status: authStatus } = useSession(); // Rely on next-auth.d.ts for session type
-  const { wallet, connected, publicKey, select } = useWallet();
+  const { wallet, connected, publicKey, select, disconnect } = useWallet();
+  const router = useRouter(); // Initialize router
   const [isClient, setIsClient] = useState(false);
-  const { 
-    isNotificationsPanelOpen, 
-    toggleNotificationsPanel, 
-    unreadNotificationCount, 
-    setUnreadNotificationCount: setUnreadNotificationCountInStore,
-    fetchInitialUnreadCount: fetchInitialUnreadCountFromStore,
-    isAgentSetupModalOpen, toggleAgentSetupModal
-  } = useUiStateStore();
-  const [notificationsInitialized, setNotificationsInitialized] = useState(false);
+  const uiState = useUiStateStore(); // Get the whole store or specific items
+  const [notificationsInitialized, setNotificationsInitialized] = useState(false); // Reinstated local state
 
   useEffect(() => {
     setIsClient(true);
   }, []);
 
-  // Moved fetchInitialUnreadCount outside of useEffect dependency array issues
   const fetchNotificationsData = useCallback(async () => {
-    if (authStatus === "authenticated" && connected && publicKey && !notificationsInitialized) {
-      console.log('[AppHeader] Initializing notifications for:', publicKey.toBase58());
+    if (authStatus === "authenticated" && connected && session?.user?.walletAddress && !notificationsInitialized) {
+      // console.log('[AppHeader] Initializing notifications for:', session.user.walletAddress);
       try {
-        await fetchInitialUnreadCountFromStore(publicKey.toBase58(), true);
-        console.log('[AppHeader] Notifications initialized successfully via store action');
-        setNotificationsInitialized(true);
+        await uiState.fetchInitialUnreadCount(session.user.walletAddress, true);
+        // console.log('[AppHeader] Notifications initialized successfully via store action');
+        setNotificationsInitialized(true); // Set local state after successful fetch
       } catch (error: any) {
         console.error('[AppHeader] Error initializing notifications via store action:', error);
-        setNotificationsInitialized(false); 
+        setNotificationsInitialized(false); // Reset on error so it can retry
       }
     }
-  }, [authStatus, connected, publicKey, fetchInitialUnreadCountFromStore, notificationsInitialized]);
+  }, [authStatus, connected, session?.user?.walletAddress, uiState.fetchInitialUnreadCount, notificationsInitialized]);
 
-  useEffect(() => {
-    fetchNotificationsData();
-  }, [fetchNotificationsData]);
+  useEffect(() => { fetchNotificationsData(); }, [fetchNotificationsData]);
 
   useEffect(() => {
     if (authStatus !== "authenticated" || !connected) {
-      console.log('[AppHeader] Resetting notifications - auth:', authStatus, 'connected:', connected);
-      setUnreadNotificationCountInStore(0);
-      setNotificationsInitialized(false);
+      // console.log('[AppHeader] Resetting notifications - auth:', authStatus, 'connected:', connected);
+      uiState.setUnreadNotificationCount(0);
+      setNotificationsInitialized(false); // Reset local state on logout/disconnect
     }
-  }, [authStatus, connected, setUnreadNotificationCountInStore]);
+  }, [authStatus, connected, uiState.setUnreadNotificationCount]);
 
   const handleOpenNotifications = () => {
     if (!connected || authStatus !== "authenticated") {
-      // Show a prompt via console (you can expand this to a UI prompt) 
-      console.warn('[AppHeader] Cannot open notifications - user not authenticated or wallet not connected');
-      toast.info("Please log in with X and connect your wallet to view notifications."); // User-facing toast
+      toast.info("Please log in and connect your wallet to view notifications.");
       return;
     }
-    toggleNotificationsPanel();
+    uiState.toggleNotificationsPanel();
   };
 
   // Safely define typedUser only if session and session.user exist
   const typedUser = session && session.user 
-    ? session.user as (typeof session.user & { xId?: string | null, image?: string | null, name?: string | null }) 
+    ? session.user as (typeof session.user & { xId?: string | null, image?: string | null, name?: string | null, walletAddress?: string | null }) 
     : null;
 
   // If still loading auth status or not client yet, render a placeholder or null to prevent hydration mismatch
@@ -164,30 +154,28 @@ export default function AppHeader() {
             {/* This part regarding 'typedUser' and 'signOut' will need to adapt to the new cookie auth */}
             {isClient && authStatus === "authenticated" && typedUser && (
               <>
-                {/* Wallet Multi Button - Show if authenticated and on client */}
-                <WalletMultiButtonDynamic style={{ height: '36px', borderRadius: '9999px', backgroundColor: '#3B82F6', fontSize: '0.875rem' }} />
-                
                 {/* Notification Bell - Show if authenticated and on client */}
                 <button 
                   onClick={handleOpenNotifications} 
-                  className="ml-2 p-1.5 rounded-full text-slate-300 hover:text-white hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-800 focus:ring-white relative transition-colors"
+                  className="p-1.5 rounded-full text-gray-700 hover:text-gray-900 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-white focus:ring-blue-500 relative transition-colors"
                 >
                   <BellIcon className="h-5 w-5" />
-                  {unreadNotificationCount > 0 && (
-                    <span className="absolute top-0 right-0 block h-2.5 w-2.5 rounded-full bg-red-500 ring-1 ring-slate-800" />
+                  {uiState.unreadNotificationCount > 0 && (
+                    <span className="absolute top-0 right-0 block h-2.5 w-2.5 rounded-full bg-red-500 ring-1 ring-white" />
                   )}
                 </button>
 
                 <UserAvatar 
                   profileImageUrl={typedUser.image} // This will need to come from the new auth/user object
                   username={typedUser.name || typedUser.xId || 'User'} // Same as above
+                  className="ml-2"
                 />
-                <button 
-                  onClick={() => signOut()} // signOut will need to be adapted for cookie removal
-                  className="ml-2 px-3 py-1.5 text-xs font-medium text-white bg-red-600 hover:bg-red-700 rounded-full transition-colors"
-                >
-                  Sign Out
-                </button>
+                
+                {/* Wallet Multi Button - Show if authenticated and on client, now rightmost */}
+                <WalletMultiButtonDynamic 
+                  className="ml-2"
+                  style={{ height: '36px', borderRadius: '9999px', backgroundColor: '#3B82F6', fontSize: '0.875rem' }} 
+                />
               </>
             )}
           </div>
@@ -195,13 +183,13 @@ export default function AppHeader() {
       </div>
 
       {/* Modals and Panels */}
-      {isClient && isAgentSetupModalOpen && <AgentSetupModal />}
+      {isClient && uiState.isAgentSetupModalOpen && <AgentSetupModal />}
 
-      {isClient && isNotificationsPanelOpen && authStatus === "authenticated" && connected && (
+      {isClient && uiState.isNotificationsPanelOpen && authStatus === "authenticated" && connected && (
         <NotificationsPanel 
-          isOpen={isNotificationsPanelOpen} 
-          onClose={toggleNotificationsPanel} 
-          onUpdateUnreadCount={setUnreadNotificationCountInStore}
+          isOpen={uiState.isNotificationsPanelOpen} 
+          onClose={uiState.toggleNotificationsPanel} 
+          onUpdateUnreadCount={uiState.setUnreadNotificationCount}
         />
       )}
     </header>

@@ -2,11 +2,25 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useWallet } from '@solana/wallet-adapter-react'; // For "You are here" highlight
-import GlowingBadge from '@/components/GlowingBadge';
+import { useWallet } from '@solana/wallet-adapter-react';
+import { Trophy, Medal, Crown, Star, TrendingUp, Users, ArrowUpRight } from "lucide-react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
+import { Separator } from "@/components/ui/separator";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import UserAvatar from '@/components/UserAvatar';
-import { AIR } from '@/config/points.config'; // Import AIR config
-import { formatPoints } from '@/lib/utils'; // Import formatPoints
+import { AIR } from '@/config/points.config';
+import { formatPoints } from '@/lib/utils';
 
 interface LeaderboardEntry {
   walletAddress: string;
@@ -15,30 +29,36 @@ interface LeaderboardEntry {
   xUsername?: string;
   xProfileImageUrl?: string;
   earnedBadgeIds?: string[];
+  rank?: number;
 }
 
-// Tier styles mapping - customize these Tailwind classes!
-const tierStyles: { [key: string]: string } = {
-  default: 'bg-gray-300 text-gray-800', // Adjusted for light theme
-  bronze: 'bg-orange-500 text-white border border-orange-600',
-  silver: 'bg-slate-400 text-slate-900 border border-slate-500',
-  gold: 'bg-yellow-400 text-yellow-900 border border-yellow-500', // Adjusted gold for better visibility
-  diamond: 'bg-sky-400 text-sky-900 border border-sky-500',
-  master: 'bg-indigo-500 text-white border border-indigo-600',
-  grandmaster: 'bg-purple-600 text-white border border-purple-700',
-  legend: 'bg-pink-600 text-white border border-pink-700 font-bold italic',
+// Tier colors for badges
+const tierColors: { [key: string]: string } = {
+  bronze: "bg-orange-500",
+  silver: "bg-slate-400",
+  gold: "bg-yellow-500",
+  diamond: "bg-sky-500",
+  master: "bg-indigo-500",
+  grandmaster: "bg-purple-600",
+  legend: "bg-pink-600"
 };
 
-// Badge styles mapping
-const badgeDisplayMap: { [key: string]: { icon: string; label: string; color: string; isSpecial?: boolean; glowColor?: string } } = {
-  pioneer_badge: { icon: "🧭", label: "Pioneer", color: "bg-green-600 text-white" }, // Slightly darker green
-  legend_tier_badge: { icon: "🌟", label: "Legend Tier", color: "bg-yellow-500 text-black" },
+// Badge definitions
+const badgeInfo: { [key: string]: { icon: React.ReactNode; label: string; description: string } } = {
+  pioneer_badge: { 
+    icon: <Star className="h-4 w-4" />, 
+    label: "Pioneer", 
+    description: "Early adopter" 
+  },
+  legend_tier_badge: { 
+    icon: <Crown className="h-4 w-4" />, 
+    label: "Legend", 
+    description: "Achieved Legend tier" 
+  },
   generous_donor_badge: { 
-    icon: "✨", 
+    icon: <Medal className="h-4 w-4" />, 
     label: "Generous Donor", 
-    color: "bg-violet-600 text-white", 
-    isSpecial: true,
-    glowColor: "rgba(139, 92, 246, 0.7)" // Purple glow remains suitable
+    description: "Top contributor" 
   },
 };
 
@@ -46,7 +66,8 @@ export default function LeaderboardPage() {
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { publicKey } = useWallet(); // Get current user's wallet public key
+  const [selectedTab, setSelectedTab] = useState("all");
+  const { publicKey } = useWallet();
   const currentUserWalletAddress = publicKey?.toBase58();
 
   useEffect(() => {
@@ -56,11 +77,15 @@ export default function LeaderboardPage() {
       try {
         const response = await fetch('/api/users/leaderboard?limit=all');
         if (!response.ok) {
-          throw new Error('Failed to fetch leaderboard data. Please try again soon!');
+          throw new Error('Failed to fetch leaderboard data');
         }
         const data = await response.json();
-        // API returns shape: { leaderboard: [...], currentPage, totalPages, ... }
-        setLeaderboard(data.leaderboard || []);
+        // Add rank to each entry
+        const leaderboardWithRanks = (data.leaderboard || []).map((entry: LeaderboardEntry, index: number) => ({
+          ...entry,
+          rank: index + 1
+        }));
+        setLeaderboard(leaderboardWithRanks);
       } catch (err) {
         setError((err as Error).message || 'Could not load leaderboard data.');
         console.error(err);
@@ -71,159 +96,238 @@ export default function LeaderboardPage() {
     fetchLeaderboard();
   }, []);
 
-  // Helper function to display badges
-  const renderBadges = (badges?: string[]) => {
-    if (!badges || badges.length === 0) return null;
-    
+  // Get current user's rank
+  const currentUserRank = leaderboard.findIndex(entry => entry.walletAddress === currentUserWalletAddress) + 1;
+
+  // Filter leaderboard based on tab
+  const filteredLeaderboard = selectedTab === "all" 
+    ? leaderboard 
+    : leaderboard.slice(0, selectedTab === "top10" ? 10 : 50);
+
+  const renderLeaderboardEntry = (entry: LeaderboardEntry, index: number) => {
+    const isCurrentUser = entry.walletAddress === currentUserWalletAddress;
+    const displayRank = entry.rank || index + 1;
+
     return (
-      <div className="flex flex-wrap gap-1 mt-1">
-        {badges.map(badgeId => {
-          const badge = badgeDisplayMap[badgeId];
-          if (!badge) return null;
-          
-          return badge.isSpecial ? (
-            <GlowingBadge
-              key={badgeId}
-              icon={badge.icon}
-              label={badge.label}
-              color={badge.color}
-              glowColor={badge.glowColor || "rgba(255, 255, 255, 0.5)"}
-              size="sm"
+      <div
+        key={entry.walletAddress}
+        className={`flex items-center justify-between p-4 rounded-lg border transition-all hover:shadow-md ${
+          isCurrentUser ? 'bg-[#3366FF]/10 border-[#3366FF]' : 'bg-card hover:bg-accent/5'
+        }`}
+      >
+        <div className="flex items-center gap-4">
+          {/* Rank Badge */}
+          <div className={`flex items-center justify-center min-w-[3rem] ${
+            displayRank <= 3 ? 'scale-110' : ''
+          }`}>
+            {displayRank === 1 && <Trophy className="h-8 w-8 text-yellow-500" />}
+            {displayRank === 2 && <Medal className="h-7 w-7 text-slate-400" />}
+            {displayRank === 3 && <Medal className="h-6 w-6 text-orange-500" />}
+            {displayRank > 3 && (
+              <span className="text-2xl font-bold text-muted-foreground">#{displayRank}</span>
+            )}
+          </div>
+
+          {/* User Info */}
+          <div className="flex items-center gap-3">
+            <UserAvatar 
+              profileImageUrl={entry.xProfileImageUrl} 
+              username={entry.xUsername || entry.walletAddress}
+              size="md"
             />
-          ) : (
-            <span key={badgeId} className={`px-2 py-0.5 text-xs font-semibold rounded-full ${badge.color}`}>
-              {badge.icon}
-            </span>
-          );
-        })}
+            <div>
+              <Link 
+                href={`/profile/${entry.walletAddress}`}
+                className="font-semibold hover:text-[#3366FF] transition-colors flex items-center gap-1"
+              >
+                {entry.xUsername ? `@${entry.xUsername}` : `${entry.walletAddress.slice(0, 6)}...${entry.walletAddress.slice(-4)}`}
+                {isCurrentUser && <Badge variant="secondary" className="ml-2">You</Badge>}
+              </Link>
+              {/* Badges */}
+              <div className="flex flex-wrap gap-1 mt-1">
+                {entry.highestAirdropTierLabel && (
+                  <Badge 
+                    variant="secondary" 
+                    className={`${tierColors[entry.highestAirdropTierLabel.toLowerCase()] || 'bg-gray-500'} text-white`}
+                  >
+                    {entry.highestAirdropTierLabel}
+                  </Badge>
+                )}
+                {entry.earnedBadgeIds?.map(badgeId => {
+                  const badge = badgeInfo[badgeId];
+                  if (!badge) return null;
+                  return (
+                    <Badge key={badgeId} variant="outline" className="gap-1">
+                      {badge.icon}
+                      <span className="hidden sm:inline">{badge.label}</span>
+                    </Badge>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Points */}
+        <div className="text-right">
+          <div className="text-2xl font-bold">{formatPoints(entry.points)}</div>
+          <div className="text-sm text-muted-foreground">{AIR.LABEL}</div>
+        </div>
       </div>
     );
   };
 
   return (
-    <main className="flex flex-col items-center min-h-screen p-4 sm:p-8 bg-background text-foreground">
-      <div className="w-full max-w-5xl mx-auto py-8 sm:py-12">
-        <div className="flex justify-between items-center mb-10">
-          <h1 className="text-4xl sm:text-5xl font-bold font-spacegrotesk tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-purple-600 via-pink-600 to-red-600">
-            Global Rankings
-          </h1>
-          <Link href="/" passHref>
-            <button 
-              className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-5 rounded-lg shadow-md hover:shadow-lg transform hover:scale-105 transition-all duration-150 ease-in-out whitespace-nowrap"
-            >
-              Back to Airdrop Checker
-            </button>
-          </Link>
+    <SidebarInset>
+      <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-[[data-collapsible=icon]]/sidebar-wrapper:h-12">
+        <div className="flex items-center gap-2 px-4">
+          <SidebarTrigger className="-ml-1" />
+          <Separator orientation="vertical" className="mr-2 h-4" />
+          <Breadcrumb>
+            <BreadcrumbList>
+              <BreadcrumbItem className="hidden md:block">
+                <BreadcrumbLink href="#">Platform</BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator className="hidden md:block" />
+              <BreadcrumbItem>
+                <BreadcrumbPage>Leaderboard</BreadcrumbPage>
+              </BreadcrumbItem>
+            </BreadcrumbList>
+          </Breadcrumb>
         </div>
+      </header>
 
-        {isLoading && (
-          <div className="text-center py-10">
-            <p className="text-xl text-muted-foreground">Summoning the Leaderboard...</p>
-            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-600 mx-auto mt-4"></div>
-          </div>
-        )}
-        {error && <p className="text-center text-red-700 bg-red-100 p-4 rounded-lg border border-red-300">Error: {error}</p>}
-        
-        {!isLoading && !error && leaderboard.length === 0 && (
-          <div className="text-center py-10 bg-card p-6 rounded-lg shadow-lg border border-border">
-            <p className="text-2xl text-foreground mb-3">The Leaderboard Awaits Its Heroes!</p>
-            <p className="text-muted-foreground">Be the first to etch your name and claim the top spot.</p>
-          </div>
-        )}
+      <main className="flex-1 py-6">
+        <div className="container px-4 md:px-6">
+          <div className="grid gap-6">
+            {/* Stats Overview */}
+            <div className="grid gap-4 md:grid-cols-4">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Total Players</CardTitle>
+                  <Users className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{leaderboard.length.toLocaleString()}</div>
+                  <p className="text-xs text-muted-foreground">
+                    Active participants
+                  </p>
+                </CardContent>
+              </Card>
 
-        {!isLoading && !error && leaderboard.length > 0 && (
-          <div className="overflow-x-auto shadow-xl rounded-xl border border-border bg-card">
-            <table className="min-w-full">
-              <thead className="border-b border-border bg-muted">
-                <tr>
-                  <th className="text-left py-4 px-4 sm:px-6 font-semibold text-muted-foreground tracking-wider uppercase text-sm">Rank</th>
-                  <th className="text-left py-4 px-4 sm:px-6 font-semibold text-muted-foreground tracking-wider uppercase text-sm">Contender</th>
-                  <th className="text-left py-4 px-4 sm:px-6 font-semibold text-muted-foreground tracking-wider uppercase text-sm">Tier & Badges</th>
-                  <th className="text-right py-4 px-4 sm:px-6 font-semibold text-muted-foreground tracking-wider uppercase text-sm">{AIR.LABEL}</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {leaderboard.map((entry, index) => {
-                  const rank = index + 1;
-                  const isCurrentUser = entry.walletAddress === currentUserWalletAddress;
-                  
-                  let rankDisplay: React.ReactNode = rank;
-                  let rowClasses = "transition-all duration-150 ease-in-out";
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Your Rank</CardTitle>
+                  <Trophy className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {currentUserRank > 0 ? `#${currentUserRank}` : 'N/A'}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {currentUserRank > 0 ? `Top ${Math.round((currentUserRank / leaderboard.length) * 100)}%` : 'Not ranked'}
+                  </p>
+                </CardContent>
+              </Card>
 
-                  if (rank === 1) {
-                    rankDisplay = <span className="text-yellow-600 text-xl font-semibold">🏆 {rank}</span>;
-                    rowClasses += " bg-yellow-50 hover:bg-yellow-100";
-                  } else if (rank === 2) {
-                    rankDisplay = <span className="text-slate-500 text-lg font-semibold">🥈 {rank}</span>;
-                    rowClasses += " bg-slate-50 hover:bg-slate-100";
-                  } else if (rank === 3) {
-                    rankDisplay = <span className="text-orange-500 font-semibold">🥉 {rank}</span>;
-                    rowClasses += " bg-orange-50 hover:bg-orange-100";
-                  } else {
-                    rowClasses += " hover:bg-gray-50";
-                  }
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Total Points</CardTitle>
+                  <Star className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {formatPoints(leaderboard.reduce((sum, entry) => sum + entry.points, 0))}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Community total
+                  </p>
+                </CardContent>
+              </Card>
 
-                  if (isCurrentUser) {
-                    rowClasses += " ring-2 ring-purple-500 scale-105 z-10 bg-purple-100 shadow-md";
-                  }
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Average Points</CardTitle>
+                  <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {leaderboard.length > 0 
+                      ? formatPoints(Math.round(leaderboard.reduce((sum, entry) => sum + entry.points, 0) / leaderboard.length))
+                      : '0'
+                    }
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Per player
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
 
-                  const hasGenerousDonorBadge = entry.earnedBadgeIds?.includes('generous_donor_badge');
-                  if (hasGenerousDonorBadge && !isCurrentUser) {
-                    rowClasses += " bg-violet-100 hover:bg-violet-200";
-                  } else if (hasGenerousDonorBadge && isCurrentUser) {
-                    rowClasses += " bg-purple-200";
-                  }
+            {/* Leaderboard Table */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Global Rankings</CardTitle>
+                <CardDescription>
+                  Top performers in the DeFAI ecosystem
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Tabs defaultValue="top10" value={selectedTab} onValueChange={setSelectedTab}>
+                  <TabsList className="mb-4">
+                    <TabsTrigger value="top10">Top 10</TabsTrigger>
+                    <TabsTrigger value="top50">Top 50</TabsTrigger>
+                    <TabsTrigger value="all">All Players</TabsTrigger>
+                  </TabsList>
 
-                  const tierLabel = entry.highestAirdropTierLabel || '-';
-                  const tierStyleKey = entry.highestAirdropTierLabel ? entry.highestAirdropTierLabel.toLowerCase() : 'default';
-                  const tierStyle = tierStyles[tierStyleKey] || tierStyles.default;
-
-                  return (
-                    <tr
-                      key={entry.walletAddress + index + rank}
-                      className={`${rowClasses} cursor-pointer`}
-                      onClick={() => window.location.href = `/profile/${entry.walletAddress}`}
-                    >
-                      <td className="py-4 px-4 sm:px-6 font-medium text-foreground align-middle">{rankDisplay}</td>
-                      <td className="py-4 px-4 sm:px-6 align-middle">
-                        <div className="flex items-center gap-3">
-                          <UserAvatar 
-                            profileImageUrl={entry.xProfileImageUrl} 
-                            username={entry.xUsername}
-                            size="sm"
-                          />
-                          <div>
-                            {entry.xUsername ? (
-                              <Link href={`/profile/${entry.walletAddress}`} passHref>
-                                <span className="text-foreground hover:text-[#2B96F1] cursor-pointer hover:underline font-medium">@{entry.xUsername}</span>
-                              </Link>
-                            ) : (
-                              <Link href={`/profile/${entry.walletAddress}`} passHref>
-                                <span className="font-mono text-sm text-muted-foreground hover:text-[#2B96F1] cursor-pointer hover:underline">{entry.walletAddress}</span>
-                              </Link>
+                  <TabsContent value={selectedTab} className="space-y-2">
+                    {isLoading ? (
+                      <div className="text-center py-8">
+                        <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-[#3366FF]"></div>
+                        <p className="mt-2 text-muted-foreground">Loading rankings...</p>
+                      </div>
+                    ) : error ? (
+                      <div className="text-center py-8">
+                        <p className="text-destructive">{error}</p>
+                        <Button 
+                          onClick={() => window.location.reload()} 
+                          variant="outline" 
+                          className="mt-4"
+                        >
+                          Try Again
+                        </Button>
+                      </div>
+                    ) : filteredLeaderboard.length === 0 ? (
+                      <div className="text-center py-8">
+                        <p className="text-muted-foreground">No players found</p>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="space-y-2">
+                          {filteredLeaderboard.map((entry, index) => renderLeaderboardEntry(entry, index))}
+                        </div>
+                        
+                        {/* Show current user if not in filtered list */}
+                        {currentUserRank > 0 && 
+                         currentUserRank > filteredLeaderboard.length && 
+                         selectedTab !== "all" && (
+                          <div className="mt-8 pt-8 border-t">
+                            <p className="text-sm text-muted-foreground mb-4 text-center">Your Position</p>
+                            {renderLeaderboardEntry(
+                              leaderboard.find(e => e.walletAddress === currentUserWalletAddress)!, 
+                              currentUserRank - 1
                             )}
                           </div>
-                        </div>
-                      </td>
-                      <td className="py-4 px-4 sm:px-6 align-middle">
-                        <div>
-                          <span className={`px-3 py-1 text-xs font-semibold rounded-full ${tierStyle}`}>
-                            {tierLabel}
-                          </span>
-                          {entry.earnedBadgeIds && renderBadges(entry.earnedBadgeIds)}
-                        </div>
-                      </td>
-                      <td className="text-right py-4 px-4 sm:px-6 font-bold text-lg text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-pink-600 align-middle">
-                        {formatPoints(entry.points)}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                        )}
+                      </>
+                    )}
+                  </TabsContent>
+                </Tabs>
+              </CardContent>
+            </Card>
           </div>
-        )}
-      </div>
-    </main>
+        </div>
+      </main>
+    </SidebarInset>
   );
-} 
+}

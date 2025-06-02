@@ -6,6 +6,21 @@ import Link from 'next/link';
 import { io, Socket } from 'socket.io-client';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { Clock, Target, Gift, ArrowLeft, Users, TrendingUp, Star, ExternalLink } from "lucide-react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
+import { SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
+import { Separator } from "@/components/ui/separator";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
 
 // Shared types (ideally from a common types file)
 interface QuestDisplayData {
@@ -30,19 +45,6 @@ interface QuestProgressUpdateEvent {
   goalTarget: number;
 }
 
-// Re-use or adapt ProgressBar from quests/page.tsx
-const ProgressBar: React.FC<{ current: number; goal: number; size?: 'normal' | 'large' }> = ({ current, goal, size = 'normal' }) => {
-  const percentage = goal > 0 ? Math.min((current / goal) * 100, 100) : 0;
-  const heightClass = size === 'large' ? 'h-4' : 'h-2.5';
-  return (
-    <div className={`w-full bg-gray-700 rounded-full ${heightClass} dark:bg-gray-600 my-2`}>
-      <div 
-        className={`bg-blue-600 ${heightClass} rounded-full dark:bg-blue-500 transition-all duration-500 ease-out`}
-        style={{ width: `${percentage}%` }}
-      ></div>
-    </div>
-  );
-};
 
 // Re-use or adapt calculateRemainingTime from quests/page.tsx
 function calculateRemainingTime(endDateString: string): string {
@@ -147,21 +149,40 @@ export default function QuestDetailPage() {
   };
 
   if (isLoading) {
-    return <div className="container mx-auto px-4 py-8 text-center text-xl text-muted-foreground">Loading quest details...</div>;
+    return (
+      <SidebarInset>
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-[#3366FF]"></div>
+          <p className='ml-3'>Loading quest details...</p>
+        </div>
+      </SidebarInset>
+    );
   }
 
   if (error) {
     return (
-      <div className="container mx-auto px-4 py-8 text-center">
-        <p className="text-xl text-red-500 mb-4">Error: {error}</p>
-        <Link href="/quests" className="text-blue-400 hover:underline">Back to all quests</Link>
-      </div>
+      <SidebarInset>
+        <div className="flex flex-col items-center justify-center min-h-screen">
+          <p className="text-lg text-destructive mb-4">Error: {error}</p>
+          <Button asChild>
+            <Link href="/quests">Back to all quests</Link>
+          </Button>
+        </div>
+      </SidebarInset>
     );
   }
 
   if (!quest) {
-    // This case should ideally be covered by the error state if fetch fails with 404
-    return <div className="container mx-auto px-4 py-8 text-center text-xl text-muted-foreground">Quest not found.</div>;
+    return (
+      <SidebarInset>
+        <div className="flex flex-col items-center justify-center min-h-screen">
+          <p className="text-xl mb-4">Quest not found.</p>
+          <Button asChild>
+            <Link href="/quests">Back to all quests</Link>
+          </Button>
+        </div>
+      </SidebarInset>
+    );
   }
 
   const renderCallToActionButton = () => {
@@ -191,57 +212,214 @@ export default function QuestDetailPage() {
         return null; // No specific CTA for unknown or other types yet
     }
 
-    const commonButtonClasses = "bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg shadow-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-75";
-
     if (ctaOnClick) {
-        return <button onClick={ctaOnClick} className={commonButtonClasses}>{ctaText}</button>;
+        return (
+          <Button onClick={ctaOnClick} className="bg-[#3366FF] hover:bg-[#2952cc]">
+            <ExternalLink className="h-4 w-4 mr-2" />
+            {ctaText}
+          </Button>
+        );
     }
     return (
-        <Link href={ctaLink} legacyBehavior>
-            <a className={commonButtonClasses}>{ctaText}</a>
+      <Button asChild className="bg-[#3366FF] hover:bg-[#2952cc]">
+        <Link href={ctaLink}>
+          <ExternalLink className="h-4 w-4 mr-2" />
+          {ctaText}
         </Link>
+      </Button>
     );
   };
 
+  const progressPercentage = quest.goal > 0 ? Math.min((quest.progress / quest.goal) * 100, 100) : 0;
+  const timeRemaining = calculateRemainingTime(quest.end_ts);
+  const isExpired = timeRemaining === 'Ended';
+
   return (
-    <div className="container mx-auto px-4 py-12 bg-background text-foreground">
-      <div className="max-w-3xl mx-auto bg-card shadow-2xl rounded-lg p-8 md:p-12">
-        <div className="mb-6">
-          <Link href="/quests" className="text-sm text-blue-400 hover:text-blue-300">&larr; All Community Quests</Link>
+    <SidebarInset>
+      <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-[[data-collapsible=icon]]/sidebar-wrapper:h-12">
+        <div className="flex items-center gap-2 px-4">
+          <SidebarTrigger className="-ml-1" />
+          <Separator orientation="vertical" className="mr-2 h-4" />
+          <Breadcrumb>
+            <BreadcrumbList>
+              <BreadcrumbItem className="hidden md:block">
+                <BreadcrumbLink href="#">Platform</BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator className="hidden md:block" />
+              <BreadcrumbItem>
+                <BreadcrumbLink href="/quests">Quests</BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator className="hidden md:block" />
+              <BreadcrumbItem>
+                <BreadcrumbPage>{quest.title}</BreadcrumbPage>
+              </BreadcrumbItem>
+            </BreadcrumbList>
+          </Breadcrumb>
         </div>
+        <div className="ml-auto flex items-center gap-4 px-4">
+          <Button variant="outline" asChild>
+            <Link href="/quests">
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              All Quests
+            </Link>
+          </Button>
+        </div>
+      </header>
 
-        <h1 className="text-4xl md:text-5xl font-bold mb-6 text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-500">{quest.title}</h1>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8 text-sm">
-            <div className="bg-muted p-4 rounded-md">
-                <p className="text-muted-foreground">Status: <span className={`font-semibold ${quest.status === 'active' ? 'text-success' : quest.status === 'succeeded' ? 'text-[#2B96F1]' : 'text-warning'}`}>{quest.status}</span></p>
+      <main className="flex-1 py-6">
+        <div className="container px-4 md:px-6">
+          <div className="grid gap-6 max-w-4xl mx-auto">
+            {/* Quest Header */}
+            <Card>
+              <CardHeader>
+                <div className="flex items-start justify-between">
+                  <div>
+                    <CardTitle className="text-3xl">{quest.title}</CardTitle>
+                    <CardDescription className="mt-2">
+                      Complete this quest to earn rewards and contribute to the community
+                    </CardDescription>
+                  </div>
+                  <Badge variant={
+                    quest.status === 'active' ? 'default' :
+                    quest.status === 'succeeded' ? 'secondary' : 'outline'
+                  }>
+                    {quest.status.charAt(0).toUpperCase() + quest.status.slice(1)}
+                  </Badge>
+                </div>
+              </CardHeader>
+            </Card>
+
+            {/* Quest Stats */}
+            <div className="grid gap-4 md:grid-cols-3">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Progress</CardTitle>
+                  <Target className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {quest.progress.toLocaleString()} / {quest.goal.toLocaleString()}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {getGoalUnit()} • {Math.round(progressPercentage)}% complete
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Time Remaining</CardTitle>
+                  <Clock className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className={`text-2xl font-bold ${isExpired ? 'text-destructive' : ''}`}>
+                    {timeRemaining}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {isExpired ? 'Quest has ended' : 'Time left to complete'}
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Reward</CardTitle>
+                  <Gift className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {quest.reward_points?.toLocaleString() || 'TBD'}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {quest.reward_points ? 'Points' : 'Special reward'}
+                  </p>
+                </CardContent>
+              </Card>
             </div>
-            <div className="bg-muted p-4 rounded-md">
-                 <p className="text-muted-foreground">Time Remaining: <span className="font-semibold text-warning">{calculateRemainingTime(quest.end_ts)}</span></p>
-            </div>
-        </div>
 
-        <div className="mb-8">
-          <h3 className="text-xl font-semibold mb-2 text-foreground">Progress: {quest.progress.toLocaleString()} / {quest.goal.toLocaleString()} <span className="text-muted-foreground text-sm">({getGoalUnit()})</span></h3>
-          <ProgressBar current={quest.progress} goal={quest.goal} size="large" />
-        </div>
+            {/* Progress Bar */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Quest Progress</CardTitle>
+                <CardDescription>Track the community's progress toward the goal</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span>Current Progress</span>
+                    <span>{quest.progress.toLocaleString()} {getGoalUnit()}</span>
+                  </div>
+                  <Progress value={progressPercentage} className="h-3" />
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>0</span>
+                    <span>{quest.goal.toLocaleString()} {getGoalUnit()}</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
-        <div className="mb-8 prose prose-invert prose-sm md:prose-base max-w-none prose-headings:text-foreground prose-p:text-muted-foreground prose-a:text-[#2B96F1] hover:prose-a:text-blue-300 prose-strong:text-foreground">
-          <h3 className="text-xl font-semibold mb-2 text-foreground">Description & Rules:</h3>
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>{quest.description_md}</ReactMarkdown>
-        </div>
+            {/* Quest Description */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Description & Rules</CardTitle>
+                <CardDescription>Learn how to participate and what's required</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="prose prose-sm max-w-none dark:prose-invert">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{quest.description_md}</ReactMarkdown>
+                </div>
+              </CardContent>
+            </Card>
 
-        <div className="mb-6 p-4 bg-muted rounded-md">
-            {renderRewardInfo()}
-        </div>
-        
-        {quest.status === 'active' && (
-            <div className="mt-10 text-center">
-                {renderCallToActionButton()}
-            </div>
-        )}
+            {/* Rewards */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Gift className="h-5 w-5" />
+                  Quest Rewards
+                </CardTitle>
+                <CardDescription>What you'll earn for completing this quest</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {quest.reward_points && (
+                    <div className="flex items-center gap-3 p-3 border rounded-lg">
+                      <Star className="h-8 w-8 text-[#3366FF]" />
+                      <div>
+                        <p className="font-semibold">{quest.reward_points.toLocaleString()} Points</p>
+                        <p className="text-sm text-muted-foreground">DeFAI reward points</p>
+                      </div>
+                    </div>
+                  )}
+                  {quest.reward_nft_id && (
+                    <div className="flex items-center gap-3 p-3 border rounded-lg">
+                      <TrendingUp className="h-8 w-8 text-[#3366FF]" />
+                      <div>
+                        <p className="font-semibold">Special NFT</p>
+                        <p className="text-sm text-muted-foreground">NFT ID: {quest.reward_nft_id}</p>
+                      </div>
+                    </div>
+                  )}
+                  {!quest.reward_points && !quest.reward_nft_id && (
+                    <p className="text-muted-foreground">Reward details will be announced soon.</p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
 
-      </div>
-    </div>
+            {/* Call to Action */}
+            {quest.status === 'active' && (
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="text-center">
+                    {renderCallToActionButton()}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        </div>
+      </main>
+    </SidebarInset>
   );
 } 

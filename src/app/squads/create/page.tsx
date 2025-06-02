@@ -6,6 +6,24 @@ import { useWallet } from '@solana/wallet-adapter-react'; // To ensure user has 
 import { toast } from 'sonner';
 import Link from 'next/link';
 import { TOKEN_LABEL_POINTS } from '@/lib/labels';
+import { SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
+import { Separator } from "@/components/ui/separator";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
+import { Shield, Users, Trophy, CheckCircle, AlertTriangle, Loader2 } from "lucide-react";
 
 export default function CreateSquadPage() {
   const router = useRouter();
@@ -126,109 +144,197 @@ export default function CreateSquadPage() {
     tierRequirements !== null && userPoints >= tierRequirements.minRequiredPoints;
 
   return (
-    <main className="flex flex-col items-center min-h-screen p-4 sm:p-8 bg-background text-foreground">
-      <div className="w-full max-w-md mx-auto my-10">
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold font-spacegrotesk tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-green-500 via-teal-600 to-blue-600">
-            Forge Your Squad
-          </h1>
-          <p className="text-muted-foreground mt-2">Lead your team to victory and earn rewards together!</p>
+    <SidebarInset>
+      <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-[[data-collapsible=icon]]/sidebar-wrapper:h-12">
+        <div className="flex items-center gap-2 px-4">
+          <SidebarTrigger className="-ml-1" />
+          <Separator orientation="vertical" className="mr-2 h-4" />
+          <Breadcrumb>
+            <BreadcrumbList>
+              <BreadcrumbItem className="hidden md:block">
+                <BreadcrumbLink href="/">
+                  Dashboard
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator className="hidden md:block" />
+              <BreadcrumbItem>
+                <BreadcrumbLink href="/squads">
+                  Squads
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator className="hidden md:block" />
+              <BreadcrumbItem>
+                <BreadcrumbPage>Create Squad</BreadcrumbPage>
+              </BreadcrumbItem>
+            </BreadcrumbList>
+          </Breadcrumb>
         </div>
-
-        {pointsLoading && (
-          <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded text-blue-700 text-center flex flex-col items-center">
-            <svg className="animate-spin h-6 w-6 mb-2 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-            Checking eligibility...
-          </div>
-        )}
-
-        {!pointsLoading && !canCreate && (
-          <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-center my-4">
-            <p className="text-red-700">
-              You need at least <b>{tierRequirements?.minRequiredPoints?.toLocaleString() || '1,000'} DeFAI {TOKEN_LABEL_POINTS}</b> to create a squad.<br />
-              <br />
-              <b className="text-red-800">Squad Tiers:</b><br />
-              {tierRequirements?.tiers.map(tier => (
-                <span key={tier.tier} className="text-sm text-muted-foreground">
-                  {tier.minPoints.toLocaleString()} {TOKEN_LABEL_POINTS}: Up to {tier.maxMembers} members<br />
-                </span>
-              )) || (
-                <span className="text-sm text-muted-foreground">
-                  1,000 {TOKEN_LABEL_POINTS}: Up to 10 members<br />
-                  5,000 {TOKEN_LABEL_POINTS}: Up to 50 members<br />
-                  10,000 {TOKEN_LABEL_POINTS}: Up to 100 members<br />
-                </span>
-              )}
-              <br />
-              <span className="text-orange-600 font-medium">Your current {TOKEN_LABEL_POINTS}: {userPoints !== null ? userPoints.toLocaleString() : 'Loading...'}</span>
-            </p>
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="bg-card border border-border shadow-xl rounded-xl p-6 sm:p-8 space-y-6">
-          <div>
-            <label htmlFor="squadName" className="block text-sm font-medium text-foreground mb-1">
-              Squad Name <span className="text-red-600">*</span>
-            </label>
-            <input
-              type="text"
-              id="squadName"
-              value={squadName}
-              onChange={(e) => setSquadName(e.target.value)}
-              className="w-full p-3 bg-muted border border-input rounded-lg focus:ring-2 focus:ring-[#2B96F1] focus:border-[#2B96F1] outline-none text-foreground placeholder-muted-foreground disabled:bg-muted"
-              placeholder="The Legends"
-              maxLength={30}
-              required
-              disabled={!canCreate || pointsLoading}
-            />
-          </div>
-
-          <div>
-            <label htmlFor="description" className="block text-sm font-medium text-foreground mb-1">
-              Description (Optional)
-            </label>
-            <textarea
-              id="description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={3}
-              className="w-full p-3 bg-muted border border-input rounded-lg focus:ring-2 focus:ring-[#2B96F1] focus:border-[#2B96F1] outline-none text-foreground placeholder-muted-foreground disabled:bg-muted"
-              placeholder="A brief description of your squad's mission..."
-              maxLength={150}
-              disabled={!canCreate || pointsLoading}
-            />
-          </div>
-
-          {error && <p className="text-sm text-red-600 text-center">{error}</p>}
-
-          <button
-            type="submit"
-            disabled={isLoading || !connected || !canCreate || pointsLoading}
-            className="w-full py-3 px-5 bg-green-500 hover:bg-green-600 disabled:bg-gray-400 text-white font-semibold rounded-lg shadow-md hover:shadow-lg transform hover:scale-105 transition-all duration-150 ease-in-out disabled:opacity-70 disabled:cursor-not-allowed"
-          >
-            {isLoading ? (
-              <span className="flex items-center justify-center">
-                <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                Creating Squad...
-              </span>
-            ) : pointsLoading ? 'Checking...' : 'Create Squad'}
-          </button>
-        </form>
-        
-        <div className="mt-6 text-center">
-          <Link href="/" passHref>
-            <span className="text-sm text-blue-600 hover:text-blue-800 hover:underline cursor-pointer">
-              Back to Dashboard
-            </span>
+      </header>
+      <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold tracking-tight">Create Squad</h1>
+          <Link href="/squads/browse">
+            <Button variant="outline">
+              <Users className="h-4 w-4 mr-2" />
+              Browse Squads
+            </Button>
           </Link>
         </div>
+
+        <div className="max-w-2xl mx-auto w-full space-y-6">
+
+          {pointsLoading && (
+            <Card className="border-blue-200 bg-blue-50">
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-center gap-2">
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  <span>Checking eligibility...</span>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {!pointsLoading && !canCreate && (
+            <Card className="border-destructive bg-destructive/5">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <AlertTriangle className="h-5 w-5" />
+                  Insufficient Points
+                </CardTitle>
+                <CardDescription>
+                  You need at least {tierRequirements?.minRequiredPoints?.toLocaleString() || '1,000'} DeFAI {TOKEN_LABEL_POINTS} to create a squad.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div>
+                    <div className="flex justify-between text-sm mb-2">
+                      <span>Your Points</span>
+                      <span className="font-medium">{userPoints !== null ? userPoints.toLocaleString() : 'Loading...'}</span>
+                    </div>
+                    <div className="flex justify-between text-sm mb-2">
+                      <span>Required</span>
+                      <span className="font-medium">{tierRequirements?.minRequiredPoints?.toLocaleString() || '1,000'}</span>
+                    </div>
+                    <Progress 
+                      value={userPoints && tierRequirements ? (userPoints / tierRequirements.minRequiredPoints) * 100 : 0} 
+                      className="h-2"
+                    />
+                  </div>
+                  <div>
+                    <h4 className="font-semibold mb-2">Squad Tiers</h4>
+                    <div className="space-y-1">
+                      {tierRequirements?.tiers.map(tier => (
+                        <div key={tier.tier} className="flex justify-between text-sm">
+                          <span>{tier.minPoints.toLocaleString()} {TOKEN_LABEL_POINTS}</span>
+                          <span className="text-muted-foreground">Up to {tier.maxMembers} members</span>
+                        </div>
+                      )) || (
+                        <>
+                          <div className="flex justify-between text-sm">
+                            <span>1,000 {TOKEN_LABEL_POINTS}</span>
+                            <span className="text-muted-foreground">Up to 10 members</span>
+                          </div>
+                          <div className="flex justify-between text-sm">
+                            <span>5,000 {TOKEN_LABEL_POINTS}</span>
+                            <span className="text-muted-foreground">Up to 50 members</span>
+                          </div>
+                          <div className="flex justify-between text-sm">
+                            <span>10,000 {TOKEN_LABEL_POINTS}</span>
+                            <span className="text-muted-foreground">Up to 100 members</span>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {canCreate && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <CheckCircle className="h-5 w-5 text-green-600" />
+                  Eligible to Create Squad
+                </CardTitle>
+                <CardDescription>
+                  You have {userPoints?.toLocaleString()} points and can create a squad
+                </CardDescription>
+              </CardHeader>
+            </Card>
+          )}
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Squad Details</CardTitle>
+              <CardDescription>
+                Fill in the information for your new squad
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="squadName">
+                    Squad Name <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    id="squadName"
+                    value={squadName}
+                    onChange={(e) => setSquadName(e.target.value)}
+                    placeholder="The Legends"
+                    maxLength={30}
+                    required
+                    disabled={!canCreate || pointsLoading}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="description">
+                    Description (Optional)
+                  </Label>
+                  <Textarea
+                    id="description"
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    rows={3}
+                    placeholder="A brief description of your squad's mission..."
+                    maxLength={150}
+                    disabled={!canCreate || pointsLoading}
+                  />
+                </div>
+
+                {error && (
+                  <div className="text-sm text-destructive bg-destructive/10 p-3 rounded-md">
+                    {error}
+                  </div>
+                )}
+
+                <Button
+                  type="submit"
+                  disabled={isLoading || !connected || !canCreate || pointsLoading}
+                  className="w-full"
+                >
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Creating Squad...
+                    </>
+                  ) : pointsLoading ? (
+                    'Checking...'
+                  ) : (
+                    <>
+                      <Shield className="mr-2 h-4 w-4" />
+                      Create Squad
+                    </>
+                  )}
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+        </div>
       </div>
-    </main>
+    </SidebarInset>
   );
 } 

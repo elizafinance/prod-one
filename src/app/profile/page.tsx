@@ -4,18 +4,22 @@ import { useEffect, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { toast } from 'sonner';
+import { Wallet, Twitter, User, Settings, Link as LinkIcon, Shield, CheckCircle, X } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
+import { Separator } from "@/components/ui/separator";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
 import ConnectXButton from '@/components/xauth/ConnectXButton';
 import VerifyFollowButton from '@/components/xauth/VerifyFollowButton';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { WalletIcon, LinkIcon, CheckCircleIcon, XCircleIcon, QuestionMarkCircleIcon } from '@heroicons/react/24/outline'; // Example icons
-
-// A simple X/Twitter icon component
-const TwitterIcon = (props: React.SVGProps<SVGSVGElement>) => (
-  <svg fill="currentColor" viewBox="0 0 24 24" aria-hidden="true" {...props}>
-    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
-  </svg>
-);
 
 export default function ProfilePage() {
   const { data: session, status, update: updateSession } = useSession();
@@ -77,102 +81,243 @@ export default function ProfilePage() {
 
   if (status === 'loading') {
     return (
-        <div className="flex flex-col items-center justify-center min-h-[calc(100vh-200px)]">
-            <p className="text-lg text-gray-600">Loading profile...</p>
-            {/* You could add a spinner here */}
+      <SidebarInset>
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-[#3366FF]"></div>
+          <p className='ml-3'>Loading profile...</p>
         </div>
+      </SidebarInset>
     );
   }
 
   if (status === 'unauthenticated' || !session?.user) {
     return (
-        <div className="flex flex-col items-center justify-center min-h-[calc(100vh-200px)]">
-            <p className="text-lg text-red-600">Please log in to view your profile.</p>
-            {/* Maybe a login button? */}
+      <SidebarInset>
+        <div className="flex flex-col items-center justify-center min-h-screen">
+          <p className="text-lg text-destructive mb-4">Please log in to view your profile.</p>
+          <Button>Login</Button>
         </div>
+      </SidebarInset>
     );
   }
 
   return (
-    <div className="container mx-auto max-w-3xl px-4 py-12 sm:px-6 lg:px-8 space-y-10">
-      <div className="text-center sm:text-left">
-        <h1 className="text-4xl font-bold tracking-tight text-gray-900 sm:text-5xl">
-          Your Profile
-        </h1>
-        <p className="mt-3 text-lg text-gray-500">
-          Manage your account settings and connected services.
-        </p>
-      </div>
-      
-      <Card className="shadow-lg">
-        <CardHeader className="flex flex-row items-center space-x-3">
-          <WalletIcon className="h-8 w-8 text-blue-600" />
-          <div>
-            <CardTitle className="text-2xl">Wallet Information</CardTitle>
-            <CardDescription className="mt-1">Your primary connected wallet for DeFAI Rewards.</CardDescription>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-3 pt-4">
-          {session.user.walletAddress ? (
-            <div className="flex items-center space-x-2">
-              <strong className="text-gray-700">Address:</strong> 
-              <span className="font-mono text-sm text-gray-600 bg-gray-100 px-2 py-1 rounded break-all">{session.user.walletAddress}</span>
+    <SidebarInset>
+      <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-[[data-collapsible=icon]]/sidebar-wrapper:h-12">
+        <div className="flex items-center gap-2 px-4">
+          <SidebarTrigger className="-ml-1" />
+          <Separator orientation="vertical" className="mr-2 h-4" />
+          <Breadcrumb>
+            <BreadcrumbList>
+              <BreadcrumbItem className="hidden md:block">
+                <BreadcrumbLink href="#">Platform</BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator className="hidden md:block" />
+              <BreadcrumbItem>
+                <BreadcrumbPage>Profile</BreadcrumbPage>
+              </BreadcrumbItem>
+            </BreadcrumbList>
+          </Breadcrumb>
+        </div>
+      </header>
+
+      <main className="flex-1 py-6">
+        <div className="container px-4 md:px-6">
+          <div className="grid gap-6">
+            {/* Profile Overview */}
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="text-3xl">Your Profile</CardTitle>
+                    <CardDescription>Manage your account settings and connected services</CardDescription>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant={session.user.walletAddress ? 'default' : 'secondary'}>
+                      {session.user.walletAddress ? 'Connected' : 'Disconnected'}
+                    </Badge>
+                  </div>
+                </div>
+              </CardHeader>
+            </Card>
+
+            {/* Profile Stats */}
+            <div className="grid gap-4 md:grid-cols-4">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Wallet Status</CardTitle>
+                  <Wallet className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {session.user.walletAddress ? 'Connected' : 'None'}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Primary wallet
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Social Account</CardTitle>
+                  <Twitter className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {session.user.linkedXUsername ? 'Linked' : 'None'}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {session.user.linkedXUsername ? `@${session.user.linkedXUsername}` : 'No X account'}
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Chain</CardTitle>
+                  <LinkIcon className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {session.user.chain || 'Unknown'}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Blockchain network
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Verification</CardTitle>
+                  <Shield className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {session.user.linkedXUsername ? 'Verified' : 'Pending'}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Account status
+                  </p>
+                </CardContent>
+              </Card>
             </div>
-          ) : (
-            <p className="text-gray-500">Wallet not connected.</p>
-          )}
-          {session.user.chain && (
-            <div className="flex items-center space-x-2">
-              <strong className="text-gray-700">Chain:</strong> 
-              <span className="text-gray-600 capitalize bg-gray-100 px-2 py-1 rounded">{session.user.chain}</span>
-            </div>
-          )}
-        </CardContent>
-      </Card>
 
-      <Card className="shadow-lg">
-        <CardHeader className="flex flex-row items-center space-x-3">
-          <TwitterIcon className="h-8 w-8 text-sky-500" />
-          <div>
-            <CardTitle className="text-2xl">X Account Connection</CardTitle>
-            <CardDescription className="mt-1">
-              Link your X account to verify social tasks, earn bonuses, and unlock specific features.
-            </CardDescription>
+            {/* Wallet Information */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Wallet className="h-5 w-5" />
+                  Wallet Information
+                </CardTitle>
+                <CardDescription>Your primary connected wallet for DeFAI Rewards</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {session.user.walletAddress ? (
+                  <div className="space-y-3">
+                    <div>
+                      <label className="text-sm font-medium text-muted-foreground">Wallet Address</label>
+                      <div className="mt-1 p-3 bg-accent rounded-lg">
+                        <span className="font-mono text-sm break-all">{session.user.walletAddress}</span>
+                      </div>
+                    </div>
+                    {session.user.chain && (
+                      <div>
+                        <label className="text-sm font-medium text-muted-foreground">Blockchain</label>
+                        <div className="mt-1">
+                          <Badge variant="outline" className="capitalize">{session.user.chain}</Badge>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Wallet className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p>No wallet connected</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* X Account Connection */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Twitter className="h-5 w-5" />
+                  X Account Connection
+                </CardTitle>
+                <CardDescription>
+                  Link your X account to verify social tasks, earn bonuses, and unlock specific features
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <ConnectXButton /> 
+                
+                {session.user.linkedXUsername && (
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2 p-3 bg-green-50 border border-green-200 rounded-lg">
+                      <CheckCircle className="h-5 w-5 text-green-600" />
+                      <span className="text-green-800">Connected as @{session.user.linkedXUsername}</span>
+                    </div>
+                    
+                    <VerifyFollowButton linkedXUsername={session.user.linkedXUsername} />
+
+                    <Button 
+                      variant="destructive"
+                      size="sm"
+                      onClick={handleDisconnectX} 
+                      disabled={isDisconnecting}
+                      className="w-full"
+                    >
+                      <X className="h-4 w-4 mr-2" />
+                      {isDisconnecting ? 'Disconnecting X Account...' : 'Disconnect X Account'}
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Account Security */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Shield className="h-5 w-5" />
+                  Account Security
+                </CardTitle>
+                <CardDescription>Manage your account security and verification status</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between p-3 border rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <Wallet className="h-5 w-5 text-muted-foreground" />
+                      <div>
+                        <p className="font-medium">Wallet Authentication</p>
+                        <p className="text-sm text-muted-foreground">Secure wallet-based login</p>
+                      </div>
+                    </div>
+                    <Badge className="bg-green-500">Active</Badge>
+                  </div>
+                  
+                  <div className="flex items-center justify-between p-3 border rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <Twitter className="h-5 w-5 text-muted-foreground" />
+                      <div>
+                        <p className="font-medium">Social Verification</p>
+                        <p className="text-sm text-muted-foreground">X account verification</p>
+                      </div>
+                    </div>
+                    <Badge variant={session.user.linkedXUsername ? 'default' : 'secondary'}>
+                      {session.user.linkedXUsername ? 'Verified' : 'Not verified'}
+                    </Badge>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </div>
-        </CardHeader>
-        <CardContent className="space-y-4 pt-4">
-          <ConnectXButton /> 
-          
-          {session.user.linkedXUsername && (
-            <VerifyFollowButton linkedXUsername={session.user.linkedXUsername} />
-          )}
-
-          {session.user.linkedXUsername && (
-            <Button 
-              variant="destructive" // Use destructive variant for more semantic styling
-              size="sm"
-              onClick={handleDisconnectX} 
-              disabled={isDisconnecting}
-              className="w-full mt-6 text-sm" // Added more top margin
-            >
-              {isDisconnecting ? 'Disconnecting X Account...' : 'Disconnect X Account'}
-            </Button>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Placeholder for future sections */}
-      {/* 
-      <Card className="shadow-lg">
-        <CardHeader>
-          <CardTitle>Referral Program</CardTitle>
-          <CardDescription>View your referral statistics and share your link.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <p className="text-gray-500">Referral information coming soon...</p>
-        </CardContent>
-      </Card>
-      */}
-    </div>
+        </div>
+      </main>
+    </SidebarInset>
   );
 } 

@@ -1,15 +1,16 @@
 import fetchTokenBalance from "@/lib/fetchTokenBalance";
 import fetchMetadataByMint, { OffChainJson, CombinedMetadata } from "@/lib/mpl-token-metadata/fetchMetadataByMint";
-import { Metadata as OnChainMetadata } from "@metaplex-foundation/mpl-token-metadata"; // Keep for type clarity
+import { Metadata as OnChainMetadata } from "@metaplex-foundation/mpl-token-metadata";
 import { Token } from "@metaplex-foundation/mpl-toolbox";
 import { useEffect, useState } from "react";
-import { Card } from "../ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card";
 import { Skeleton } from "../ui/skeleton";
+import { Badge } from "../ui/badge";
+import { Alert, AlertDescription } from "../ui/alert";
+import { Coins, AlertCircle, Wallet } from "lucide-react";
 import useEscrowStore from "@/store/useEscrowStore";
 import { formatTokenAmount } from "@/lib/utils";
 
-// OffChainJson is now imported from fetchMetadataByMint.ts
-// No need to redefine OffChainMetadata here unless it needs to be different.
 
 const TokenEscrowSummary = () => {
   const escrow = useEscrowStore.getState().escrow;
@@ -57,24 +58,76 @@ const TokenEscrowSummary = () => {
   // const displaySymbol = (onChainMetadata ? onChainMetadata.symbol : undefined) || offChainData?.symbol || ""; // Example for symbol
 
   return (
-    <Card className="flex flex-col min-h-[300px] p-8 lg:aspect-square">
-      <div className="text-xl">Token Escrow</div>
-      <div className="flex flex-1 flex-col justify-center w-full items-center gap-4">
-        {isFetching ? (
-          <Skeleton className="w-24 h-24 rounded-full" />
-        ) : displayImage ? (
-          <img alt={displayName} src={displayImage} className="w-24 h-24 rounded-full" />
-        ) : (
-          <Skeleton className="w-24 h-24 rounded-full" />
-        )}
-        <div>Name: {isFetching ? <Skeleton className="h-4 w-20 inline-block" /> : displayName}</div>
-        <div>
-          Balance:{" "}
-          {isFetching ? <Skeleton className="h-4 w-16 inline-block" /> : 
-           escrowTokenAccount ? formatTokenAmount(escrowTokenAccount) : "n/a"}
+    <Card className="h-fit">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Coins className="h-5 w-5" />
+          Token Escrow
+        </CardTitle>
+        <CardDescription>
+          Token metadata and balance information
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="flex flex-col items-center space-y-4">
+          {/* Token Image */}
+          <div className="relative">
+            {isFetching ? (
+              <Skeleton className="w-20 h-20 rounded-full" />
+            ) : displayImage ? (
+              <div className="relative">
+                <img 
+                  alt={displayName} 
+                  src={displayImage} 
+                  className="w-20 h-20 rounded-full object-cover border-2 border-border" 
+                />
+                <div className="absolute -bottom-1 -right-1">
+                  <Badge variant="secondary" className="h-6 w-6 rounded-full p-0 flex items-center justify-center">
+                    <Wallet className="h-3 w-3" />
+                  </Badge>
+                </div>
+              </div>
+            ) : (
+              <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center border-2 border-border">
+                <Coins className="h-8 w-8 text-muted-foreground" />
+              </div>
+            )}
+          </div>
+
+          {/* Token Details */}
+          <div className="text-center space-y-2 w-full">
+            <div>
+              <div className="text-sm text-muted-foreground">Token Name</div>
+              <div className="font-medium">
+                {isFetching ? <Skeleton className="h-4 w-24 mx-auto" /> : displayName}
+              </div>
+            </div>
+            
+            <div className="pt-2">
+              <div className="text-sm text-muted-foreground mb-1">Escrow Balance</div>
+              <div className="text-lg font-bold">
+                {isFetching ? (
+                  <Skeleton className="h-6 w-20 mx-auto" />
+                ) : escrowTokenAccount ? (
+                  formatTokenAmount(escrowTokenAccount)
+                ) : (
+                  <span className="text-muted-foreground">--</span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Error State */}
+          {error && (
+            <Alert variant="destructive" className="w-full">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription className="text-xs">
+                {error}
+              </AlertDescription>
+            </Alert>
+          )}
         </div>
-        {error && <div className="text-red-500 text-xs mt-2">Error: {error}</div>}
-      </div>
+      </CardContent>
     </Card>
   );
 };

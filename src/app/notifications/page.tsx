@@ -1,11 +1,24 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
-// import { NotificationDocument } from '@/lib/mongodb'; // Will use UnifiedNotification
-import NotificationItem, { NotificationDisplayData } from '@/components/notifications/NotificationItem'; // Adjust path if needed
-import { toast } from 'sonner';
 import Link from 'next/link';
-import { useWallet } from '@solana/wallet-adapter-react'; // To ensure user is connected for API calls
+import { Bell, Check, CheckCheck, ExternalLink, Inbox } from "lucide-react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
+import { Separator } from "@/components/ui/separator";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
+import NotificationItem, { NotificationDisplayData } from '@/components/notifications/NotificationItem';
+import { toast } from 'sonner';
+import { useWallet } from '@solana/wallet-adapter-react';
 
 interface NotificationsApiResponse {
   notifications: NotificationDisplayData[];
@@ -92,96 +105,214 @@ export default function NotificationsHistoryPage() {
     }
   };
 
-  if (!connected && !isLoading) { // Show connect wallet message if not loading and not connected
+  if (!connected && !isLoading) {
     return (
-        <div className="container mx-auto px-4 py-8 text-center">
-            <h1 className="text-3xl font-bold text-white mb-6">Notifications</h1>
-            <p className="text-xl text-muted-foreground">Please connect your wallet to view your notifications.</p>
-            {/* Optionally, add a wallet connect button here if you have a global one */} 
+      <SidebarInset>
+        <div className="flex flex-col items-center justify-center min-h-screen">
+          <Bell className="h-12 w-12 text-muted-foreground mb-4" />
+          <h1 className="text-3xl font-bold mb-2">Notifications</h1>
+          <p className="text-muted-foreground mb-4">Please connect your wallet to view your notifications.</p>
         </div>
+      </SidebarInset>
     );
   }
 
-  if (isLoading && notifications.length === 0) { // Show full page loader only if no data yet
-    return <div className="container mx-auto px-4 py-8 text-center text-xl text-muted-foreground">Loading notifications...</div>;
+  if (isLoading && notifications.length === 0) {
+    return (
+      <SidebarInset>
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-[#3366FF]"></div>
+          <p className='ml-3'>Loading notifications...</p>
+        </div>
+      </SidebarInset>
+    );
   }
 
   if (error) {
-    return <div className="container mx-auto px-4 py-8 text-center text-xl text-red-500">Error: {error}</div>;
+    return (
+      <SidebarInset>
+        <div className="flex flex-col items-center justify-center min-h-screen">
+          <p className="text-lg text-destructive mb-4">Error: {error}</p>
+          <Button onClick={() => window.location.reload()}>Try Again</Button>
+        </div>
+      </SidebarInset>
+    );
   }
 
   return (
-    <div className="container mx-auto px-4 py-8 bg-background min-h-screen text-foreground">
-      <div className="max-w-2xl mx-auto">
-        <div className="flex justify-between items-center mb-6 pb-4 border-b border-border">
-          <h1 className="text-3xl font-bold text-white">All Notifications</h1>
+    <SidebarInset>
+      <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-[[data-collapsible=icon]]/sidebar-wrapper:h-12">
+        <div className="flex items-center gap-2 px-4">
+          <SidebarTrigger className="-ml-1" />
+          <Separator orientation="vertical" className="mr-2 h-4" />
+          <Breadcrumb>
+            <BreadcrumbList>
+              <BreadcrumbItem className="hidden md:block">
+                <BreadcrumbLink href="#">Platform</BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator className="hidden md:block" />
+              <BreadcrumbItem>
+                <BreadcrumbPage>Notifications</BreadcrumbPage>
+              </BreadcrumbItem>
+            </BreadcrumbList>
+          </Breadcrumb>
+        </div>
+        <div className="ml-auto flex items-center gap-4 px-4">
           {unreadCount > 0 && (
-             <button 
-                onClick={handleMarkAllAsRead}
-                disabled={isLoading} // Disable button while any loading is in progress
-                className="text-sm text-blue-400 hover:text-blue-300 disabled:opacity-50 disabled:cursor-not-allowed"
-             >
-                Mark all as read ({unreadCount})
-             </button>
+            <Button 
+              onClick={handleMarkAllAsRead}
+              disabled={isLoading}
+              variant="outline"
+              size="sm"
+            >
+              <CheckCheck className="h-4 w-4 mr-2" />
+              Mark all read ({unreadCount})
+            </Button>
           )}
         </div>
+      </header>
 
-        {notifications.length === 0 && !isLoading ? (
-          <div className="text-center py-10">
-            <p className="text-muted-foreground text-lg">You have no notifications.</p>
-            <Link href="/quests" className="mt-4 inline-block text-blue-400 hover:underline">
-              Explore Quests
-            </Link>
-          </div>
-        ) : (
-          <>
-            <div className="space-y-px bg-card rounded-lg shadow">
-              {notifications.map(notif => (
-                <NotificationItem 
-                  key={notif.notificationId} 
-                  notification={notif} 
-                  onMarkAsRead={handleMarkAsRead} 
-                />
-              ))}
+      <main className="flex-1 py-6">
+        <div className="container px-4 md:px-6">
+          <div className="grid gap-6 max-w-3xl mx-auto">
+            {/* Page Header */}
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="text-3xl flex items-center gap-3">
+                      <Bell className="h-8 w-8" />
+                      Notifications
+                    </CardTitle>
+                    <CardDescription>Stay updated with your latest activities and achievements</CardDescription>
+                  </div>
+                  {unreadCount > 0 && (
+                    <Badge variant="default">{unreadCount} unread</Badge>
+                  )}
+                </div>
+              </CardHeader>
+            </Card>
+
+            {/* Stats Overview */}
+            <div className="grid gap-4 md:grid-cols-3">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Total Notifications</CardTitle>
+                  <Bell className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{notifications.length}</div>
+                  <p className="text-xs text-muted-foreground">
+                    Current page
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Unread</CardTitle>
+                  <Inbox className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{unreadCount}</div>
+                  <p className="text-xs text-muted-foreground">
+                    Requires attention
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Read</CardTitle>
+                  <Check className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{notifications.length - unreadCount}</div>
+                  <p className="text-xs text-muted-foreground">
+                    Already viewed
+                  </p>
+                </CardContent>
+              </Card>
             </div>
-            {totalPages > 1 && (
-              <div className="mt-8 flex justify-center items-center space-x-2">
-                <button 
-                  onClick={() => handlePageChange(currentPage - 1)} 
-                  disabled={currentPage === 1 || isLoading}
-                  className="px-4 py-2 bg-muted hover:bg-muted/80 text-foreground rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Previous
-                </button>
-                {Array.from({ length: totalPages }, (_, i) => i + 1).filter(pageNumber => 
-                    pageNumber === 1 || pageNumber === totalPages || 
-                    (pageNumber >= currentPage -1 && pageNumber <= currentPage + 1) ||
-                    (currentPage <=3 && pageNumber <=3) ||
-                    (currentPage >= totalPages - 2 && pageNumber >= totalPages -2)
-                ).map((pageNumber, index, arr) => (
-                    <React.Fragment key={pageNumber}>
-                        {index > 0 && arr[index-1] !== pageNumber -1 && <span className="text-muted-foreground px-1">...</span>}
-                        <button 
-                            onClick={() => handlePageChange(pageNumber)} 
-                            disabled={isLoading}
-                            className={`px-4 py-2 bg-muted hover:bg-muted/80 text-foreground rounded-md disabled:opacity-50 disabled:cursor-not-allowed ${currentPage === pageNumber ? 'bg-blue-600 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-300'}`}
-                        >
-                            {pageNumber}
-                        </button>
-                    </React.Fragment>
-                ))}
-                <button 
-                  onClick={() => handlePageChange(currentPage + 1)} 
-                  disabled={currentPage === totalPages || isLoading}
-                  className="px-4 py-2 bg-muted hover:bg-muted/80 text-foreground rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Next
-                </button>
-              </div>
-            )}
-          </>
-        )}
-      </div>
-    </div>
+
+            {/* Notifications List */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Recent Notifications</CardTitle>
+                <CardDescription>Your latest updates and activity alerts</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {notifications.length === 0 && !isLoading ? (
+                  <div className="text-center py-12">
+                    <Inbox className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                    <p className="text-muted-foreground text-lg mb-4">You have no notifications.</p>
+                    <Button asChild>
+                      <Link href="/quests">
+                        <ExternalLink className="h-4 w-4 mr-2" />
+                        Explore Quests
+                      </Link>
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {notifications.map(notif => (
+                      <NotificationItem 
+                        key={notif.notificationId} 
+                        notification={notif} 
+                        onMarkAsRead={handleMarkAsRead} 
+                      />
+                    ))}
+                  </div>
+                )}
+
+                {/* Pagination */}
+                {totalPages > 1 && (
+                  <div className="flex items-center justify-center gap-2 mt-6">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handlePageChange(currentPage - 1)} 
+                      disabled={currentPage === 1 || isLoading}
+                    >
+                      Previous
+                    </Button>
+                    
+                    <div className="flex items-center gap-1">
+                      {Array.from({ length: totalPages }, (_, i) => i + 1).filter(pageNumber => 
+                          pageNumber === 1 || pageNumber === totalPages || 
+                          (pageNumber >= currentPage -1 && pageNumber <= currentPage + 1) ||
+                          (currentPage <=3 && pageNumber <=3) ||
+                          (currentPage >= totalPages - 2 && pageNumber >= totalPages -2)
+                      ).map((pageNumber, index, arr) => (
+                          <React.Fragment key={pageNumber}>
+                              {index > 0 && arr[index-1] !== pageNumber -1 && <span className="text-muted-foreground px-1">...</span>}
+                              <Button
+                                  variant={currentPage === pageNumber ? "default" : "outline"}
+                                  size="sm"
+                                  onClick={() => handlePageChange(pageNumber)} 
+                                  disabled={isLoading}
+                              >
+                                  {pageNumber}
+                              </Button>
+                          </React.Fragment>
+                      ))}
+                    </div>
+                    
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handlePageChange(currentPage + 1)} 
+                      disabled={currentPage === totalPages || isLoading}
+                    >
+                      Next
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </main>
+    </SidebarInset>
   );
 } 

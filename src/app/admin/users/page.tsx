@@ -4,6 +4,19 @@ import { useState, useEffect, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import { toast } from 'sonner';
 import { Document, ObjectId } from 'mongodb';
+import { Users, Shield, UserPlus, Trash2, Eye, Search, Filter } from "lucide-react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
+import { Separator } from "@/components/ui/separator";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
 import UserDetailsModal from '@/components/admin/UserDetailsModal';
 import ConfirmationModal from '@/components/admin/ConfirmationModal';
 import CreateUserModal from '@/components/admin/CreateUserModal';
@@ -244,135 +257,270 @@ export default function AdminUsersPage() {
   }
 
   return (
-    <main className="p-6 max-w-7xl mx-auto">
-      <h1 className="text-3xl font-bold mb-6">Admin – Users Management</h1>
-      
-      {/* Filter Section */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6 p-4 border rounded-lg bg-gray-50">
-        <div>
-          <label htmlFor="searchQuery" className="block text-sm font-medium text-gray-700">Search Wallet/Username/Email/ID</label>
-          <input
-            id="searchQuery"
-            type="text"
-            value={query}
-            onChange={(e) => { setQuery(e.target.value); handleFilterChange(); }}
-            placeholder="Wallet, X Username, Email or ID"
-            className="mt-1 border p-2 rounded w-full shadow-sm"
-          />
+    <SidebarInset>
+      <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-[[data-collapsible=icon]]/sidebar-wrapper:h-12">
+        <div className="flex items-center gap-2 px-4">
+          <SidebarTrigger className="-ml-1" />
+          <Separator orientation="vertical" className="mr-2 h-4" />
+          <Breadcrumb>
+            <BreadcrumbList>
+              <BreadcrumbItem className="hidden md:block">
+                <BreadcrumbLink href="#">Platform</BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator className="hidden md:block" />
+              <BreadcrumbItem>
+                <BreadcrumbLink href="/admin">Admin</BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator className="hidden md:block" />
+              <BreadcrumbItem>
+                <BreadcrumbPage>Users</BreadcrumbPage>
+              </BreadcrumbItem>
+            </BreadcrumbList>
+          </Breadcrumb>
         </div>
-        <div>
-          <label htmlFor="roleFilter" className="block text-sm font-medium text-gray-700">Role</label>
-          <select 
-            id="roleFilter" 
-            value={roleFilter} 
-            onChange={(e) => { setRoleFilter(e.target.value); handleFilterChange(); }}
-            className="mt-1 border p-2 rounded w-full shadow-sm bg-white"
-          >
-            <option value="">All Roles</option>
-            <option value="user">User</option>
-            <option value="admin">Admin</option>
-          </select>
+        <div className="ml-auto flex items-center gap-4 px-4">
+          <Button onClick={() => setIsCreateModalOpen(true)} className="bg-[#3366FF] hover:bg-[#2952cc]">
+            <UserPlus className="h-4 w-4 mr-2" />
+            Create User
+          </Button>
         </div>
-        <div>
-          <label htmlFor="squadIdFilter" className="block text-sm font-medium text-gray-700">Squad ID</label>
-          <input
-            id="squadIdFilter"
-            type="text"
-            value={squadIdFilter}
-            onChange={(e) => { setSquadIdFilter(e.target.value); handleFilterChange(); }}
-            placeholder="Enter exact Squad ID"
-            className="mt-1 border p-2 rounded w-full shadow-sm"
-            disabled={hasSquadFilter === 'false' || hasSquadFilter === 'true'} // Disable if hasSquad is used
-          />
-        </div>
-        <div>
-          <label htmlFor="hasSquadFilter" className="block text-sm font-medium text-gray-700">Has Squad?</label>
-          <select 
-            id="hasSquadFilter" 
-            value={hasSquadFilter} 
-            onChange={(e) => { setHasSquadFilter(e.target.value); setSquadIdFilter(''); handleFilterChange(); }} // Clear specific squadId if this changes
-            className="mt-1 border p-2 rounded w-full shadow-sm bg-white"
-          >
-            <option value="">Any</option>
-            <option value="true">Yes</option>
-            <option value="false">No</option>
-          </select>
-        </div>
-      </div>
+      </header>
 
-      {/* Create User button - Reverted to original state */}
-      <div className="mb-4 flex justify-end">
-        <button onClick={()=>setIsCreateModalOpen(true)} className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 text-sm">Create User</button>
-      </div>
+      <main className="flex-1 py-6">
+        <div className="container px-4 md:px-6">
+          <div className="grid gap-6">
+            {/* Page Header */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-3xl flex items-center gap-3">
+                  <Users className="h-8 w-8" />
+                  User Management
+                </CardTitle>
+                <CardDescription>
+                  Manage user accounts, roles, and permissions
+                </CardDescription>
+              </CardHeader>
+            </Card>
 
-      {/* Table and Modal remain largely the same, but will use paginated data */}
-      {loading ? (
-        <p className="text-center py-10">Loading users...</p>
-      ) : (
-        <>
-          <div className="overflow-x-auto">
-            <table className="w-full border text-sm table-auto">
-              <thead>
-                <tr className="bg-gray-100 text-left">
-                  <th className="p-2">ID</th>
-                  <th className="p-2">Wallet</th>
-                  <th className="p-2">Username</th>
-                  <th className="p-2">Points</th>
-                  <th className="p-2">Squad</th>
-                  <th className="p-2">Role</th>
-                  <th className="p-2">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {users.map((u) => {
-                  const displayId = (u._id as any)?.toString() || 'N/A';
-                  const idForOps = u.walletAddress || displayId;
-                  const isLikelyObjectId = /^[a-f0-9]{24}$/i.test(idForOps);
+            {/* Stats Overview */}
+            <div className="grid gap-4 md:grid-cols-4">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Total Users</CardTitle>
+                  <Users className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{users.length}</div>
+                  <p className="text-xs text-muted-foreground">
+                    Current page
+                  </p>
+                </CardContent>
+              </Card>
 
-                  return (
-                    <tr key={idForOps || Math.random().toString()} className="border-t hover:bg-gray-50">
-                      <td className="p-2 font-mono truncate max-w-xs" title={displayId}>{displayId.substring(0,8)}...</td>
-                      <td className="p-2 font-mono truncate max-w-xs" title={u.walletAddress}>{u.walletAddress || '-'}</td>
-                      <td className="p-2 truncate max-w-xs">{u.xUsername || '-'}</td>
-                      <td className="p-2 text-right">{u.points?.toLocaleString() || 0}</td>
-                      <td className="p-2 truncate max-w-xs" title={u.squadId}>{u.squadId || '-'}</td>
-                      <td className="p-2">{u.role || 'user'}</td>
-                      <td className="p-2 whitespace-nowrap">
-                        <button
-                          onClick={() => idForOps && handleViewDetails(idForOps)}
-                          disabled={!idForOps}
-                          className="text-blue-600 hover:underline text-xs mr-2 disabled:opacity-40"
-                        >
-                          Details
-                        </button>
-                        <button
-                          onClick={() => initiatePurge(u)}
-                          className="text-red-600 hover:underline text-xs"
-                        >
-                          Purge
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-                {users.length === 0 && (
-                    <tr><td colSpan={6} className="text-center p-4 text-gray-500">No users found matching your criteria.</td></tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-          {/* Pagination Controls */}
-          {totalPages > 1 && (
-            <div className="mt-6 flex justify-center items-center space-x-2">
-              <button onClick={() => handlePageChange(1)} disabled={currentPage === 1} className="px-3 py-1 border rounded text-xs disabled:opacity-50">First</button>
-              <button onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage === 1} className="px-3 py-1 border rounded text-xs disabled:opacity-50">Prev</button>
-              <span className="text-xs">Page {currentPage} of {totalPages}</span>
-              <button onClick={() => handlePageChange(currentPage + 1)} disabled={currentPage === totalPages} className="px-3 py-1 border rounded text-xs disabled:opacity-50">Next</button>
-              <button onClick={() => handlePageChange(totalPages)} disabled={currentPage === totalPages} className="px-3 py-1 border rounded text-xs disabled:opacity-50">Last</button>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Admin Users</CardTitle>
+                  <Shield className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{users.filter(u => u.role === 'admin').length}</div>
+                  <p className="text-xs text-muted-foreground">
+                    With admin role
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Squad Members</CardTitle>
+                  <Users className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{users.filter(u => u.squadId).length}</div>
+                  <p className="text-xs text-muted-foreground">
+                    Have squad membership
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Page {currentPage}</CardTitle>
+                  <Filter className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{totalPages}</div>
+                  <p className="text-xs text-muted-foreground">
+                    Total pages
+                  </p>
+                </CardContent>
+              </Card>
             </div>
-          )}
-        </>
-      )}
+
+            {/* Filter Section */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Search className="h-5 w-5" />
+                  Search & Filters
+                </CardTitle>
+                <CardDescription>Filter users by various criteria</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div>
+                    <label htmlFor="searchQuery" className="block text-sm font-medium mb-1">Search Wallet/Username/Email/ID</label>
+                    <input
+                      id="searchQuery"
+                      type="text"
+                      value={query}
+                      onChange={(e) => { setQuery(e.target.value); handleFilterChange(); }}
+                      placeholder="Wallet, X Username, Email or ID"
+                      className="w-full p-2 border rounded-md"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="roleFilter" className="block text-sm font-medium mb-1">Role</label>
+                    <select 
+                      id="roleFilter" 
+                      value={roleFilter} 
+                      onChange={(e) => { setRoleFilter(e.target.value); handleFilterChange(); }}
+                      className="w-full p-2 border rounded-md bg-white"
+                    >
+                      <option value="">All Roles</option>
+                      <option value="user">User</option>
+                      <option value="admin">Admin</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label htmlFor="squadIdFilter" className="block text-sm font-medium mb-1">Squad ID</label>
+                    <input
+                      id="squadIdFilter"
+                      type="text"
+                      value={squadIdFilter}
+                      onChange={(e) => { setSquadIdFilter(e.target.value); handleFilterChange(); }}
+                      placeholder="Enter exact Squad ID"
+                      className="w-full p-2 border rounded-md"
+                      disabled={hasSquadFilter === 'false' || hasSquadFilter === 'true'}
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="hasSquadFilter" className="block text-sm font-medium mb-1">Has Squad?</label>
+                    <select 
+                      id="hasSquadFilter" 
+                      value={hasSquadFilter} 
+                      onChange={(e) => { setHasSquadFilter(e.target.value); setSquadIdFilter(''); handleFilterChange(); }}
+                      className="w-full p-2 border rounded-md bg-white"
+                    >
+                      <option value="">Any</option>
+                      <option value="true">Yes</option>
+                      <option value="false">No</option>
+                    </select>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* User Table */}
+            <Card>
+              <CardHeader>
+                <CardTitle>User List</CardTitle>
+                <CardDescription>Manage and review user accounts</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {loading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-[#3366FF]"></div>
+                    <p className="ml-2 text-muted-foreground">Loading users...</p>
+                  </div>
+                ) : (
+                  <div>
+                    <div className="overflow-x-auto">
+                    <table className="w-full border text-sm table-auto">
+                      <thead>
+                        <tr className="bg-muted text-left">
+                          <th className="p-3 font-medium">ID</th>
+                          <th className="p-3 font-medium">Wallet</th>
+                          <th className="p-3 font-medium">Username</th>
+                          <th className="p-3 font-medium">Points</th>
+                          <th className="p-3 font-medium">Squad</th>
+                          <th className="p-3 font-medium">Role</th>
+                          <th className="p-3 font-medium">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {users.map((u) => {
+                          const displayId = (u._id as any)?.toString() || 'N/A';
+                          const idForOps = u.walletAddress || displayId;
+
+                          return (
+                            <tr key={idForOps || Math.random().toString()} className="border-t hover:bg-accent/5 transition-colors">
+                              <td className="p-3 font-mono truncate max-w-xs" title={displayId}>{displayId.substring(0,8)}...</td>
+                              <td className="p-3 font-mono truncate max-w-xs" title={u.walletAddress}>{u.walletAddress || '-'}</td>
+                              <td className="p-3 truncate max-w-xs">{u.xUsername || '-'}</td>
+                              <td className="p-3 text-right font-medium">{u.points?.toLocaleString() || 0}</td>
+                              <td className="p-3 truncate max-w-xs" title={u.squadId}>{u.squadId || '-'}</td>
+                              <td className="p-3">
+                                <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                  u.role === 'admin' ? 'bg-orange-100 text-orange-800' : 'bg-blue-100 text-blue-800'
+                                }`}>
+                                  {u.role || 'user'}
+                                </span>
+                              </td>
+                              <td className="p-3 whitespace-nowrap space-x-2">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => idForOps && handleViewDetails(idForOps)}
+                                  disabled={!idForOps}
+                                >
+                                  <Eye className="h-3 w-3 mr-1" />
+                                  Details
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="destructive"
+                                  onClick={() => initiatePurge(u)}
+                                >
+                                  <Trash2 className="h-3 w-3 mr-1" />
+                                  Purge
+                                </Button>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                        {users.length === 0 && (
+                          <tr><td colSpan={7} className="text-center p-8 text-muted-foreground">No users found matching your criteria.</td></tr>
+                        )}
+                      </tbody>
+                    </table>
+                    </div>
+                    {/* Pagination Controls */}
+                  {totalPages > 1 && (
+                    <div className="mt-6 flex justify-center items-center space-x-2">
+                      <Button variant="outline" size="sm" onClick={() => handlePageChange(1)} disabled={currentPage === 1}>
+                        First
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage === 1}>
+                        Prev
+                      </Button>
+                      <span className="text-sm text-muted-foreground">Page {currentPage} of {totalPages}</span>
+                      <Button variant="outline" size="sm" onClick={() => handlePageChange(currentPage + 1)} disabled={currentPage === totalPages}>
+                        Next
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={() => handlePageChange(totalPages)} disabled={currentPage === totalPages}>
+                        Last
+                      </Button>
+                    </div>
+                  )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </main>
+
       {isModalOpen && selectedUser && (
         <UserDetailsModal
           user={selectedUser}
@@ -405,6 +553,6 @@ export default function AdminUsersPage() {
       {isCreateModalOpen && (
         <CreateUserModal isOpen={isCreateModalOpen} onClose={()=>setIsCreateModalOpen(false)} onUserCreated={handleUserCreated} />
       )}
-    </main>
+    </SidebarInset>
   );
 } 

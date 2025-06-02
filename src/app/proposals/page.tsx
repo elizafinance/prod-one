@@ -3,12 +3,50 @@
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { toast } from 'sonner';
-import ProposalCard, { ProposalCardData } from '@/components/proposals/ProposalCard'; // Import the real ProposalCard
-import VoteModal from '@/components/modals/VoteModal'; // Import VoteModal
-import { useSession } from 'next-auth/react'; // Added to get user session
+import { Vote, Clock, Users, TrendingUp, ChevronDown, Filter, Plus } from "lucide-react";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
+import { Separator } from "@/components/ui/separator";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
+import VoteModal from '@/components/modals/VoteModal';
+import { useSession } from 'next-auth/react';
+import { formatPoints } from '@/lib/utils';
 
-// Define interfaces based on the API response from /api/proposals/active
-// These interfaces are now largely defined within ProposalCardData, but ApiResponse is still useful
+interface ProposalCardData {
+  _id: string;
+  title: string;
+  description: string;
+  proposer: string;
+  squadId: {
+    squadId: string;
+    name: string;
+  };
+  status: string;
+  tokenReward: number;
+  epochStart: number;
+  epochEnd: number;
+  upVoteWeight: number;
+  downVoteWeight: number;
+  abstainVoteWeight: number;
+  totalEngagedWeight: number;
+  uniqueVoterCount: number;
+  broadcasted: boolean;
+  slug: string;
+  createdAt: string;
+}
+
 interface ApiResponse {
   proposals: ProposalCardData[];
   currentPage: number;
@@ -16,19 +54,20 @@ interface ApiResponse {
   totalProposals: number;
 }
 
-const PROPOSALS_REFRESH_INTERVAL = parseInt(process.env.NEXT_PUBLIC_PROPOSALS_REFRESH_INTERVAL || "30000", 10); // Default 30 seconds
+const PROPOSALS_REFRESH_INTERVAL = parseInt(process.env.NEXT_PUBLIC_PROPOSALS_REFRESH_INTERVAL || "30000", 10);
 
 export default function ProposalsPage() {
   const [apiResponse, setApiResponse] = useState<ApiResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isPolling, setIsPolling] = useState(false); // To indicate background refresh
+  const [isPolling, setIsPolling] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [selectedTab, setSelectedTab] = useState("active");
+  const [selectedSort, setSelectedSort] = useState("newest");
   const proposalsPerPage = parseInt(process.env.NEXT_PUBLIC_PROPOSALS_PER_PAGE || "10", 10);
 
-  // State for current user's points
   const [currentUserPoints, setCurrentUserPoints] = useState<number | null>(null);
-  const { data: session, status: sessionStatus } = useSession<any>(); // Get session
+  const { data: session, status: sessionStatus } = useSession<any>();
   const typedSession: any = session;
 
   const [selectedProposalForModal, setSelectedProposalForModal] = useState<ProposalCardData | null>(null);
@@ -51,9 +90,9 @@ export default function ProposalsPage() {
       setApiResponse(data);
     } catch (err: any) {
       setError(err.message);
-      if (!isBackgroundRefresh) { // Only toast error for initial load or explicit retry
+      if (!isBackgroundRefresh) {
         toast.error(err.message || 'Could not load proposals.');
-        setApiResponse(null); 
+        setApiResponse(null);
       } else {
         console.warn("Background proposal refresh failed:", err.message);
       }
@@ -72,14 +111,13 @@ export default function ProposalsPage() {
   useEffect(() => {
     if (PROPOSALS_REFRESH_INTERVAL > 0) {
       const intervalId = setInterval(() => {
-        console.log('Polling for proposal updates...');
-        fetchProposals(currentPage, true); // true for background refresh
+        fetchProposals(currentPage, true);
       }, PROPOSALS_REFRESH_INTERVAL);
       return () => clearInterval(intervalId);
     }
-  }, [fetchProposals, currentPage]); // Rerun if fetchProposals or currentPage changes
+  }, [fetchProposals, currentPage]);
 
-  // Fetch current user's points when session is available
+  // Fetch current user's points
   useEffect(() => {
     if (sessionStatus === 'authenticated' && typedSession?.user?.walletAddress) {
       let pointsFound = false;
@@ -97,33 +135,22 @@ export default function ProposalsPage() {
       }
 
       if (!pointsFound) {
-        // Fallback: Fetch from API if not in localStorage or if parsing failed
-        console.log(`[ProposalsPage] Fetching points via API for ${typedSession.user.walletAddress}`);
         fetch(`/api/users/points?address=${typedSession.user.walletAddress}`)
-          .then(res => {
-            if (!res.ok) {
-              // Handle non-OK responses (e.g., 404, 500) by throwing an error to be caught below
-              throw new Error(`API responded with status ${res.status}`);
-            }
-            return res.json();
-          })
+          .then(res => res.json())
           .then(data => {
             if (typeof data.points === 'number') {
               setCurrentUserPoints(data.points);
-            } else {
-              setCurrentUserPoints(null); // Explicitly set to null if points not found in API response
-              console.warn("[ProposalsPage] Could not fetch user points from API or points field missing/invalid.");
             }
           })
           .catch(err => {
-            console.error("[ProposalsPage] Error fetching user points from API:", err);
-            setCurrentUserPoints(null); // Set to null on API error
+            console.error("[ProposalsPage] Error fetching user points:", err);
+            setCurrentUserPoints(null);
           });
       }
     } else if (sessionStatus === 'unauthenticated') {
-        setCurrentUserPoints(null); // Clear points if user logs out
+      setCurrentUserPoints(null);
     }
-  }, [sessionStatus, typedSession?.user?.walletAddress]); // Ensure dependency
+  }, [sessionStatus, typedSession?.user?.walletAddress]);
 
   const handleOpenVoteModal = (proposalId: string) => {
     const proposalToVote = apiResponse?.proposals.find(p => p._id === proposalId);
@@ -141,109 +168,318 @@ export default function ProposalsPage() {
   };
 
   const handleVoteSuccess = () => {
-    fetchProposals(currentPage, true); // true for background refresh to avoid full loading spinner
+    fetchProposals(currentPage, true);
   };
 
-  const handleNextPage = () => {
-    if (apiResponse && currentPage < apiResponse.totalPages) {
-      setCurrentPage(prev => prev + 1);
-    }
+  const calculateTimeLeft = (epochEnd: number) => {
+    const now = Date.now() / 1000;
+    const timeLeft = epochEnd - now;
+    
+    if (timeLeft <= 0) return "Ended";
+    
+    const days = Math.floor(timeLeft / (24 * 60 * 60));
+    const hours = Math.floor((timeLeft % (24 * 60 * 60)) / (60 * 60));
+    
+    if (days > 0) return `${days}d ${hours}h left`;
+    return `${hours}h left`;
   };
 
-  const handlePreviousPage = () => {
-    if (currentPage > 1) {
-      setCurrentPage(prev => prev - 1);
-    }
+  const getProposalStatus = (proposal: ProposalCardData) => {
+    const now = Date.now() / 1000;
+    if (now > proposal.epochEnd) return "ended";
+    if (proposal.broadcasted) return "broadcasted";
+    return "active";
   };
 
-  const tabClass = (isActive: boolean) => `px-4 py-2 rounded-lg text-sm font-medium transition-colors ${isActive ? 'bg-blue-600 text-white' : 'bg-muted hover:bg-muted/70 text-foreground'}`;
+  const renderProposalCard = (proposal: ProposalCardData) => {
+    const status = getProposalStatus(proposal);
+    const netVotes = proposal.upVoteWeight - proposal.downVoteWeight;
+    const totalVotes = proposal.upVoteWeight + proposal.downVoteWeight + proposal.abstainVoteWeight;
+    const passPercentage = totalVotes > 0 ? (proposal.upVoteWeight / totalVotes) * 100 : 0;
+
+    return (
+      <Card key={proposal._id} className="overflow-hidden">
+        <CardHeader>
+          <div className="flex items-start justify-between">
+            <div className="space-y-1">
+              <CardTitle className="text-xl">
+                <Link href={`/proposals/${proposal.slug}`} className="hover:text-[#3366FF] transition-colors">
+                  {proposal.title}
+                </Link>
+              </CardTitle>
+              <CardDescription className="flex items-center gap-2">
+                <span>by {proposal.squadId.name}</span>
+                <span>•</span>
+                <span>{calculateTimeLeft(proposal.epochEnd)}</span>
+              </CardDescription>
+            </div>
+            <div className="flex items-center gap-2">
+              {status === "broadcasted" && (
+                <Badge className="bg-green-500 text-white">Broadcasted</Badge>
+              )}
+              {status === "ended" && (
+                <Badge variant="secondary">Ended</Badge>
+              )}
+              {status === "active" && (
+                <Badge className="bg-[#3366FF] text-white">Active</Badge>
+              )}
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground line-clamp-2">
+            {proposal.description}
+          </p>
+
+          <div className="space-y-2">
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Voting Progress</span>
+              <span className="font-medium">{Math.round(passPercentage)}% Yes</span>
+            </div>
+            <Progress value={passPercentage} className="h-2" />
+          </div>
+
+          <div className="grid grid-cols-3 gap-4 text-center">
+            <div>
+              <p className="text-2xl font-bold text-green-600">{formatPoints(proposal.upVoteWeight)}</p>
+              <p className="text-xs text-muted-foreground">Yes</p>
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-red-600">{formatPoints(proposal.downVoteWeight)}</p>
+              <p className="text-xs text-muted-foreground">No</p>
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-gray-500">{formatPoints(proposal.abstainVoteWeight)}</p>
+              <p className="text-xs text-muted-foreground">Abstain</p>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between pt-2 border-t">
+            <div className="flex items-center gap-4 text-sm text-muted-foreground">
+              <span className="flex items-center gap-1">
+                <Users className="h-4 w-4" />
+                {proposal.uniqueVoterCount} voters
+              </span>
+              <span className="flex items-center gap-1">
+                <TrendingUp className="h-4 w-4" />
+                {formatPoints(proposal.tokenReward)} reward
+              </span>
+            </div>
+            {status === "active" && (
+              <Button 
+                size="sm" 
+                className="bg-[#3366FF] hover:bg-[#2952cc]"
+                onClick={() => handleOpenVoteModal(proposal._id)}
+              >
+                Vote Now
+              </Button>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    );
+  };
+
+  // Stats calculation
+  const totalActiveProposals = apiResponse?.proposals.filter(p => getProposalStatus(p) === "active").length || 0;
+  const totalVotes = apiResponse?.proposals.reduce((sum, p) => sum + p.uniqueVoterCount, 0) || 0;
+  const totalRewards = apiResponse?.proposals.reduce((sum, p) => sum + p.tokenReward, 0) || 0;
 
   return (
-    <main className="flex flex-col items-center min-h-screen p-4 sm:p-8 bg-background text-foreground">
-      <div className="w-full max-w-4xl mx-auto">
-        {/* Tabs Navigation */}
-        <div className="flex justify-center space-x-2 mb-8">
-          <span className={tabClass(true)}>Active</span>
-          <Link href="/proposals/closed" className={tabClass(false)}>Closed</Link>
-          <Link href="/proposals/archived" className={tabClass(false)}>Archived</Link>
+    <SidebarInset>
+      <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-[[data-collapsible=icon]]/sidebar-wrapper:h-12">
+        <div className="flex items-center gap-2 px-4">
+          <SidebarTrigger className="-ml-1" />
+          <Separator orientation="vertical" className="mr-2 h-4" />
+          <Breadcrumb>
+            <BreadcrumbList>
+              <BreadcrumbItem className="hidden md:block">
+                <BreadcrumbLink href="#">Platform</BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator className="hidden md:block" />
+              <BreadcrumbItem>
+                <BreadcrumbPage>Proposals</BreadcrumbPage>
+              </BreadcrumbItem>
+            </BreadcrumbList>
+          </Breadcrumb>
         </div>
-        <div className="text-center mb-10">
-          <h1 className="text-4xl sm:text-5xl font-bold font-spacegrotesk tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600">
-            Active Governance Proposals
-          </h1>
-          <p className="text-muted-foreground mt-3 text-lg max-w-2xl mx-auto">
-            Review proposals submitted by eligible squads. Cast your vote to help decide the future!
-          </p>
-          {isPolling && <p className='text-xs text-gray-500 mt-2 animate-pulse'>Checking for updates...</p>}
-        </div>
-
-        {isLoading && (
-          <div className="text-center py-10">
-            <p className="text-xl text-foreground">Loading proposals...</p>
-            {/* TODO: Add a spinner or loading animation here */}
-          </div>
-        )}
-
-        {error && (
-          <div className="text-center py-10 bg-red-50 border border-red-200 rounded-lg p-6">
-            <p className="text-xl text-foreground">Error loading proposals</p>
-            <p className="text-muted-foreground mt-2">{error}</p>
-            <button 
-              onClick={() => fetchProposals(currentPage)} 
-              className="mt-4 py-2 px-4 bg-blue-500 hover:bg-blue-600 text-white font-semibold rounded-lg transition-colors shadow hover:shadow-md"
-            >
-              Retry
-            </button>
-          </div>
-        )}
-
-        {!isLoading && !error && apiResponse && apiResponse.proposals.length === 0 && (
-          <div className="text-center py-10">
-            <p className="text-xl text-foreground">No active proposals at the moment.</p>
-            <p className="text-muted-foreground mt-2">Check back later or encourage squads to create new ones!</p>
-          </div>
-        )}
-
-        {!isLoading && !error && apiResponse && apiResponse.proposals.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {apiResponse.proposals.map(proposal => (
-              <ProposalCard key={proposal._id} proposal={proposal} onVoteClick={handleOpenVoteModal} currentUserPoints={currentUserPoints} />
-            ))}
-          </div>
-        )}
-        
-        {apiResponse && apiResponse.totalPages > 1 && (
-            <div className="mt-12 flex justify-center items-center space-x-4">
-                <button 
-                    onClick={handlePreviousPage} 
-                    disabled={currentPage === 1 || isLoading || isPolling}
-                    className="py-2 px-5 bg-muted hover:bg-muted/80 text-foreground font-medium rounded-lg disabled:opacity-50 transition-colors"
-                >
-                    Previous
-                </button>
-                <span className="text-foreground">
-                    Page {apiResponse.currentPage} of {apiResponse.totalPages}
-                </span>
-                <button 
-                    onClick={handleNextPage} 
-                    disabled={currentPage === apiResponse.totalPages || isLoading || isPolling}
-                    className="py-2 px-5 bg-blue-500 hover:bg-blue-600 text-white font-medium rounded-lg disabled:opacity-50 transition-colors"
-                >
-                    Next
-                </button>
+        <div className="ml-auto flex items-center gap-4 px-4">
+          {currentUserPoints !== null && (
+            <div className="text-sm">
+              <span className="text-muted-foreground">Your voting power: </span>
+              <span className="font-semibold">{formatPoints(currentUserPoints)}</span>
             </div>
-        )}
+          )}
+          <Button className="hidden md:flex bg-[#3366FF] hover:bg-[#2952cc]">
+            <Plus className="h-4 w-4 mr-2" />
+            Create Proposal
+          </Button>
+        </div>
+      </header>
 
-        {selectedProposalForModal && (
-          <VoteModal 
-            isOpen={isVoteModalOpen} 
-            onClose={handleCloseVoteModal} 
-            proposal={selectedProposalForModal} 
-            onVoteSuccess={handleVoteSuccess} 
-            currentUserPoints={currentUserPoints} // Pass points to modal
-          />
-        )}
-      </div>
-    </main>
+      <main className="flex-1 py-6">
+        <div className="container px-4 md:px-6">
+          <div className="grid gap-6">
+            {/* Stats Overview */}
+            <div className="grid gap-4 md:grid-cols-4">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Active Proposals</CardTitle>
+                  <Vote className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{totalActiveProposals}</div>
+                  <p className="text-xs text-muted-foreground">
+                    Open for voting
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Total Votes</CardTitle>
+                  <Users className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{totalVotes}</div>
+                  <p className="text-xs text-muted-foreground">
+                    Community participation
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Total Rewards</CardTitle>
+                  <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{formatPoints(totalRewards)}</div>
+                  <p className="text-xs text-muted-foreground">
+                    DEFAI allocated
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Avg Participation</CardTitle>
+                  <Clock className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {apiResponse?.proposals.length ? 
+                      Math.round(totalVotes / apiResponse.proposals.length) : 0
+                    }
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Voters per proposal
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Proposals List */}
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>Community Proposals</CardTitle>
+                    <CardDescription>
+                      Vote on proposals to shape the future of DeFAI
+                    </CardDescription>
+                  </div>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="sm" className="gap-2">
+                        <Filter className="h-4 w-4" />
+                        Sort: {selectedSort === "newest" ? "Newest" : "Ending Soon"}
+                        <ChevronDown className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => setSelectedSort("newest")}>
+                        Newest First
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setSelectedSort("ending")}>
+                        Ending Soon
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {isLoading ? (
+                  <div className="text-center py-12">
+                    <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-[#3366FF]"></div>
+                    <p className="mt-4 text-muted-foreground">Loading proposals...</p>
+                  </div>
+                ) : error ? (
+                  <div className="text-center py-12">
+                    <p className="text-destructive mb-4">{error}</p>
+                    <Button onClick={() => fetchProposals(currentPage)} variant="outline">
+                      Try Again
+                    </Button>
+                  </div>
+                ) : apiResponse?.proposals.length === 0 ? (
+                  <div className="text-center py-12">
+                    <Vote className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                    <p className="text-muted-foreground">No active proposals at the moment</p>
+                  </div>
+                ) : (
+                  <div className="grid gap-4">
+                    {apiResponse?.proposals
+                      .sort((a, b) => {
+                        if (selectedSort === "ending") {
+                          return a.epochEnd - b.epochEnd;
+                        }
+                        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+                      })
+                      .map(renderProposalCard)
+                    }
+                  </div>
+                )}
+
+                {/* Pagination */}
+                {apiResponse && apiResponse.totalPages > 1 && (
+                  <div className="flex items-center justify-center gap-2 mt-6">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                      disabled={currentPage === 1}
+                    >
+                      Previous
+                    </Button>
+                    <span className="text-sm text-muted-foreground">
+                      Page {currentPage} of {apiResponse.totalPages}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(prev => Math.min(apiResponse.totalPages, prev + 1))}
+                      disabled={currentPage === apiResponse.totalPages}
+                    >
+                      Next
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </main>
+
+      {/* Vote Modal */}
+      {selectedProposalForModal && (
+        <VoteModal
+          isOpen={isVoteModalOpen}
+          onClose={handleCloseVoteModal}
+          proposal={selectedProposalForModal}
+          onVoteSuccess={handleVoteSuccess}
+          currentUserPoints={currentUserPoints}
+        />
+      )}
+    </SidebarInset>
   );
-} 
+}

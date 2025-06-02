@@ -1,7 +1,10 @@
 import {
     DasApiAsset
 } from "@metaplex-foundation/digital-asset-standard-api";
-import { Card } from "../ui/card";
+import { Card, CardContent } from "../ui/card";
+import { Badge } from "../ui/badge";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui/tooltip";
+import { Image as ImageIcon } from "lucide-react";
 
 const NftGrid = ({ assets }: { assets: DasApiAsset[] }) => {
 
@@ -16,24 +19,56 @@ const NftGrid = ({ assets }: { assets: DasApiAsset[] }) => {
     .map((asset) => {
       const image = asset.content.files
         ? (asset.content.files[0]["cdn_uri"] as string)
-        : "fallback.png";
+        : null;
 
       return (
-        <Card key={asset.id} className="p-2 flex flex-col gap-4">
-          <img
-            src={image}
-            alt={asset.content.metadata.name}
-            className="rounded-lg w-full aspect-square"
-          />
-          <div className="col-span-3">
-            <p className="">{asset.content.metadata.name}</p>
-          </div>
-        </Card>
+        <TooltipProvider key={asset.id}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Card className="group cursor-pointer transition-all hover:shadow-md hover:scale-105">
+                <CardContent className="p-3">
+                  <div className="space-y-2">
+                    <div className="relative aspect-square overflow-hidden rounded-lg bg-muted">
+                      {image ? (
+                        <img
+                          src={image}
+                          alt={asset.content.metadata.name}
+                          className="w-full h-full object-cover transition-transform group-hover:scale-110"
+                          loading="lazy"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <ImageIcon className="h-8 w-8 text-muted-foreground" />
+                        </div>
+                      )}
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium truncate">
+                        {asset.content.metadata.name}
+                      </p>
+                      <Badge variant="secondary" className="text-xs">
+                        #{asset.id.slice(-4)}
+                      </Badge>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </TooltipTrigger>
+            <TooltipContent>
+              <div className="text-sm">
+                <p className="font-medium">{asset.content.metadata.name}</p>
+                <p className="text-muted-foreground">ID: {asset.id}</p>
+              </div>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       );
     });
 
   return (
-    <div className="grid grid-cols-5 gap-4 overflow-auto p-2">{assetList}</div>
+    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+      {assetList}
+    </div>
   );
 };
 

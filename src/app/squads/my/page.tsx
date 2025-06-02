@@ -9,6 +9,21 @@ import { toast } from 'sonner';
 import CreateProposalModal from '@/components/modals/CreateProposalModal';
 import { Button } from "@/components/ui/button";
 import { TOKEN_LABEL_POINTS } from '@/lib/labels';
+import { SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
+import { Separator } from "@/components/ui/separator";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Progress } from "@/components/ui/progress";
+import { Users, Trophy, Zap, Shield, ArrowRight, Plus, UserPlus, Settings } from "lucide-react";
 
 interface MySquadData extends SquadDocument {
   totalSquadPoints: number;
@@ -284,198 +299,371 @@ export default function MySquadPage() {
   };
 
   return (
-    <main className="flex flex-col items-center min-h-screen p-4 sm:p-8 bg-white text-gray-900">
-      <div className="w-full max-w-3xl">
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold font-spacegrotesk tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-blue-500 via-indigo-600 to-purple-700">
-            Squad Headquarters
-          </h1>
-          <p className="text-gray-600 mt-2">Join forces with others to rise up the leaderboard and earn extra rewards!</p>
+    <SidebarInset>
+      <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-[[data-collapsible=icon]]/sidebar-wrapper:h-12">
+        <div className="flex items-center gap-2 px-4">
+          <SidebarTrigger className="-ml-1" />
+          <Separator orientation="vertical" className="mr-2 h-4" />
+          <Breadcrumb>
+            <BreadcrumbList>
+              <BreadcrumbItem className="hidden md:block">
+                <BreadcrumbLink href="/">
+                  Dashboard
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator className="hidden md:block" />
+              <BreadcrumbItem>
+                <BreadcrumbLink href="/squads">
+                  Squads
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator className="hidden md:block" />
+              <BreadcrumbItem>
+                <BreadcrumbPage>My Squad</BreadcrumbPage>
+              </BreadcrumbItem>
+            </BreadcrumbList>
+          </Breadcrumb>
+        </div>
+      </header>
+      <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold tracking-tight">Squad Headquarters</h1>
+          <div className="flex gap-2">
+            <Link href="/squads/browse">
+              <Button variant="outline" size="sm">
+                <Users className="h-4 w-4 mr-2" />
+                Browse Squads
+              </Button>
+            </Link>
+            <Link href="/squads/leaderboard">
+              <Button variant="outline" size="sm">
+                <Trophy className="h-4 w-4 mr-2" />
+                Leaderboard
+              </Button>
+            </Link>
+          </div>
         </div>
 
-        {/* Squad Navigation Section */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-          <Link href="/squads/browse" passHref>
-            <div className="bg-indigo-100 hover:bg-indigo-200 border border-indigo-300 rounded-xl p-4 text-center cursor-pointer transform hover:scale-105 transition-all duration-200">
-              <h3 className="text-lg font-bold text-indigo-700">Browse Squads</h3>
-              <p className="text-xs text-indigo-600 mt-1">Explore squads to join</p>
-            </div>
-          </Link>
-          <Link href="/squads/leaderboard" passHref>
-            <div className="bg-purple-100 hover:bg-purple-200 border border-purple-300 rounded-xl p-4 text-center cursor-pointer transform hover:scale-105 transition-all duration-200">
-              <h3 className="text-lg font-bold text-purple-700">Squad Leaderboard</h3>
-              <p className="text-xs text-purple-600 mt-1">See top-performing squads</p>
-            </div>
-          </Link>
-          <Link href={canCreateSquad && !mySquadData ? "/squads/create" : "#"} passHref>
-            <div className={`${canCreateSquad && !mySquadData ? 'bg-green-100 hover:bg-green-200 border border-green-300 cursor-pointer transform hover:scale-105' : 'bg-gray-200 border border-gray-300 cursor-not-allowed'} rounded-xl p-4 text-center transition-all duration-200`}>
-              <h3 className={`text-lg font-bold ${canCreateSquad && !mySquadData ? 'text-green-700' : 'text-gray-500'}`}>Create Squad</h3>
-              <p className="text-xs text-gray-500 mt-1">{mySquadData ? 'Already in a squad' : `Need ${minRequiredPoints.toLocaleString()} points`}</p>
-            </div>
-          </Link>
+        {/* Stats Cards */}
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Squad Status</CardTitle>
+              <Shield className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {mySquadData ? 'Active' : 'No Squad'}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {mySquadData ? `${mySquadData.name}` : 'Join or create a squad'}
+              </p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Squad Points</CardTitle>
+              <Zap className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {mySquadData ? mySquadData.totalSquadPoints.toLocaleString() : '0'}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Total accumulated points
+              </p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Your Points</CardTitle>
+              <Trophy className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {userPoints !== null ? userPoints.toLocaleString() : '...'}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Personal contribution
+              </p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Max Members</CardTitle>
+              <Users className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {mySquadData ? getMaxMembersForPoints(mySquadData.totalSquadPoints).replace('Up to ', '').replace(' members', '') : '...'}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Based on squad points
+              </p>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Main My Squad Content */}
-        <div className="w-full p-5 bg-indigo-50 border border-indigo-200 rounded-xl shadow-md mb-4">
-          <h3 className="text-xl font-bold text-indigo-700 mb-3 text-center">🛡️ My Squad</h3>
-          {isFetchingSquad && <p className="text-center text-indigo-600">Loading squad info...</p>}
-          {error && <p className="text-center text-red-600 bg-red-100 p-2 rounded border border-red-200">Error: {error}</p>}
-          
-          {!isFetchingSquad && mySquadData && (
-            <div className="text-center space-y-4">
-              <div className="p-4 bg-white/80 rounded-lg border border-gray-200">
-                <p className="text-lg font-semibold text-gray-800">Name: <span className="text-indigo-600 font-bold">{mySquadData.name}</span></p>
-                {mySquadData.description && <p className="text-sm text-gray-600 mt-1 italic">&quot;{mySquadData.description}&quot;</p>}
-                <p className="text-sm text-gray-600 mt-2">{TOKEN_LABEL_POINTS}: <span className="font-bold text-green-600">{mySquadData.totalSquadPoints.toLocaleString()}</span></p>
-                <p className="text-sm text-gray-600">Max Members: <span className="font-bold">{getMaxMembersForPoints(mySquadData.totalSquadPoints)}</span></p>
-                
-                <div className="mt-3 text-xs bg-indigo-100 p-2 rounded border border-indigo-200">
-                  {isUserLeader ? (
-                    <p className="text-indigo-700 font-medium">You are the leader of this squad!</p>
-                  ) : (
-                    <p className="text-indigo-700">Leader: <span className="font-mono">{mySquadData.leaderWalletAddress.substring(0,6)}...{mySquadData.leaderWalletAddress.substring(mySquadData.leaderWalletAddress.length-4)}</span></p>
-                  )}
-                </div>
+        <Card>
+          <CardHeader>
+            <CardTitle>My Squad</CardTitle>
+            <CardDescription>
+              Manage your squad membership and activities
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {isFetchingSquad && (
+              <div className="flex items-center justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary"></div>
               </div>
+            )}
+            {error && (
+              <div className="rounded-lg bg-destructive/10 p-4 text-destructive">
+                <p className="text-sm font-medium">Error: {error}</p>
+              </div>
+            )}
+          
+            {!isFetchingSquad && mySquadData && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <Avatar className="h-16 w-16">
+                      <AvatarImage src="/placeholder.svg" />
+                      <AvatarFallback>{mySquadData.name.substring(0, 2).toUpperCase()}</AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <h3 className="text-xl font-semibold">{mySquadData.name}</h3>
+                      {mySquadData.description && (
+                        <p className="text-sm text-muted-foreground mt-1">{mySquadData.description}</p>
+                      )}
+                      <div className="flex items-center gap-2 mt-2">
+                        {isUserLeader ? (
+                          <Badge variant="default">Squad Leader</Badge>
+                        ) : (
+                          <Badge variant="secondary">Member</Badge>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <Link href={`/squads/${mySquadData.squadId}`}>
+                    <Button variant="outline">
+                      <Settings className="h-4 w-4 mr-2" />
+                      Manage Squad
+                    </Button>
+                  </Link>
+                </div>
               
-              {/* Proposal Creation Button or Message */}
-              {isUserLeader && !canCreateProposal && (
-                <div className="mt-4 pt-4 border-t border-gray-200">
-                  <h4 className="text-md font-semibold text-blue-600 mb-2">Squad Governance</h4>
-                  <p className="text-xs text-gray-500 mb-3">
-                    You must have at least {PROPOSAL_CREATION_MIN_SQUAD_POINTS.toLocaleString()} squad points to create a token proposal.<br />
-                    Your squad currently has <span className="font-bold text-green-600">{mySquadData.totalSquadPoints.toLocaleString()}</span> points.<br />
-                    <span className="text-indigo-700 font-medium block mt-2">
-                      Need more points? Earn more by completing quests, inviting friends, or buy more DeFAI below.
-                    </span>
-                    <a
-                      href="https://dexscreener.com/solana/3jiwexdwzxjva2yd8aherfsrn7a97qbwmdz8i4q6mh7y"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-block mt-2"
-                    >
-                      <Button className="bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg shadow-md transition-all">
-                        Buy DeFAI
-                      </Button>
-                    </a>
-                  </p>
-                  <Button disabled className="w-full py-2.5 bg-gray-300 text-gray-500 font-semibold rounded-lg shadow-none cursor-not-allowed">
-                    Create Token Proposal (Locked)
-                  </Button>
-                </div>
-              )}
-              {canCreateProposal && (
-                <div className="mt-4 pt-4 border-t border-gray-200">
-                  <h4 className="text-md font-semibold text-blue-600 mb-2">Squad Governance</h4>
-                  <p className="text-xs text-gray-500 mb-3">As squad leader with {mySquadData.totalSquadPoints.toLocaleString()} squad points, you can create a token proposal for the AI Reward.</p>
-                  <Button 
-                    onClick={() => setIsCreateProposalModalOpen(true)} 
-                    className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg shadow-md hover:shadow-lg transition-all"
-                  >
-                    Create Token Proposal
-                  </Button>
-                </div>
-              )}
+                {/* Proposal Creation Section */}
+                {isUserLeader && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-lg">Squad Governance</CardTitle>
+                      <CardDescription>
+                        Create proposals for the AI Reward pool
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      {!canCreateProposal ? (
+                        <div className="space-y-3">
+                          <div className="space-y-2">
+                            <div className="flex justify-between text-sm">
+                              <span className="text-muted-foreground">Squad Points Progress</span>
+                              <span className="font-medium">{mySquadData.totalSquadPoints.toLocaleString()} / {PROPOSAL_CREATION_MIN_SQUAD_POINTS.toLocaleString()}</span>
+                            </div>
+                            <Progress 
+                              value={(mySquadData.totalSquadPoints / PROPOSAL_CREATION_MIN_SQUAD_POINTS) * 100} 
+                              className="h-2"
+                            />
+                          </div>
+                          <p className="text-sm text-muted-foreground">
+                            Need more points? Complete quests, invite friends, or buy more DeFAI.
+                          </p>
+                          <div className="flex gap-2">
+                            <Button disabled variant="secondary" className="flex-1">
+                              Create Token Proposal (Locked)
+                            </Button>
+                            <a
+                              href="https://dexscreener.com/solana/3jiwexdwzxjva2yd8aherfsrn7a97qbwmdz8i4q6mh7y"
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
+                              <Button variant="outline">
+                                Buy DeFAI
+                              </Button>
+                            </a>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          <p className="text-sm text-muted-foreground">
+                            As squad leader with {mySquadData.totalSquadPoints.toLocaleString()} squad points, you can create a token proposal.
+                          </p>
+                          <Button 
+                            onClick={() => setIsCreateProposalModalOpen(true)} 
+                            className="w-full"
+                          >
+                            <Plus className="h-4 w-4 mr-2" />
+                            Create Token Proposal
+                          </Button>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
 
-              <div className="space-y-2 pt-4">
-                <Link href={`/squads/${mySquadData.squadId}`} passHref>
-                  <Button variant="outline" className="w-full border-indigo-500 text-indigo-600 hover:bg-indigo-100">
-                    Manage Squad Details
-                  </Button>
-                </Link>
-                
                 {!isUserLeader && (
-                  <Button variant="destructive" className="w-full">
-                    Leave Squad (TODO: Implement)
-                  </Button>
+                  <div className="flex justify-end">
+                    <Button variant="destructive" size="sm">
+                      Leave Squad
+                    </Button>
+                  </div>
                 )}
               </div>
-            </div>
-          )}
+            )}
 
-          {!isFetchingSquad && !mySquadData && !error && (
-            <div className="text-center">
-              <div className="p-4 bg-white/80 rounded-lg border border-gray-200 mb-4">
-                <p className="text-center text-gray-600 mb-2">You are not currently in a squad.</p>
-                <p className="text-sm text-gray-500">Join an existing squad or create your own to earn extra rewards and compete in the leaderboards.</p>
-              </div>
-              
-              {isLoadingPoints ? (
-                <div className="flex justify-center items-center py-3">
-                  <svg className="animate-spin h-5 w-5 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  <span className="ml-2 text-indigo-700">Checking points...</span>
+            {!isFetchingSquad && !mySquadData && !error && (
+              <div className="space-y-4">
+                <div className="text-center py-8">
+                  <Shield className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">You're not in a squad</h3>
+                  <p className="text-sm text-muted-foreground max-w-sm mx-auto">
+                    Join an existing squad or create your own to earn extra rewards and compete in the leaderboards.
+                  </p>
                 </div>
-              ) : (
-                <>
-                  <div className="mt-4 text-center">
-                    {canCreateSquad ? (
-                      <div className="mb-4 p-3 bg-green-100 rounded-lg border border-green-300">
-                        <p className="text-green-800">
-                          With {userPoints?.toLocaleString()} points, you&apos;re eligible to create your own squad!
-                          <br/>
-                          <span className="text-xs mt-1 block text-green-700">
-                            Your points allow for: {getMaxMembersForPoints(userPoints)}
-                          </span>
-                        </p>
-                        <Link href="/squads/create" passHref>
-                          <button className="mt-2 py-2 px-4 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-colors">
-                            Create Your Squad
-                          </button>
-                        </Link>
-                      </div>
-                    ) : (
-                      <div className="mb-4 p-3 bg-gray-100 rounded-lg border border-gray-300">
-                        <p className="text-gray-600">
-                          You need at least {minRequiredPoints.toLocaleString()} DeFAI {TOKEN_LABEL_POINTS} to create a new squad.<br/>
-                          Your current {TOKEN_LABEL_POINTS}: <span className="font-semibold">{userPoints?.toLocaleString() || '0'}</span>
-                        </p>
-                      </div>
-                    )}
+              
+                {isLoadingPoints ? (
+                  <div className="flex justify-center items-center py-3">
+                    <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-primary"></div>
+                    <span className="ml-2 text-sm">Checking points...</span>
                   </div>
+                ) : (
+                  <div className="grid gap-4 md:grid-cols-2">
+                    {canCreateSquad ? (
+                      <Card className="border-green-200 bg-green-50">
+                        <CardHeader>
+                          <CardTitle className="text-lg">Create Your Squad</CardTitle>
+                          <CardDescription>
+                            You have {userPoints?.toLocaleString()} points
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          <p className="text-sm mb-4">
+                            Your points allow for: {getMaxMembersForPoints(userPoints)}
+                          </p>
+                          <Link href="/squads/create">
+                            <Button className="w-full">
+                              <Plus className="h-4 w-4 mr-2" />
+                              Create Squad
+                            </Button>
+                          </Link>
+                        </CardContent>
+                      </Card>
+                    ) : (
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="text-lg">Points Required</CardTitle>
+                          <CardDescription>
+                            Create your own squad
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-2 mb-4">
+                            <div className="flex justify-between text-sm">
+                              <span className="text-muted-foreground">Your Points</span>
+                              <span className="font-medium">{userPoints?.toLocaleString() || '0'}</span>
+                            </div>
+                            <div className="flex justify-between text-sm">
+                              <span className="text-muted-foreground">Required</span>
+                              <span className="font-medium">{minRequiredPoints.toLocaleString()}</span>
+                            </div>
+                            <Progress 
+                              value={(userPoints || 0) / minRequiredPoints * 100} 
+                              className="h-2"
+                            />
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
                   
-                  {userCheckedNoSquad && (
-                    <button 
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-lg">Join a Squad</CardTitle>
+                        <CardDescription>
+                          Find squads to join
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <p className="text-sm mb-4">
+                          Browse existing squads and request to join one that matches your goals.
+                        </p>
+                        <Link href="/squads/browse">
+                          <Button variant="outline" className="w-full">
+                            <Users className="h-4 w-4 mr-2" />
+                            Browse Squads
+                          </Button>
+                        </Link>
+                      </CardContent>
+                    </Card>
+                  </div>
+                )}
+
+                {userCheckedNoSquad && (
+                  <div className="flex justify-center mt-4">
+                    <Button 
                       onClick={handleForceRefresh} 
-                      className="py-2 px-4 bg-blue-500 hover:bg-blue-600 text-white text-sm font-semibold rounded-lg transition-colors shadow hover:shadow-md mt-3"
+                      variant="outline"
+                      size="sm"
                     >
                       Refresh Squad Data
-                    </button>
-                  )}
-                </>
-              )}
-            </div>
-          )}
-        </div>
+                    </Button>
+                  </div>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Squad Benefits Info */}
-        <div className="w-full max-w-3xl p-5 bg-gradient-to-br from-gray-100 to-gray-200 border border-gray-300 rounded-xl shadow-md mt-4 mb-6">
-          <h3 className="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600 mb-3 text-center">Squad Benefits</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-            <div className="p-3 bg-white/70 rounded-lg border border-gray-200">
-              <h4 className="text-md font-bold text-blue-700">🤝 Team Power</h4>
-              <p className="text-sm text-gray-700">Combine your points with others to climb higher on the leaderboard</p>
+        <Card>
+          <CardHeader>
+            <CardTitle>Squad Benefits</CardTitle>
+            <CardDescription>
+              Why you should join or create a squad
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-4 md:grid-cols-3">
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Users className="h-5 w-5 text-primary" />
+                  <h4 className="font-semibold">Team Power</h4>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Combine your points with others to climb higher on the leaderboard
+                </p>
+              </div>
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Trophy className="h-5 w-5 text-primary" />
+                  <h4 className="font-semibold">Bonus Rewards</h4>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Top squads receive special rewards and early access to features
+                </p>
+              </div>
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Zap className="h-5 w-5 text-primary" />
+                  <h4 className="font-semibold">Growth Boost</h4>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Squad members get point multipliers on certain actions
+                </p>
+              </div>
             </div>
-            <div className="p-3 bg-white/70 rounded-lg border border-gray-200">
-              <h4 className="text-md font-bold text-purple-700">🎁 Bonus Rewards</h4>
-              <p className="text-sm text-gray-700">Top squads receive special rewards and early access to features</p>
-            </div>
-            <div className="p-3 bg-white/70 rounded-lg border border-gray-200">
-              <h4 className="text-md font-bold text-pink-700">📈 Growth Boost</h4>
-              <p className="text-sm text-gray-700">Squad members get point multipliers on certain actions</p>
-            </div>
-          </div>
-        </div>
-        
-        <div className="mt-6 text-center">
-          <Link href="/">
-            <Button variant="secondary">
-              Back to Dashboard
-            </Button>
-          </Link>
-        </div>
+          </CardContent>
+        </Card>
       </div>
 
       {mySquadData && (
@@ -486,6 +674,6 @@ export default function MySquadPage() {
             onProposalCreated={handleProposalCreated} 
         />
       )}
-    </main>
+    </SidebarInset>
   );
 } 

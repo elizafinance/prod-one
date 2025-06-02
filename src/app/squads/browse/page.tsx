@@ -8,6 +8,23 @@ import { useRouter } from 'next/navigation';
 import { SquadDocument, ISquadJoinRequest } from '@/lib/mongodb'; // Added ISquadJoinRequest
 import RequestToJoinModal from '@/components/modals/RequestToJoinModal'; // Import the new modal
 import { TOKEN_LABEL_POINTS } from '@/lib/labels';
+import { SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
+import { Separator } from '@/components/ui/separator';
+import { 
+  Breadcrumb, 
+  BreadcrumbList, 
+  BreadcrumbItem, 
+  BreadcrumbLink, 
+  BreadcrumbSeparator, 
+  BreadcrumbPage 
+} from '@/components/ui/breadcrumb';
+import { Button } from '@/components/ui/button';
+import { Shield, Search, Users, Trophy, XCircle, Clock } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
 
 interface SquadBrowseEntry extends SquadDocument {
   memberCount: number; // Added from leaderboard API projection
@@ -88,6 +105,9 @@ export default function BrowseSquadsPage() {
     fetchSquadsAndUserData();
   }, [fetchSquadsAndUserData]);
 
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortBy, setSortBy] = useState('points');
+
   const handleOpenRequestModal = (squad: SquadBrowseEntry) => {
     if (!connected || !publicKey) {
       toast.error("Please connect your wallet to request to join a squad.");
@@ -127,96 +147,238 @@ export default function BrowseSquadsPage() {
     setIsSubmittingRequest(false);
   };
 
+  const filteredSquads = squads.filter(squad => {
+    if (!searchQuery) return true;
+    return squad.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+           squad.description?.toLowerCase().includes(searchQuery.toLowerCase());
+  });
+
+  const sortedSquads = [...filteredSquads].sort((a, b) => {
+    if (sortBy === 'points') {
+      return b.totalSquadPoints - a.totalSquadPoints;
+    } else if (sortBy === 'members') {
+      return b.memberCount - a.memberCount;
+    } else if (sortBy === 'name') {
+      return a.name.localeCompare(b.name);
+    }
+    return 0;
+  });
+
   return (
-    <main className="flex flex-col items-center min-h-screen p-4 sm:p-8 bg-white text-gray-900">
-      <div className="w-full max-w-4xl mx-auto py-8 sm:py-12">
-        <div className="flex justify-between items-center mb-10">
-          <h1 className="text-4xl sm:text-5xl font-bold font-spacegrotesk tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-sky-500 via-blue-600 to-indigo-600">
-            Join a Squad
-          </h1>
-          <div className="space-x-3">
-            <Link href="/squads/create" passHref>
-                <button className="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-5 rounded-lg shadow-md hover:shadow-lg transform hover:scale-105 transition-all duration-150 ease-in-out">
+    <SidebarInset>
+      <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-[[data-collapsible=icon]]/sidebar-wrapper:h-12">
+        <div className="flex items-center gap-2 px-4">
+          <SidebarTrigger className="-ml-1" />
+          <Separator orientation="vertical" className="mr-2 h-4" />
+          <Breadcrumb>
+            <BreadcrumbList>
+              <BreadcrumbItem className="hidden md:block">
+                <BreadcrumbLink href="/">
+                  Dashboard
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator className="hidden md:block" />
+              <BreadcrumbItem>
+                <BreadcrumbLink href="/squads">
+                  Squads
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator className="hidden md:block" />
+              <BreadcrumbItem>
+                <BreadcrumbPage>Browse</BreadcrumbPage>
+              </BreadcrumbItem>
+            </BreadcrumbList>
+          </Breadcrumb>
+        </div>
+      </header>
+      <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold tracking-tight">Browse Squads</h1>
+          <div className="flex gap-2">
+            <Link href="/squads/create">
+              <Button variant="outline">
                 Create Squad
-                </button>
+              </Button>
             </Link>
-            <Link href="/" passHref>
-                <button className="bg-gray-500 hover:bg-gray-600 text-white font-semibold py-2 px-5 rounded-lg shadow-md hover:shadow-lg transform hover:scale-105 transition-all duration-150 ease-in-out">
-                Back to Dashboard
-                </button>
+            <Link href="/squads/my">
+              <Button variant="outline">
+                <Shield className="h-4 w-4 mr-2" />
+                My Squad
+              </Button>
             </Link>
           </div>
         </div>
 
-        {isLoading && (
-          <div className="text-center py-10"><p className="text-xl text-gray-600">Searching for Squads...</p><div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-600 mx-auto mt-4"></div></div>
-        )}
-        {error && <p className="text-center text-red-700 bg-red-100 p-4 rounded-lg border border-red-300">Error: {error}</p>}
-        
-        {!isLoading && !error && squads.length === 0 && (
-          <div className="text-center py-10 bg-gray-100 p-6 rounded-lg shadow-lg border border-gray-200">
-            <p className="text-2xl text-gray-700 mb-3">No squads found. Why not start your own?</p>
+        {/* Search and Filter */}
+        <div className="flex gap-4">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              type="search"
+              placeholder="Search squads..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9"
+            />
           </div>
+          <Select value={sortBy} onValueChange={setSortBy}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Sort by..." />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="points">Most Points</SelectItem>
+              <SelectItem value="members">Most Members</SelectItem>
+              <SelectItem value="name">Name (A-Z)</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {connected && mySquadInfo?.squadId && (
+          <Card className="border-blue-200 bg-blue-50">
+            <CardContent className="pt-6">
+              <p className="text-sm text-center">
+                You are already in a squad. You must leave your current squad to join another.
+                <Link href="/squads/my" className="ml-2 text-primary hover:underline">
+                  View my squad
+                </Link>
+              </p>
+            </CardContent>
+          </Card>
         )}
 
-        {!isLoading && !error && squads.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {squads.map((squad) => {
+        {isLoading && (
+          <div className="flex items-center justify-center py-20">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mx-auto mb-4"></div>
+              <p className="text-muted-foreground">Searching for squads...</p>
+            </div>
+          </div>
+        )}
+        
+        {error && (
+          <Card className="border-destructive">
+            <CardContent className="pt-6">
+              <p className="text-destructive text-center">Error: {error}</p>
+            </CardContent>
+          </Card>
+        )}
+        
+        {!isLoading && !error && sortedSquads.length === 0 && (
+          <Card>
+            <CardContent className="pt-6">
+              <div className="text-center py-10">
+                <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <p className="text-lg font-semibold mb-2">No Squads Found</p>
+                <p className="text-sm text-muted-foreground mb-4">Try adjusting your search or be the first to create a squad!</p>
+                <Link href="/squads/create">
+                  <Button>
+                    Create Squad
+                  </Button>
+                </Link>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {!isLoading && !error && sortedSquads.length > 0 && (
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {sortedSquads.map((squad) => {
               const hasPendingRequestForThisSquad = currentUserPendingRequests.some(req => req.squadId === squad.squadId && req.status === 'pending');
               const isSquadFull = squad.memberCount >= (squad.maxMembers || parseInt(process.env.NEXT_PUBLIC_MAX_SQUAD_MEMBERS || '50'));
               const isUserLeaderHere = squad.leaderWalletAddress === publicKey?.toBase58();
 
               return (
-                <div key={squad.squadId} className="bg-white border border-gray-200 shadow-lg rounded-lg p-6 flex flex-col justify-between min-h-[280px]">
-                  <div>
-                    <h2 className="text-2xl font-bold text-sky-700 mb-2">{squad.name}</h2>
-                    {squad.description && <p className="text-sm text-gray-600 mb-3 line-clamp-3">{squad.description}</p>}
-                    <p className="text-sm text-gray-500">Leader: <span className="font-mono text-xs">{squad.leaderWalletAddress.substring(0,6)}...</span></p>
-                    <p className="text-sm text-gray-500">Members: {squad.memberCount} / {squad.maxMembers || process.env.NEXT_PUBLIC_MAX_SQUAD_MEMBERS || 50}</p>
-                    <p className="text-lg font-semibold text-transparent bg-clip-text bg-gradient-to-r from-green-500 to-teal-500 mt-1">{TOKEN_LABEL_POINTS}: {squad.totalSquadPoints.toLocaleString()}</p>
-                  </div>
-                  <div className="mt-4 space-y-2">
-                    {(!connected || !publicKey) ? (
-                      <p className="text-xs text-center text-orange-600 py-2">Connect wallet to interact</p>
-                    ) : isUserLeaderHere ? (
-                      <button 
-                        disabled 
-                        className="w-full py-2 px-4 bg-gray-300 text-gray-600 font-semibold rounded-lg cursor-not-allowed">
-                        You are Leader
-                      </button>
-                    ) : mySquadInfo?.squadId ? (
-                      <button 
-                        disabled 
-                        className="w-full py-2 px-4 bg-gray-300 text-gray-600 font-semibold rounded-lg cursor-not-allowed">
-                        Already in a Squad
-                      </button>
-                    ) : isSquadFull ? (
-                       <button 
-                        disabled 
-                        className="w-full py-2 px-4 bg-red-200 text-red-600 font-semibold rounded-lg cursor-not-allowed">
-                        Squad Full
-                      </button>
-                    ) : hasPendingRequestForThisSquad ? (
-                      <button 
-                        disabled 
-                        className="w-full py-2 px-4 bg-yellow-200 text-yellow-700 font-semibold rounded-lg cursor-not-allowed">
-                        Request Pending
-                      </button>
-                    ) : (
-                      <button 
-                        onClick={() => handleOpenRequestModal(squad)}
-                        className="w-full py-2 px-4 bg-sky-500 hover:bg-sky-600 text-white font-semibold rounded-lg shadow hover:shadow-md transition-colors"
-                      >
-                        Request to Join
-                      </button>
+                <Card key={squad.squadId} className="overflow-hidden">
+                  <CardHeader>
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center gap-3">
+                        <Avatar className="h-10 w-10">
+                          <AvatarImage src="/placeholder.svg" />
+                          <AvatarFallback>{squad.name.substring(0, 2).toUpperCase()}</AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <CardTitle className="text-lg">{squad.name}</CardTitle>
+                          {squad.description && (
+                            <CardDescription className="mt-1 line-clamp-2">
+                              {squad.description}
+                            </CardDescription>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-2 gap-4 mb-4">
+                      <div>
+                        <p className="text-sm text-muted-foreground">Members</p>
+                        <div className="flex items-center gap-1">
+                          <Users className="h-4 w-4 text-muted-foreground" />
+                          <p className="text-lg font-semibold">{squad.memberCount} / {squad.maxMembers || 50}</p>
+                        </div>
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">Total Points</p>
+                        <div className="flex items-center gap-1">
+                          <Trophy className="h-4 w-4 text-muted-foreground" />
+                          <p className="text-lg font-semibold">{squad.totalSquadPoints.toLocaleString()}</p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between text-sm text-muted-foreground mb-4">
+                      <span>Leader</span>
+                      <span className="font-mono font-medium">
+                        {squad.leaderWalletAddress.substring(0,6)}...{squad.leaderWalletAddress.substring(squad.leaderWalletAddress.length-4)}
+                      </span>
+                    </div>
+                    {(!connected || !publicKey) && (
+                      <p className="text-xs text-center text-muted-foreground py-2">
+                        Connect wallet to interact
+                      </p>
                     )}
-                    <Link href={`/squads/${squad.squadId}`} passHref>
-                       <button className="w-full py-2 px-4 border border-sky-500 text-sky-600 hover:bg-sky-100 text-sm font-semibold rounded-lg transition-colors">
+                    {isUserLeaderHere && (
+                      <Badge className="w-full justify-center" variant="default">
+                        <Shield className="h-3 w-3 mr-1" />
+                        You are Leader
+                      </Badge>
+                    )}
+                    {mySquadInfo?.squadId && !isUserLeaderHere && (
+                      <Badge className="w-full justify-center" variant="secondary">
+                        <Shield className="h-3 w-3 mr-1" />
+                        Already in Squad
+                      </Badge>
+                    )}
+                    {isSquadFull && !mySquadInfo?.squadId && (
+                      <Badge className="w-full justify-center" variant="destructive">
+                        <XCircle className="h-3 w-3 mr-1" />
+                        Squad Full
+                      </Badge>
+                    )}
+                    {hasPendingRequestForThisSquad && (
+                      <Badge className="w-full justify-center" variant="secondary">
+                        <Clock className="h-3 w-3 mr-1" />
+                        Request Pending
+                      </Badge>
+                    )}
+                  </CardContent>
+                  <CardFooter className="pt-0">
+                    <div className="flex gap-2 w-full">
+                      <Link href={`/squads/${squad.squadId}`} className="flex-1">
+                        <Button variant="outline" className="w-full" size="sm">
                           View Details
-                      </button>
-                    </Link>
-                  </div>
-                </div>
+                        </Button>
+                      </Link>
+                      {connected && publicKey && !mySquadInfo?.squadId && !isSquadFull && !hasPendingRequestForThisSquad && !isUserLeaderHere && (
+                        <Button 
+                          onClick={() => handleOpenRequestModal(squad)}
+                          className="flex-1"
+                          size="sm"
+                        >
+                          Request to Join
+                        </Button>
+                      )}
+                    </div>
+                  </CardFooter>
+                </Card>
               );
             })}
           </div>
@@ -233,6 +395,6 @@ export default function BrowseSquadsPage() {
           isSubmitting={isSubmittingRequest}
         />
       )}
-    </main>
+    </SidebarInset>
   );
 } 

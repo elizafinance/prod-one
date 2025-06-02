@@ -5,10 +5,24 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { toast } from 'sonner';
-import { SquadDocument, SquadInvitationDocument, ISquadJoinRequest } from '@/lib/mongodb'; // Added ISquadJoinRequest
+import { Users, Crown, MapPin, Trophy, TrendingUp, UserPlus, Settings, LogOut, Copy, MessageSquare, Star } from "lucide-react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
+import { SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
+import { Separator } from "@/components/ui/separator";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
+import { SquadDocument, SquadInvitationDocument, ISquadJoinRequest } from '@/lib/mongodb';
 import UserAvatar from "@/components/UserAvatar";
-import { QuestProgressData, useSquadQuestProgressStore } from '@/store/useQuestProgressStore'; // Adjust path
-// import CommunityQuest from '@/models/communityQuest.model'; // This is the Mongoose model
+import { QuestProgressData, useSquadQuestProgressStore } from '@/store/useQuestProgressStore';
 import RequestToJoinModal from '@/components/modals/RequestToJoinModal';
 import { TOKEN_LABEL_POINTS } from '@/lib/labels';
 
@@ -59,7 +73,6 @@ const constructClientSignableMessage = (params: {
   return `DeFAI Squad Meetup Check-in: QuestID=${params.questId}, SquadID=${params.squadId}, Lat=${params.latitude.toFixed(6)}, Lon=${params.longitude.toFixed(6)}, Timestamp=${params.clientTimestampISO}`;
 };
 
-// Example: Placeholder for a Quest Card component
 const QuestCard = ({ quest, progress, squadId }: { quest: Quest, progress?: QuestProgressData, squadId: string | undefined }) => {
     const { publicKey, signMessage } = useWallet();
     const [isCheckingIn, setIsCheckingIn] = useState(false);
@@ -178,35 +191,72 @@ const QuestCard = ({ quest, progress, squadId }: { quest: Quest, progress?: Ques
     const percentage = displayGoal > 0 ? (displayProgress / displayGoal) * 100 : 0;
 
     return (
-        // Using Tailwind CSS classes for styling from a similar component in the project
-        <div className="bg-white border border-blue-200 rounded-xl p-5 shadow-md hover:shadow-lg transition-shadow duration-300">
-            <h4 className="text-lg font-semibold text-[#2B96F1] mb-2">{quest.title} <span className="text-xs font-normal text-muted-foreground">({quest.scope === 'squad' ? 'Squad Quest' : 'Community Quest'})</span></h4>
-            <p className="text-sm text-foreground mb-3 h-12 overflow-y-auto">{quest.description}</p>
-            <p className="text-sm text-muted-foreground font-medium">{goalDescription}</p>
-            
-            {/* Progress Bar - Conditionally render or adjust for meetup quests if needed */}
-            {quest.goal_type !== 'squad_meetup' && (
-                <div className="w-full bg-blue-100 rounded-full h-2.5 my-2">
-                    <div 
-                        className="bg-blue-500 h-2.5 rounded-full transition-all duration-500 ease-out"
-                        style={{ width: `${Math.min(percentage, 100)}%` }}
-                    >
-                    </div>
+        <Card className="hover:shadow-lg transition-shadow duration-300">
+            <CardHeader>
+                <div className="flex items-center justify-between">
+                    <CardTitle className="text-lg text-[#3366FF]">{quest.title}</CardTitle>
+                    <Badge variant={quest.scope === 'squad' ? 'default' : 'secondary'}>
+                        {quest.scope === 'squad' ? 'Squad Quest' : 'Community Quest'}
+                    </Badge>
                 </div>
-            )}
-            <p className="text-xs text-muted-foreground mb-1">
-                {quest.goal_type !== 'squad_meetup' ? 
-                    `${Math.round(percentage)}% complete (${displayProgress.toLocaleString()} / ${displayGoal.toLocaleString()})` : 
-                    (progress?.currentProgress ? `Meetups recorded: ${progress.currentProgress}` : 'No meetups recorded yet.')
-                }
-            </p>
-            
-            {additionalInfo}
+                <CardDescription className="h-12 overflow-y-auto">{quest.description}</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                <div className="text-sm text-muted-foreground font-medium">{goalDescription}</div>
+                
+                {quest.goal_type !== 'squad_meetup' && (
+                    <div className="space-y-2">
+                        <div className="flex justify-between text-sm">
+                            <span>Progress</span>
+                            <span>{Math.round(percentage)}%</span>
+                        </div>
+                        <Progress value={percentage} className="h-2" />
+                        <div className="text-xs text-muted-foreground">
+                            {displayProgress.toLocaleString()} / {displayGoal.toLocaleString()}
+                        </div>
+                    </div>
+                )}
+                
+                {quest.goal_type === 'squad_meetup' && (
+                    <div className="space-y-2">
+                        <div className="text-xs text-muted-foreground">
+                            Meetup Conditions: Within {quest.goal_target_metadata?.proximity_meters || 'N/A'} meters, 
+                            {quest.goal_target_metadata?.time_window_minutes || 'N/A'} minutes.
+                        </div>
+                        <Button 
+                            onClick={handleCheckIn}
+                            disabled={isCheckingIn || quest.status !== 'active' || !squadId || !publicKey}
+                            size="sm"
+                            className="w-full bg-[#3366FF] hover:bg-[#2952cc]"
+                        >
+                            <MapPin className="h-4 w-4 mr-2" />
+                            {isCheckingIn ? 'Checking in...' : 'Check-in for Meetup'}
+                        </Button>
+                        <div className="text-xs text-muted-foreground">
+                            {progress?.currentProgress ? `Meetups recorded: ${progress.currentProgress}` : 'No meetups recorded yet.'}
+                        </div>
+                    </div>
+                )}
 
-            {progress?.updatedAt && <p className="text-xs text-muted-foreground mt-2"><small>Last progress: {new Date(progress.updatedAt).toLocaleTimeString()}</small></p>}
-            {quest.status && <p className={`text-xs mt-1 font-semibold ${quest.status === 'active' ? 'text-green-600' : 'text-yellow-600'}`}>Status: {quest.status}</p>}
-            {quest.end_ts && <p className="text-xs text-muted-foreground"><small>Ends: {new Date(quest.end_ts).toLocaleDateString()}</small></p>}
-        </div>
+                <div className="flex items-center justify-between pt-2 border-t">
+                    <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                        {quest.status && (
+                            <Badge className={quest.status === 'active' ? 'bg-green-500' : 'bg-yellow-500'}>
+                                {quest.status}
+                            </Badge>
+                        )}
+                        {quest.end_ts && (
+                            <span>Ends: {new Date(quest.end_ts).toLocaleDateString()}</span>
+                        )}
+                    </div>
+                    {progress?.updatedAt && (
+                        <span className="text-xs text-muted-foreground">
+                            Updated: {new Date(progress.updatedAt).toLocaleTimeString()}
+                        </span>
+                    )}
+                </div>
+            </CardContent>
+        </Card>
     );
 };
 
@@ -716,200 +766,382 @@ export default function SquadDetailsPage() {
     setIsSubmittingJoinRequest(false);
   };
 
-  if (isLoading) return <main className="flex items-center justify-center min-h-screen bg-background text-foreground"><div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#2B96F1]"></div><p className='ml-3 text-foreground'>Loading...</p></main>;
-  if (error) return <main className="flex flex-col items-center justify-center min-h-screen bg-background text-foreground"><p className="text-xl mb-4">Error: {error}</p><Link href="/squads/browse"><button className='p-2 bg-[#2B96F1] text-white rounded-md hover:bg-blue-600'>Browse Squads</button></Link></main>;
-  if (!squadDetails) return <main className="flex flex-col items-center justify-center min-h-screen bg-background text-foreground"><p className="text-xl mb-4">Squad not found.</p><Link href="/squads/browse"><button className='p-2 bg-[#2B96F1] text-white rounded-md hover:bg-blue-600'>Browse Squads</button></Link></main>;
+  if (isLoading) return (
+    <SidebarInset>
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-[#3366FF]"></div>
+        <p className='ml-3'>Loading squad details...</p>
+      </div>
+    </SidebarInset>
+  );
+  
+  if (error) return (
+    <SidebarInset>
+      <div className="flex flex-col items-center justify-center min-h-screen">
+        <p className="text-xl mb-4">Error: {error}</p>
+        <Button asChild>
+          <Link href="/squads/browse">Browse Squads</Link>
+        </Button>
+      </div>
+    </SidebarInset>
+  );
+  
+  if (!squadDetails) return (
+    <SidebarInset>
+      <div className="flex flex-col items-center justify-center min-h-screen">
+        <p className="text-xl mb-4">Squad not found.</p>
+        <Button asChild>
+          <Link href="/squads/browse">Browse Squads</Link>
+        </Button>
+      </div>
+    </SidebarInset>
+  );
 
   return (
-    <main className="flex flex-col items-center min-h-screen p-4 sm:p-8 bg-background text-foreground">
-      <div className="w-full max-w-3xl mx-auto my-10 bg-card border border-border shadow-xl rounded-xl p-6 sm:p-8">
-        <div className="flex justify-between items-start mb-6">
-          <div>
-            {!isEditingSquad ? (
-              <h1 className="text-4xl font-bold font-spacegrotesk tracking-tight text-foreground">
-                {squadDetails?.name}
-              </h1>
-            ) : (
-              <h1 className="text-4xl font-bold font-spacegrotesk tracking-tight text-gray-800">
-                Edit Squad Info
-              </h1>
-            )}
-            {!isEditingSquad && squadDetails?.description && <p className="text-muted-foreground mt-1 text-sm">{squadDetails.description}</p>}
-          </div>
-          <div className="flex flex-col space-y-2 items-end flex-shrink-0 ml-4">
-            <Link href="/squads/browse" passHref>
-              <button className="bg-muted hover:bg-muted/80 text-foreground text-xs font-semibold py-1.5 px-3 rounded-md shadow-md hover:shadow-lg transform hover:scale-105 transition-all duration-150 ease-in-out w-full sm:w-auto">
-                  Browse Squads
-              </button>
-            </Link>
-            {isUserLeader && !isEditingSquad && (
-              <button 
-                onClick={() => {
-                  setEditableSquadName(squadDetails?.name || '');
-                  setEditableDescription(squadDetails?.description || '');
-                  setIsEditingSquad(true);
-                }}
-                className="bg-muted hover:bg-muted/80 text-foreground text-xs font-semibold py-1.5 px-3 rounded-md shadow-md hover:shadow-lg transform hover:scale-105 transition-all duration-150 ease-in-out w-full sm:w-auto"
-              >
-                Edit Info
-              </button>
-            )}
-          </div>
+    <SidebarInset>
+      <header className="flex h-16 shrink-0 items-center gap-2 transition-all ease-linear">
+        <div className="flex items-center gap-2 px-4">
+          <SidebarTrigger className="-ml-1" />
+          <Separator orientation="vertical" className="mr-2 h-4" />
+          <Breadcrumb>
+            <BreadcrumbList>
+              <BreadcrumbItem className="hidden md:block">
+                <BreadcrumbLink href="#">Platform</BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator className="hidden md:block" />
+              <BreadcrumbItem>
+                <BreadcrumbLink href="/squads">Squads</BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator className="hidden md:block" />
+              <BreadcrumbItem>
+                <BreadcrumbPage>{squadDetails?.name}</BreadcrumbPage>
+              </BreadcrumbItem>
+            </BreadcrumbList>
+          </Breadcrumb>
         </div>
-
-        {isEditingSquad && (
-          <form onSubmit={handleEditSquadSubmit} className="mb-6 p-6 bg-muted border border-border rounded-lg space-y-4">
-            <div>
-              <label htmlFor="editableSquadName" className="block text-sm font-medium text-foreground mb-1">Squad Name</label>
-              <input type="text" id="editableSquadName" value={editableSquadName} onChange={(e) => setEditableSquadName(e.target.value)} 
-                     className="w-full p-2 bg-background border border-input rounded-md text-foreground focus:ring-[#2B96F1] focus:border-[#2B96F1]" maxLength={30} />
-            </div>
-            <div>
-              <label htmlFor="editableDescription" className="block text-sm font-medium text-foreground mb-1">Description</label>
-              <textarea id="editableDescription" value={editableDescription} onChange={(e) => setEditableDescription(e.target.value)} 
-                        rows={3} className="w-full p-2 bg-background border border-input rounded-md text-foreground focus:ring-[#2B96F1] focus:border-[#2B96F1]" maxLength={150} />
-            </div>
-            <div className="flex justify-end space-x-3">
-              <button type="button" onClick={() => setIsEditingSquad(false)} disabled={isSavingEdit}
-                      className="py-2 px-4 bg-muted hover:bg-muted/80 text-foreground font-semibold rounded-md disabled:opacity-50">
-                Cancel
-              </button>
-              <button type="submit" disabled={isSavingEdit}
-                      className="py-2 px-4 bg-muted hover:bg-muted/80 text-foreground font-semibold rounded-md disabled:opacity-50">
-                {isSavingEdit ? 'Saving...' : 'Save Changes'}
-              </button>
-            </div>
-          </form>
-        )}
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-          <div className="p-4 bg-muted border border-border rounded-lg">
-            <h2 className="text-xs font-semibold text-purple-700 uppercase tracking-wider mb-1">Leader</h2>
-            <p className="text-foreground font-mono text-sm truncate" title={squadDetails.leaderWalletAddress}>{squadDetails.leaderWalletAddress.substring(0,10)}...</p>
-          </div>
-          <div className="p-4 bg-muted border border-border rounded-lg">
-            <h2 className="text-xs font-semibold text-purple-700 uppercase tracking-wider mb-1">Total Points</h2>
-            <p className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-pink-600 to-red-600">
-              {squadDetails.totalSquadPoints.toLocaleString()}
-            </p>
-          </div>
+        <div className="ml-auto flex items-center gap-4 px-4">
+          {isUserLeader && (
+            <Button size="sm" className="bg-[#3366FF] hover:bg-[#2952cc]">
+              <Settings className="h-4 w-4 mr-2" />
+              Manage Squad
+            </Button>
+          )}
         </div>
+      </header>
 
-        <div className="mb-8">
-          <h2 className="text-xl font-semibold text-foreground mb-3">Members ({squadDetails.membersFullDetails?.length || squadDetails.memberWalletAddresses.length} / {squadDetails.maxMembers || process.env.NEXT_PUBLIC_MAX_SQUAD_MEMBERS})</h2>
-          <ul className="space-y-2 max-h-72 overflow-y-auto bg-muted border border-border p-3 rounded-lg">
-            {squadDetails.membersFullDetails && squadDetails.membersFullDetails.length > 0 ? (
-              squadDetails.membersFullDetails.map(member => (
-                <li key={member.walletAddress} className="p-3 bg-background border border-border rounded text-sm text-foreground flex justify-between items-center hover:bg-muted transition-colors">
-                  <div className="flex items-center gap-3">
-                    <UserAvatar 
-                      profileImageUrl={member.xProfileImageUrl}
-                      username={member.xUsername}
-                      size="sm"
-                    />
-                    <div>
-                      <p className="text-xs text-muted-foreground">
-                        {member.xUsername ? `@${member.xUsername}` : `${member.walletAddress.substring(0,6)}...`} - 
-                        <span className="text-xs text-purple-700">{TOKEN_LABEL_POINTS}: {member.points?.toLocaleString() || '0'}</span>
-                      </p>
-                    </div>
+      <main className="flex-1 py-6">
+        <div className="container px-4 md:px-6">
+          <div className="grid gap-6">
+            {/* Squad Overview Section */}
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="text-3xl">{squadDetails?.name}</CardTitle>
+                    <CardDescription>{squadDetails?.description}</CardDescription>
                   </div>
-                  <div className="flex items-center space-x-2">
-                    {member.walletAddress === currentUserWalletAddress && <span className="text-xs px-2 py-1 bg-purple-500 text-white rounded-full">You</span>}
-                    {member.walletAddress === squadDetails.leaderWalletAddress && <span className="text-xs px-2 py-1 bg-yellow-400 text-black rounded-full">Leader</span>}
-                    {isUserLeader && member.walletAddress !== currentUserWalletAddress && (
-                      <>
-                        <button 
-                          onClick={() => handleTransferLeadership(member.walletAddress)}
-                          disabled={isKickingMember === member.walletAddress}
-                          className="px-2 py-1 text-xs bg-blue-500 hover:bg-blue-600 text-white rounded-md disabled:opacity-50 whitespace-nowrap"
-                          title="Transfer leadership to this member"
-                        >
-                          {isKickingMember === member.walletAddress ? 'Transferring...' : 'Make Leader'}
-                        </button>
-                      <button 
-                        onClick={() => handleKickMember(member.walletAddress)}
-                        disabled={isKickingMember === member.walletAddress}
-                          className="px-2 py-1 text-xs bg-red-500 hover:bg-red-600 text-white rounded-md disabled:opacity-50"
+                  <div className="flex items-center gap-2">
+                    {isUserLeader && (
+                      <Button 
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setEditableSquadName(squadDetails?.name || '');
+                          setEditableDescription(squadDetails?.description || '');
+                          setIsEditingSquad(true);
+                        }}
                       >
-                        {isKickingMember === member.walletAddress ? 'Kicking...' : 'Kick'}
-                      </button>
-                      </>
+                        <Settings className="h-4 w-4 mr-2" />
+                        Edit Info
+                      </Button>
                     )}
                   </div>
-                </li>
-              ))
-            ) : (
-              <li className="p-2 text-sm text-muted-foreground">No member details available or squad is empty.</li>
+                </div>
+              </CardHeader>
+            </Card>
+
+            {isEditingSquad && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Edit Squad Information</CardTitle>
+                  <CardDescription>Update your squad's name and description</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <form onSubmit={handleEditSquadSubmit} className="space-y-4">
+                    <div>
+                      <label htmlFor="editableSquadName" className="block text-sm font-medium mb-1">Squad Name</label>
+                      <input 
+                        type="text" 
+                        id="editableSquadName" 
+                        value={editableSquadName} 
+                        onChange={(e) => setEditableSquadName(e.target.value)} 
+                        className="w-full p-2 border rounded-md" 
+                        maxLength={30} 
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="editableDescription" className="block text-sm font-medium mb-1">Description</label>
+                      <textarea 
+                        id="editableDescription" 
+                        value={editableDescription} 
+                        onChange={(e) => setEditableDescription(e.target.value)} 
+                        rows={3} 
+                        className="w-full p-2 border rounded-md" 
+                        maxLength={150} 
+                      />
+                    </div>
+                    <div className="flex justify-end space-x-3">
+                      <Button type="button" variant="outline" onClick={() => setIsEditingSquad(false)} disabled={isSavingEdit}>
+                        Cancel
+                      </Button>
+                      <Button type="submit" disabled={isSavingEdit} className="bg-[#3366FF] hover:bg-[#2952cc]">
+                        {isSavingEdit ? 'Saving...' : 'Save Changes'}
+                      </Button>
+                    </div>
+                  </form>
+                </CardContent>
+              </Card>
             )}
-          </ul>
-        </div>
 
-        <div className="mt-8 border-t border-border pt-6">
-          {connected && isUserMember && !isUserLeader && (
-            <div className="mb-6">
-              <h3 className="text-lg font-semibold text-foreground mb-2">Squad Actions</h3>
-              <button 
-                onClick={handleLeaveSquad}
-                disabled={isLeaving}
-                className="w-full py-2.5 px-5 bg-destructive hover:bg-destructive/90 disabled:bg-muted text-white font-semibold rounded-lg shadow-md hover:shadow-lg transition-all duration-150 ease-in-out"
-              >
-                {isLeaving ? 'Leaving Squad...' : 'Leave Squad'}
-              </button>
+            {/* Stats Overview */}
+            <div className="grid gap-4 md:grid-cols-4">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Squad Leader</CardTitle>
+                  <Crown className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{squadDetails.leaderWalletAddress.substring(0,8)}...</div>
+                  <p className="text-xs text-muted-foreground">
+                    Squad commander
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Total Points</CardTitle>
+                  <Trophy className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{squadDetails.totalSquadPoints.toLocaleString()}</div>
+                  <p className="text-xs text-muted-foreground">
+                    Combined {TOKEN_LABEL_POINTS}
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Members</CardTitle>
+                  <Users className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {squadDetails.membersFullDetails?.length || squadDetails.memberWalletAddresses.length}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    / {squadDetails.maxMembers || process.env.NEXT_PUBLIC_MAX_SQUAD_MEMBERS} max
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Average Points</CardTitle>
+                  <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {squadDetails.membersFullDetails?.length ? 
+                      Math.round(squadDetails.totalSquadPoints / squadDetails.membersFullDetails.length).toLocaleString() : 
+                      '0'
+                    }
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Per member
+                  </p>
+                </CardContent>
+              </Card>
             </div>
-          )}
 
-          {isUserLeader && squadDetails && (
-            <div>
-              <h3 className="text-xl font-bold text-yellow-600 mb-4 text-center">Leader Tools</h3>
-              
-              {/* Join Requests Management - NEW SECTION */}
-              <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg mb-6">
-                <h4 className="text-md font-semibold text-yellow-800 mb-3">Pending Join Requests ({joinRequests.length})</h4>
-                {isFetchingJoinRequests && <p className="text-sm text-yellow-700">Loading join requests...</p>}
-                {!isFetchingJoinRequests && joinRequests.length === 0 && <p className="text-sm text-yellow-700">No pending join requests.</p>}
-                {!isFetchingJoinRequests && joinRequests.length > 0 && (
-                  <ul className="space-y-3 max-h-72 overflow-y-auto">
-                    {joinRequests.map(req => (
-                      <li key={req.requestId} className="p-3 bg-background border border-border rounded-md shadow-sm">
-                        <div className="flex items-start gap-3">
+            {/* Squad Members */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Squad Members</CardTitle>
+                <CardDescription>
+                  {squadDetails.membersFullDetails?.length || squadDetails.memberWalletAddresses.length} / {squadDetails.maxMembers || process.env.NEXT_PUBLIC_MAX_SQUAD_MEMBERS} members
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2 max-h-72 overflow-y-auto">
+                  {squadDetails.membersFullDetails && squadDetails.membersFullDetails.length > 0 ? (
+                    squadDetails.membersFullDetails.map(member => (
+                      <div key={member.walletAddress} className="flex items-center justify-between p-3 border rounded-lg hover:bg-accent/5 transition-colors">
+                        <div className="flex items-center gap-3">
                           <UserAvatar 
-                            profileImageUrl={req.requestingUserXProfileImageUrl}
-                            username={req.requestingUserXUsername}
+                            profileImageUrl={member.xProfileImageUrl}
+                            username={member.xUsername}
                             size="sm"
                           />
-                          <div className="flex-grow">
-                            <p className="text-sm font-semibold text-foreground">
-                              {req.requestingUserXUsername ? `@${req.requestingUserXUsername}` : `${req.requestingUserWalletAddress.substring(0,6)}...`}
+                          <div>
+                            <p className="font-medium">
+                              {member.xUsername ? `@${member.xUsername}` : `${member.walletAddress.substring(0,6)}...`}
                             </p>
-                            <p className="text-xs text-muted-foreground font-mono" title={req.requestingUserWalletAddress}>{req.requestingUserWalletAddress}</p>
-                            {req.message && <p className="text-xs text-muted-foreground mt-1 italic bg-muted p-1.5 rounded">{req.message}</p>}
+                            <p className="text-sm text-muted-foreground">
+                              {member.points?.toLocaleString() || '0'} {TOKEN_LABEL_POINTS}
+                            </p>
                           </div>
                         </div>
-                        <div className="mt-3 flex space-x-2 justify-end">
-                          <button 
-                            onClick={() => handleProcessJoinRequest(req.requestId, 'reject')}
-                            disabled={isProcessingJoinRequest === req.requestId}
-                            className="px-3 py-1 text-xs bg-red-500 hover:bg-red-600 text-white rounded-md disabled:opacity-60"
-                          >
-                            {isProcessingJoinRequest === req.requestId ? 'Rejecting...' : 'Reject'}
-                          </button>
-                          <button 
-                            onClick={() => handleProcessJoinRequest(req.requestId, 'approve')}
-                            disabled={isProcessingJoinRequest === req.requestId}
-                            className="px-3 py-1 text-xs bg-green-500 hover:bg-green-600 text-white rounded-md disabled:opacity-60"
-                          >
-                            {isProcessingJoinRequest === req.requestId ? 'Approving...' : 'Approve'}
-                          </button>
+                        <div className="flex items-center gap-2">
+                          {member.walletAddress === currentUserWalletAddress && (
+                            <Badge variant="secondary">You</Badge>
+                          )}
+                          {member.walletAddress === squadDetails.leaderWalletAddress && (
+                            <Badge className="bg-yellow-500">Leader</Badge>
+                          )}
+                          {isUserLeader && member.walletAddress !== currentUserWalletAddress && (
+                            <div className="flex gap-1">
+                              <Button 
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleTransferLeadership(member.walletAddress)}
+                                disabled={isKickingMember === member.walletAddress}
+                              >
+                                {isKickingMember === member.walletAddress ? 'Transferring...' : 'Make Leader'}
+                              </Button>
+                              <Button 
+                                size="sm"
+                                variant="destructive"
+                                onClick={() => handleKickMember(member.walletAddress)}
+                                disabled={isKickingMember === member.walletAddress}
+                              >
+                                {isKickingMember === member.walletAddress ? 'Kicking...' : 'Kick'}
+                              </Button>
+                            </div>
+                          )}
                         </div>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-center py-8 text-muted-foreground">
+                      No member details available or squad is empty.
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
 
-              <div className="p-4 bg-muted border border-border rounded-lg mb-6">
-                <h4 className="text-md font-semibold text-foreground mb-2">Invite New Member:</h4>
+            {/* Member Actions */}
+            {connected && isUserMember && !isUserLeader && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Squad Actions</CardTitle>
+                  <CardDescription>Manage your squad membership</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button 
+                    onClick={handleLeaveSquad}
+                    disabled={isLeaving}
+                    variant="destructive"
+                    className="w-full"
+                  >
+                    <LogOut className="h-4 w-4 mr-2" />
+                    {isLeaving ? 'Leaving Squad...' : 'Leave Squad'}
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Leader Tools */}
+            {isUserLeader && squadDetails && (
+              <div className="space-y-6">
+                <div className="text-center">
+                  <h3 className="text-xl font-bold text-[#3366FF] mb-2">Leader Dashboard</h3>
+                  <p className="text-muted-foreground text-sm">Manage your squad and members</p>
+                </div>
+                {/* Join Requests Management */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <MessageSquare className="h-4 w-4" />
+                      Pending Join Requests
+                    </CardTitle>
+                    <CardDescription>
+                      {joinRequests.length} pending requests to review
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {isFetchingJoinRequests && (
+                      <div className="text-center py-4">
+                        <div className="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-[#3366FF]"></div>
+                        <p className="mt-2 text-sm text-muted-foreground">Loading join requests...</p>
+                      </div>
+                    )}
+                    {!isFetchingJoinRequests && joinRequests.length === 0 && (
+                      <div className="text-center py-8 text-muted-foreground">
+                        No pending join requests
+                      </div>
+                    )}
+                    {!isFetchingJoinRequests && joinRequests.length > 0 && (
+                      <div className="space-y-3 max-h-72 overflow-y-auto">
+                        {joinRequests.map(req => (
+                          <div key={req.requestId} className="p-3 border rounded-lg">
+                            <div className="flex items-start gap-3">
+                              <UserAvatar 
+                                profileImageUrl={req.requestingUserXProfileImageUrl}
+                                username={req.requestingUserXUsername}
+                                size="sm"
+                              />
+                              <div className="flex-grow">
+                                <p className="font-semibold">
+                                  {req.requestingUserXUsername ? `@${req.requestingUserXUsername}` : `${req.requestingUserWalletAddress.substring(0,6)}...`}
+                                </p>
+                                <p className="text-xs text-muted-foreground font-mono" title={req.requestingUserWalletAddress}>
+                                  {req.requestingUserWalletAddress}
+                                </p>
+                                {req.message && (
+                                  <p className="text-xs text-muted-foreground mt-1 italic bg-accent p-2 rounded">
+                                    {req.message}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                            <div className="mt-3 flex gap-2 justify-end">
+                              <Button 
+                                size="sm"
+                                variant="destructive"
+                                onClick={() => handleProcessJoinRequest(req.requestId, 'reject')}
+                                disabled={isProcessingJoinRequest === req.requestId}
+                              >
+                                {isProcessingJoinRequest === req.requestId ? 'Rejecting...' : 'Reject'}
+                              </Button>
+                              <Button 
+                                size="sm"
+                                className="bg-green-600 hover:bg-green-700"
+                                onClick={() => handleProcessJoinRequest(req.requestId, 'approve')}
+                                disabled={isProcessingJoinRequest === req.requestId}
+                              >
+                                {isProcessingJoinRequest === req.requestId ? 'Approving...' : 'Approve'}
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Invite Members */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <UserPlus className="h-4 w-4" />
+                      Invite New Member
+                    </CardTitle>
+                    <CardDescription>Send invitations to expand your squad</CardDescription>
+                  </CardHeader>
+                  <CardContent>
                 <div className="flex mb-4 bg-muted rounded-lg p-1 w-fit">
                   <button 
                     onClick={() => setInviteType('wallet')}
@@ -1006,9 +1238,8 @@ export default function SquadDetailsPage() {
                     )}
                   </div>
                 )}
-              </div>
-
-              <div className="p-4 bg-muted border border-border rounded-lg mb-6">
+                
+                <div className="p-4 bg-muted border border-border rounded-lg mb-6">
                 <h4 className="text-md font-semibold text-foreground mb-2">Pending Invites Sent:</h4>
                 {isFetchingSentInvites && <p className="text-sm text-gray-500">Loading sent invites...</p>}
                 {!isFetchingSentInvites && sentPendingInvites.length === 0 && <p className="text-sm text-gray-500">No pending invites sent from this squad.</p>}
@@ -1069,46 +1300,70 @@ export default function SquadDetailsPage() {
                 </button>
               </div>
               <p className="text-xs text-gray-500 mt-4 text-center">Kick members directly from the member list above.</p>
-            </div>
-          )}
-        </div>
-
-        {/* 'Request to Join' button for non-members */}
-        {connected && !isUserMember && squadDetails && (
-          <div className="mt-8 border-t border-gray-300 pt-6 text-center">
-            {hasPendingRequestForThisSquad ? (
-              <button 
-                disabled
-                className="py-2.5 px-6 bg-yellow-200 text-yellow-700 font-semibold rounded-lg cursor-not-allowed"
-              >
-                Request Pending
-              </button>
-            ) : (
-              <button 
-                onClick={handleOpenRequestModal}
-                className="py-2.5 px-6 bg-sky-500 hover:bg-sky-600 text-white font-semibold rounded-lg shadow-md hover:shadow-lg transition-all duration-150 ease-in-out"
-              >
-                Request to Join Squad
-              </button>
+                  </CardContent>
+                </Card>
+              </div>
             )}
-          </div>
-        )}
 
-        {/* Quest Display Section */}
-        <div className="mb-8 border-b border-gray-200 pb-6">
-          <h3 className="text-2xl font-semibold text-gray-800 mb-4">Active Squad Quests</h3>
-          {isLoadingQuests && <div className="flex items-center justify-center text-gray-500"><div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-purple-500 mr-2"></div>Loading quests...</div>}
-          {!isLoadingQuests && activeSquadQuests.length === 0 && <p className="text-gray-500">No active squad quests currently.</p>}
-          {!isLoadingQuests && activeSquadQuests.length > 0 && (
-            <div className="space-y-4">
-              {activeSquadQuests.map(quest => (
-                <QuestCard key={quest._id} quest={quest} progress={squadProgressMap[quest._id]} squadId={squadDetails?.squadId} />
-              ))}
-            </div>
-          )}
+            {/* Request to Join for non-members */}
+            {connected && !isUserMember && squadDetails && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Join This Squad</CardTitle>
+                  <CardDescription>Send a request to join this squad</CardDescription>
+                </CardHeader>
+                <CardContent className="text-center">
+                  {hasPendingRequestForThisSquad ? (
+                    <Button disabled variant="outline" className="w-full">
+                      <MessageSquare className="h-4 w-4 mr-2" />
+                      Request Pending
+                    </Button>
+                  ) : (
+                    <Button 
+                      onClick={handleOpenRequestModal}
+                      className="w-full bg-[#3366FF] hover:bg-[#2952cc]"
+                    >
+                      <UserPlus className="h-4 w-4 mr-2" />
+                      Request to Join Squad
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Squad Quests */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Star className="h-4 w-4" />
+                  Active Squad Quests
+                </CardTitle>
+                <CardDescription>Complete quests together as a squad</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {isLoadingQuests && (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-[#3366FF]"></div>
+                    <p className="ml-2 text-muted-foreground">Loading quests...</p>
+                  </div>
+                )}
+                {!isLoadingQuests && activeSquadQuests.length === 0 && (
+                  <div className="text-center py-8 text-muted-foreground">
+                    No active squad quests currently
+                  </div>
+                )}
+                {!isLoadingQuests && activeSquadQuests.length > 0 && (
+                  <div className="space-y-4">
+                    {activeSquadQuests.map(quest => (
+                      <QuestCard key={quest._id} quest={quest} progress={squadProgressMap[quest._id]} squadId={squadDetails?.squadId} />
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
         </div>
-        {/* End Quest Display Section */}
-      </div>
+      </main>
 
       {/* Request To Join Modal */}
       {squadDetails && (
@@ -1121,6 +1376,6 @@ export default function SquadDetailsPage() {
           isSubmitting={isSubmittingJoinRequest}
         />
       )}
-    </main>
+    </SidebarInset>
   );
 } 

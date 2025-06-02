@@ -2,12 +2,14 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
-// import { AirSnapshotResponse } from '@/app/api/air/my-snapshot/route'; // Assuming type export
-// import { AirNft } from '@/app/api/air/my-nfts/route'; // Assuming type export
+import { Zap, Wallet, TrendingUp, ExternalLink, Info, Package, Gift } from 'lucide-react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
 import { AIR_NFT_TIERS } from '@/config/airNft.config';
-import { toast } from 'sonner'; // For error notifications
+import { toast } from 'sonner';
 import MyAirInfoModal from './MyAirInfoModal';
-import { InformationCircleIcon } from '@heroicons/react/24/outline';
 
 // Updated type definitions based on the plan
 interface TierCount {
@@ -162,194 +164,376 @@ const MyAirPanel: React.FC<MyAirPanelProps> = () => {
   };
 
   if (authStatus === 'loading') return (
-    <div className="max-w-3xl mx-auto p-6 space-y-6">
-      <p className="text-center text-lg">Loading session...</p>
-    </div>
-  );
-  if (authStatus !== 'authenticated' || !session) return (
-    <div className="max-w-3xl mx-auto p-6 space-y-6">
-      <p className="text-center text-lg">Please log in to see your AIR status.</p>
+    <div className="p-6 space-y-6">
+      <div className="flex items-center justify-center py-8">
+        <div className="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-[#3366FF]"></div>
+        <p className="ml-2 text-muted-foreground">Loading session...</p>
+      </div>
     </div>
   );
   
-  // Tier specific styles
-  const tierStyles: { [key: number]: string } = {
-    1: 'bg-yellow-600/10 border-yellow-600', // Bronze
-    2: 'bg-gray-400/10 border-gray-400',    // Silver
-    3: 'bg-yellow-400/10 border-yellow-400', // Gold
+  if (authStatus !== 'authenticated' || !session) return (
+    <div className="p-6 space-y-6">
+      <Card>
+        <CardContent className="text-center py-8">
+          <Wallet className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+          <h3 className="text-lg font-medium mb-2">Wallet Required</h3>
+          <p className="text-muted-foreground">Please connect your wallet to view your AIR status.</p>
+        </CardContent>
+      </Card>
+    </div>
+  );
+  
+  // Tier specific styles for badges
+  const getTierBadgeVariant = (tier: number) => {
+    switch (tier) {
+      case 1: return 'default'; // Bronze
+      case 2: return 'secondary'; // Silver
+      case 3: return 'outline'; // Gold
+      default: return 'outline';
+    }
+  };
+
+  const getTierColor = (tier: number) => {
+    switch (tier) {
+      case 1: return 'text-yellow-600'; // Bronze
+      case 2: return 'text-gray-500'; // Silver
+      case 3: return 'text-yellow-500'; // Gold
+      default: return 'text-gray-500';
+    }
   };
 
   return (
-    <div className="max-w-4xl mx-auto bg-white p-4 sm:p-6 space-y-8">
-      {/* Snapshot Section */}
-      <section>
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-2xl sm:text-3xl font-semibold text-gray-800">My AIR Status</h2>
-          <button 
-            onClick={() => setIsInfoModalOpen(true)}
-            className="p-2 rounded-full hover:bg-gray-200 text-gray-500 hover:text-primary transition-colors"
-            title="How AIR works"
-          >
-            <InformationCircleIcon className="h-7 w-7" />
-            <span className="sr-only">How AIR works</span>
-          </button>
-        </div>
-        {isLoadingSnapshot ? (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {[1,2,3].map(i => (
-              <div key={i} className="bg-gray-100 p-4 rounded-lg shadow animate-pulse h-32">
-                <div className="h-4 bg-gray-300 rounded w-3/4 mb-2"></div>
-                <div className="h-6 bg-gray-300 rounded w-1/2"></div>
-              </div>
-            ))}
+    <div className="p-6 space-y-6">
+      {/* AIR Status Section */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Zap className="h-5 w-5" />
+                My AIR Status
+              </CardTitle>
+              <CardDescription>Track your AIR points and legacy balance</CardDescription>
+            </div>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => setIsInfoModalOpen(true)}
+            >
+              <Info className="h-4 w-4 mr-2" />
+              How AIR Works
+            </Button>
           </div>
-        ) : errorSnapshot ? (
-          <p className="text-red-500 bg-red-100 p-3 rounded-md">Could not load AIR status: {errorSnapshot}</p>
-        ) : snapshot ? (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-blue-50 p-4 rounded-lg shadow">
-              <h3 className="text-sm font-medium text-blue-700">Current AIR Points</h3>
-              <p className="text-3xl font-bold text-blue-900">{snapshot.airPoints?.toLocaleString() || '0'}</p>
-            </div>
-            <div className="bg-green-50 p-4 rounded-lg shadow">
-              <h3 className="text-sm font-medium text-green-700">Legacy DeFAI Balance</h3>
-              <p className="text-3xl font-bold text-green-900">{snapshot.legacyDefai?.toLocaleString() || 'N/A'}</p>
-            </div>
-            <div className="bg-purple-50 p-4 rounded-lg shadow">
-              <h3 className="text-sm font-medium text-purple-700">Wallet</h3>
-              <p className="text-lg font-semibold text-purple-900 truncate" title={snapshot.wallet}>{snapshot.wallet ? `${snapshot.wallet.substring(0,6)}...${snapshot.wallet.substring(snapshot.wallet.length - 4)}` : 'N/A'}</p>
-            </div>
-            {snapshot.avgBuyPriceUsd !== undefined && snapshot.avgBuyPriceUsd > 0 && (
-                 <div className="bg-indigo-50 p-4 rounded-lg shadow md:col-span-3">
-                    <h3 className="text-sm font-medium text-indigo-700">Avg. Legacy Buy Price (USD)</h3>
-                    <p className="text-xl font-bold text-indigo-900">${snapshot.avgBuyPriceUsd.toFixed(4)}</p>
-                </div>
-            )}
-          </div>
-        ) : (
-          <p className="text-gray-500">No snapshot data available.</p>
-        )}
-      </section>
-
-      <hr className="my-6" />
-
-      {/* Mint AIR NFTs Section */}
-      <section>
-        <h2 className="text-2xl sm:text-3xl font-semibold mb-4 text-gray-800">Mint AIR NFTs</h2>
-        {isLoadingSnapshot ? ( // Use snapshot loading state as it contains points needed for minting
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {[1,2,3].map(i => (
-                    <div key={i} className="border border-gray-200 rounded-lg p-4 animate-pulse">
-                        <div className="h-5 bg-gray-300 rounded w-1/2 mb-2"></div>
-                        <div className="h-3 bg-gray-300 rounded w-3/4 mb-1"></div>
-                        <div className="h-3 bg-gray-300 rounded w-2/3 mb-1"></div>
-                        <div className="h-3 bg-gray-300 rounded w-1/2 mb-3"></div>
-                        <div className="h-8 bg-gray-300 rounded w-full"></div>
-                    </div>
-                ))}
-            </div>
-        ) : snapshot && AIR_NFT_TIERS.map(tier => {
-          const tierData = snapshot.tierCounts?.[String(tier.tier)] || { minted: 0, available: tier.cap };
-          const remainingSupply = tier.cap - tierData.minted;
-          const canAfford = snapshot.airPoints >= tier.pointsPerNft;
-          const isSoldOut = remainingSupply <= 0;
-          const canMint = canAfford && !isSoldOut && !mintingTier;
-
-          return (
-            <div key={tier.tier} className={`border rounded-lg p-4 mb-4 shadow-sm ${tierStyles[tier.tier] || 'bg-gray-50 border-gray-200'}`}>
-              <h3 className="text-xl font-semibold mb-1 text-gray-700">{tier.name} AIR NFT <span className="text-sm font-normal">(Tier {tier.tier})</span></h3>
-              <p className="text-sm text-gray-600">Cost: {tier.pointsPerNft.toLocaleString()} AIR Points</p>
-              <p className="text-sm text-gray-600">Bonus: {(tier.bonusPct * 100).toFixed(0)}% (on underlying DEFAI)</p>
-              <p className="text-sm text-gray-600">Max Supply: {tier.cap.toLocaleString()}</p>
-              <p className={`text-sm font-medium ${remainingSupply > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                Remaining: {remainingSupply.toLocaleString()} / {tier.cap.toLocaleString()}
-              </p>
-              <button
-                onClick={() => handleMintNft(tier.tier)}
-                disabled={!canMint || mintingTier === tier.tier}
-                className={`mt-3 w-full px-4 py-2 rounded-md text-sm font-medium transition-colors
-                  ${!canMint ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-primary hover:bg-primary/90 text-white'}
-                  ${mintingTier === tier.tier ? 'opacity-70 cursor-wait' : ''}`}
-              >
-                {mintingTier === tier.tier ? 'Processing...' : 
-                  isSoldOut ? 'Sold Out' : 
-                  !canAfford ? 'Insufficient Points' : 
-                  'Mint This NFT'}
-              </button>
-            </div>
-          );
-        })}
-        {mintingMessage && !errorSnapshot && <p className="mt-2 text-center text-blue-600">{mintingMessage}</p>}
-      </section>
-      
-      <hr className="my-6" />
-
-      {/* My Owned AIR NFTs Section */}
-      <section>
-        <h2 className="text-2xl sm:text-3xl font-semibold mb-4 text-gray-800">My Owned AIR NFTs</h2>
-        {isLoadingNfts ? (
-            <div className="overflow-x-auto pb-4">
-                <div className="flex space-x-4">
-                    {[1,2,3].map(i => (
-                        <div key={i} className="min-w-[200px] h-48 bg-gray-100 border border-gray-200 rounded-lg p-4 animate-pulse">
-                            <div className="h-16 bg-gray-300 rounded mb-2"></div>
-                            <div className="h-4 bg-gray-300 rounded w-3/4 mb-1"></div>
-                            <div className="h-3 bg-gray-300 rounded w-1/2"></div>
-                        </div>
-                    ))}
-                </div>
-            </div>
-        ) : errorNfts ? (
-          <p className="text-red-500 bg-red-100 p-3 rounded-md">Could not load your NFTs: {errorNfts}</p>
-        ) : myNfts.length > 0 ? (
-          <div className="overflow-x-auto pb-4">
-            <div className="flex space-x-4">
-              {myNfts.map(nft => (
-                <div key={nft.tokenId} className={`min-w-[220px] border rounded-lg p-4 shadow-md ${tierStyles[nft.tier] || 'bg-gray-50 border-gray-300'}`}>
-                  {nft.imageUrl && (
-                    <img src={nft.imageUrl} alt={nft.name} className="w-full h-32 object-cover rounded-md mb-2 bg-gray-200" />
-                  )}
-                  {!nft.imageUrl && (
-                    <div className="w-full h-32 bg-gray-200 rounded-md mb-2 flex items-center justify-center text-gray-400">No Image</div>
-                  )}
-                  <h4 className="text-md font-semibold truncate text-gray-800" title={nft.name}>{nft.name} (Tier {nft.tier})</h4>
-                  <p className="text-xs text-gray-600">Bonus: {(nft.bonusPct * 100).toFixed(0)}%</p>
-                  <p className="text-xs text-gray-500 truncate" title={nft.tokenId}>Token ID: {nft.tokenId}</p>
-                  {nft.mintTx && (
-                    <a 
-                      href={`https://solscan.io/tx/${nft.mintTx}?cluster=mainnet-beta`} // Adjust cluster as needed
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="text-xs text-blue-500 hover:underline mt-1 block"
-                    >
-                      View Transaction
-                    </a>
-                  )}
-                </div>
+        </CardHeader>
+        <CardContent>
+          {isLoadingSnapshot ? (
+            <div className="grid gap-4 md:grid-cols-4">
+              {[1,2,3,4].map(i => (
+                <Card key={i}>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <div className="h-4 bg-muted rounded w-1/2 animate-pulse"></div>
+                    <div className="h-4 w-4 bg-muted rounded animate-pulse"></div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="h-8 bg-muted rounded w-3/4 animate-pulse"></div>
+                  </CardContent>
+                </Card>
               ))}
             </div>
-          </div>
-        ) : (
-          <div className="text-center py-8 px-4 border-2 border-dashed border-gray-300 rounded-lg">
-            <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-              <path vectorEffect="non-scaling-stroke" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 13h6m-3-3v6m-9 1V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
-            </svg>
-            <h3 className="mt-2 text-sm font-medium text-gray-900">No AIR NFTs Yet</h3>
-            <p className="mt-1 text-sm text-gray-500">Once you mint AIR NFTs, they will appear here.</p>
-            {snapshot && snapshot.airPoints > 0 && AIR_NFT_TIERS.some(tier => snapshot.airPoints >= tier.pointsPerNft && (tier.cap - (snapshot.tierCounts?.[String(tier.tier)]?.minted || 0) > 0)) ? (
-                 <p className="mt-1 text-sm text-gray-500">You have enough points to mint some now!</p>
-            ) : snapshot && snapshot.airPoints > 0 ? (
-                 <p className="mt-1 text-sm text-gray-500">Earn more AIR points to mint your first NFT.</p>
-            ) : (
-                 <p className="mt-1 text-sm text-gray-500">Start by earning AIR points!</p>
-            )}
-          </div>
-        )}
-      </section>
+          ) : errorSnapshot ? (
+            <Card className="border-destructive">
+              <CardContent className="text-center py-6">
+                <p className="text-destructive">Could not load AIR status: {errorSnapshot}</p>
+              </CardContent>
+            </Card>
+          ) : snapshot ? (
+            <div className="grid gap-4 md:grid-cols-4">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">AIR Points</CardTitle>
+                  <Zap className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{snapshot.airPoints?.toLocaleString() || '0'}</div>
+                  <p className="text-xs text-muted-foreground">Available to mint</p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Legacy DeFAI</CardTitle>
+                  <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{snapshot.legacyDefai?.toLocaleString() || 'N/A'}</div>
+                  <p className="text-xs text-muted-foreground">Legacy balance</p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Wallet</CardTitle>
+                  <Wallet className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-lg font-semibold font-mono" title={snapshot.wallet}>
+                    {snapshot.wallet ? `${snapshot.wallet.substring(0,6)}...${snapshot.wallet.substring(snapshot.wallet.length - 4)}` : 'N/A'}
+                  </div>
+                  <p className="text-xs text-muted-foreground">Connected wallet</p>
+                </CardContent>
+              </Card>
+
+              {snapshot.avgBuyPriceUsd !== undefined && snapshot.avgBuyPriceUsd > 0 && (
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Avg Buy Price</CardTitle>
+                    <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-xl font-bold">${snapshot.avgBuyPriceUsd.toFixed(4)}</div>
+                    <p className="text-xs text-muted-foreground">USD per token</p>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          ) : (
+            <Card>
+              <CardContent className="text-center py-6">
+                <p className="text-muted-foreground">No snapshot data available.</p>
+              </CardContent>
+            </Card>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Mint AIR NFTs Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Gift className="h-5 w-5" />
+            Mint AIR NFTs
+          </CardTitle>
+          <CardDescription>Convert your AIR points into exclusive NFTs with bonus rewards</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {isLoadingSnapshot ? (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {[1,2,3].map(i => (
+                <Card key={i}>
+                  <CardHeader>
+                    <div className="h-5 bg-muted rounded w-1/2 animate-pulse mb-2"></div>
+                    <div className="h-3 bg-muted rounded w-3/4 animate-pulse"></div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      <div className="h-3 bg-muted rounded animate-pulse"></div>
+                      <div className="h-3 bg-muted rounded animate-pulse"></div>
+                      <div className="h-8 bg-muted rounded animate-pulse mt-4"></div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : snapshot ? (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {AIR_NFT_TIERS.map(tier => {
+                const tierData = snapshot.tierCounts?.[String(tier.tier)] || { minted: 0, available: tier.cap };
+                const remainingSupply = tier.cap - tierData.minted;
+                const supplyProgress = (tierData.minted / tier.cap) * 100;
+                const canAfford = snapshot.airPoints >= tier.pointsPerNft;
+                const isSoldOut = remainingSupply <= 0;
+                const canMint = canAfford && !isSoldOut && !mintingTier;
+
+                return (
+                  <Card key={tier.tier} className={`${isSoldOut ? 'opacity-75' : ''}`}>
+                    <CardHeader>
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="text-lg">{tier.name} NFT</CardTitle>
+                        <Badge variant={getTierBadgeVariant(tier.tier)}>
+                          Tier {tier.tier}
+                        </Badge>
+                      </div>
+                      <CardDescription className={getTierColor(tier.tier)}>
+                        {(tier.bonusPct * 100).toFixed(0)}% bonus on underlying DeFAI
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="space-y-2">
+                        <div className="flex justify-between text-sm">
+                          <span>Cost:</span>
+                          <span className="font-medium">{tier.pointsPerNft.toLocaleString()} AIR</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span>Supply:</span>
+                          <span className="font-medium">{remainingSupply.toLocaleString()} / {tier.cap.toLocaleString()}</span>
+                        </div>
+                        <div className="space-y-1">
+                          <div className="flex justify-between text-xs text-muted-foreground">
+                            <span>Minted</span>
+                            <span>{Math.round(supplyProgress)}%</span>
+                          </div>
+                          <Progress value={supplyProgress} className="h-2" />
+                        </div>
+                      </div>
+
+                      <Button
+                        onClick={() => handleMintNft(tier.tier)}
+                        disabled={!canMint || mintingTier === tier.tier}
+                        className="w-full"
+                        variant={canMint ? "default" : "outline"}
+                      >
+                        {mintingTier === tier.tier ? (
+                          <>
+                            <div className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                            Processing...
+                          </>
+                        ) : isSoldOut ? (
+                          'Sold Out'
+                        ) : !canAfford ? (
+                          'Insufficient Points'
+                        ) : (
+                          'Mint This NFT'
+                        )}
+                      </Button>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          ) : (
+            <Card>
+              <CardContent className="text-center py-6">
+                <p className="text-muted-foreground">Load your AIR status to see available NFTs.</p>
+              </CardContent>
+            </Card>
+          )}
+          {mintingMessage && !errorSnapshot && (
+            <div className="mt-4 text-center">
+              <p className="text-sm text-[#3366FF]">{mintingMessage}</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* My Owned AIR NFTs Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Package className="h-5 w-5" />
+            My AIR NFTs
+          </CardTitle>
+          <CardDescription>Your collection of minted AIR NFTs</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {isLoadingNfts ? (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {[1,2,3].map(i => (
+                <Card key={i}>
+                  <CardHeader>
+                    <div className="h-32 bg-muted rounded animate-pulse mb-2"></div>
+                    <div className="h-4 bg-muted rounded w-3/4 animate-pulse"></div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="h-3 bg-muted rounded animate-pulse"></div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : errorNfts ? (
+            <Card className="border-destructive">
+              <CardContent className="text-center py-6">
+                <p className="text-destructive">Could not load your NFTs: {errorNfts}</p>
+              </CardContent>
+            </Card>
+          ) : myNfts.length > 0 ? (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {myNfts.map(nft => (
+                <Card key={nft.tokenId}>
+                  <CardHeader className="pb-2">
+                    {nft.imageUrl ? (
+                      <img 
+                        src={nft.imageUrl} 
+                        alt={nft.name} 
+                        className="w-full h-32 object-cover rounded-md bg-muted" 
+                      />
+                    ) : (
+                      <div className="w-full h-32 bg-muted rounded-md flex items-center justify-center">
+                        <Package className="h-8 w-8 text-muted-foreground" />
+                      </div>
+                    )}
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <h4 className="font-semibold truncate" title={nft.name}>
+                          {nft.name}
+                        </h4>
+                        <Badge variant={getTierBadgeVariant(nft.tier)}>
+                          Tier {nft.tier}
+                        </Badge>
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        {(nft.bonusPct * 100).toFixed(0)}% bonus
+                      </p>
+                      <p className="text-xs text-muted-foreground font-mono truncate" title={nft.tokenId}>
+                        ID: {nft.tokenId}
+                      </p>
+                      {nft.mintTx && (
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="w-full" 
+                          asChild
+                        >
+                          <a 
+                            href={`https://solscan.io/tx/${nft.mintTx}?cluster=mainnet-beta`}
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                          >
+                            <ExternalLink className="h-3 w-3 mr-2" />
+                            View Transaction
+                          </a>
+                        </Button>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <Card>
+              <CardContent className="text-center py-12">
+                <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-lg font-medium mb-2">No AIR NFTs Yet</h3>
+                <p className="text-muted-foreground mb-4">
+                  Once you mint AIR NFTs, they will appear here.
+                </p>
+                {snapshot && snapshot.airPoints > 0 && AIR_NFT_TIERS.some(tier => 
+                  snapshot.airPoints >= tier.pointsPerNft && 
+                  (tier.cap - (snapshot.tierCounts?.[String(tier.tier)]?.minted || 0) > 0)
+                ) ? (
+                  <p className="text-sm text-[#3366FF] font-medium">
+                    You have enough points to mint some now!
+                  </p>
+                ) : snapshot && snapshot.airPoints > 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    Earn more AIR points to mint your first NFT.
+                  </p>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    Start by earning AIR points!
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          )}
+        </CardContent>
+      </Card>
 
       <MyAirInfoModal isOpen={isInfoModalOpen} onClose={() => setIsInfoModalOpen(false)} />
     </div>
   );
 };
 
-export default MyAirPanel; 
+export default MyAirPanel;

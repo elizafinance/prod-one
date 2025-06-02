@@ -2,7 +2,20 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-// import { useRouter } from 'next/navigation'; // Not used directly now
+import { Plus, Star, Target, Gift, Clock, Filter, Edit, Trash2 } from "lucide-react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
+import { Separator } from "@/components/ui/separator";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
 import { TOKEN_LABEL_POINTS } from '@/lib/labels';
 
 // Define the structure of the quest data from the admin API
@@ -143,140 +156,279 @@ export default function AdminQuestsPage() {
   // although API is the main security gate.
 
   if (isLoading) {
-    return <div className="p-8 text-center text-muted-foreground">Loading quests...</div>;
+    return (
+      <SidebarInset>
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-[#3366FF]"></div>
+          <p className='ml-3'>Loading quests...</p>
+        </div>
+      </SidebarInset>
+    );
   }
 
   if (error) {
-    return <div className="p-8 text-center text-destructive">Error: {error}</div>;
+    return (
+      <SidebarInset>
+        <div className="flex flex-col items-center justify-center min-h-screen">
+          <p className="text-lg text-destructive mb-4">Error: {error}</p>
+          <Button onClick={() => window.location.reload()}>Try Again</Button>
+        </div>
+      </SidebarInset>
+    );
   }
 
+  const activeQuests = quests.filter(q => q.status === 'active');
+  const completedQuests = quests.filter(q => q.status === 'succeeded');
+  const communityQuests = quests.filter(q => q.scope === 'community');
+  const squadQuests = quests.filter(q => q.scope === 'squad');
+
   return (
-    <div className="container mx-auto px-4 py-8 min-h-screen bg-background">
-      <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold text-foreground">Admin: Community Quests</h1>
-        <Link href="/admin/quests/new" className="bg-[#2B96F1] hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-md shadow-md transition-colors flex items-center gap-2">
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-            <path fillRule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clipRule="evenodd" />
-          </svg>
-          Create New Quest
-        </Link>
-      </div>
+    <SidebarInset>
+      <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-[[data-collapsible=icon]]/sidebar-wrapper:h-12">
+        <div className="flex items-center gap-2 px-4">
+          <SidebarTrigger className="-ml-1" />
+          <Separator orientation="vertical" className="mr-2 h-4" />
+          <Breadcrumb>
+            <BreadcrumbList>
+              <BreadcrumbItem className="hidden md:block">
+                <BreadcrumbLink href="#">Platform</BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator className="hidden md:block" />
+              <BreadcrumbItem>
+                <BreadcrumbLink href="/admin">Admin</BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator className="hidden md:block" />
+              <BreadcrumbItem>
+                <BreadcrumbPage>Quests</BreadcrumbPage>
+              </BreadcrumbItem>
+            </BreadcrumbList>
+          </Breadcrumb>
+        </div>
+        <div className="ml-auto flex items-center gap-4 px-4">
+          <Button asChild className="bg-[#3366FF] hover:bg-[#2952cc]">
+            <Link href="/admin/quests/new">
+              <Plus className="h-4 w-4 mr-2" />
+              Create New Quest
+            </Link>
+          </Button>
+        </div>
+      </header>
 
-      {/* Filters and Sorting UI */}
-      <div className="mb-6 p-4 bg-card rounded-lg shadow-md border border-border flex flex-wrap gap-4 items-end">
-        <div>
-          <label htmlFor="status-filter" className="block text-sm font-medium text-foreground mb-1">Filter by Status:</label>
-          <select id="status-filter" name="status" value={filters.status} onChange={handleFilterChange} className="w-full bg-background border-input text-foreground rounded-md shadow-sm p-2.5 text-sm focus:ring-[#2B96F1] focus:border-[#2B96F1]">
-            <option value="">All Statuses</option>
-            {QUEST_STATUSES.map(s => <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
-          </select>
-        </div>
-        <div>
-          <label htmlFor="goal_type-filter" className="block text-sm font-medium text-foreground mb-1">Filter by Goal Type:</label>
-          <select id="goal_type-filter" name="goal_type" value={filters.goal_type} onChange={handleFilterChange} className="w-full bg-background border-input text-foreground rounded-md shadow-sm p-2.5 text-sm focus:ring-[#2B96F1] focus:border-[#2B96F1]">
-            <option value="">All Goal Types</option>
-            {GOAL_TYPES.map(gt => <option key={gt} value={gt}>{gt.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</option>)}
-          </select>
-        </div>
-        <div>
-          <label htmlFor="scope-filter" className="block text-sm font-medium text-foreground mb-1">Filter by Scope:</label>
-          <select id="scope-filter" name="scope" value={filters.scope} onChange={handleFilterChange} className="w-full bg-background border-input text-foreground rounded-md shadow-sm p-2.5 text-sm focus:ring-[#2B96F1] focus:border-[#2B96F1]">
-            <option value="">All Scopes</option>
-            <option value="community">Community</option>
-            <option value="squad">Squad</option>
-          </select>
-        </div>
-        <div>
-          <label htmlFor="sort" className="block text-sm font-medium text-foreground mb-1">Sort by:</label>
-          <select id="sort" name="sort" value={sortParams.sortBy} onChange={handleSortChange} className="w-full bg-background border-input text-foreground rounded-md shadow-sm p-2.5 text-sm focus:ring-[#2B96F1] focus:border-[#2B96F1]">
-            <option value="start_ts">Start Date</option>
-            <option value="end_ts">End Date</option>
-            <option value="title">Title</option>
-            <option value="status">Status</option>
-          </select>
-        </div>
-        <div>
-          <label htmlFor="order" className="block text-sm font-medium text-foreground mb-1">Order:</label>
-          <select id="order" name="order" value={sortParams.order} onChange={handleSortChange} className="w-full bg-background border-input text-foreground rounded-md shadow-sm p-2.5 text-sm focus:ring-[#2B96F1] focus:border-[#2B96F1]">
-            <option value="desc">Descending</option>
-            <option value="asc">Ascending</option>
-          </select>
-        </div>
-      </div>
+      <main className="flex-1 py-6">
+        <div className="container px-4 md:px-6">
+          <div className="grid gap-6">
+            {/* Page Header */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-3xl flex items-center gap-3">
+                  <Star className="h-8 w-8" />
+                  Quest Management
+                </CardTitle>
+                <CardDescription>
+                  Create and manage community and squad quests
+                </CardDescription>
+              </CardHeader>
+            </Card>
 
-      {error && <p className="mb-4 p-3 bg-destructive/30 border border-destructive text-destructive-foreground rounded-md">Error: {error}</p>}
+            {/* Stats Overview */}
+            <div className="grid gap-4 md:grid-cols-4">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Total Quests</CardTitle>
+                  <Star className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{quests.length}</div>
+                  <p className="text-xs text-muted-foreground">
+                    All quest types
+                  </p>
+                </CardContent>
+              </Card>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {quests.map(quest => (
-          <div key={quest._id} className="bg-card rounded-lg shadow-md border border-border overflow-hidden hover:shadow-lg transition-shadow">
-            <div className="p-4">
-              <div className="flex justify-between items-start mb-2">
-                <h2 className="text-xl font-semibold text-foreground">{quest.title}</h2>
-                <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                  quest.status === 'active' ? 'bg-green-100 text-green-800' :
-                  quest.status === 'scheduled' ? 'bg-blue-100 text-blue-800' :
-                  quest.status === 'succeeded' ? 'bg-purple-100 text-purple-800' :
-                  quest.status === 'failed' ? 'bg-red-100 text-red-800' :
-                  'bg-gray-100 text-gray-800'
-                }`}>
-                  {quest.status.charAt(0).toUpperCase() + quest.status.slice(1)}
-                </span>
-              </div>
-              <p className="text-muted-foreground text-sm mb-4 line-clamp-2">{quest.description_md}</p>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Goal Type:</span>
-                  <span className="text-foreground font-medium">{quest.goal_type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Target:</span>
-                  <span className="text-foreground font-medium">{quest.goal_target}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Reward:</span>
-                  <span className="text-foreground font-medium">
-                    {quest.reward_type === 'points' ? `${quest.reward_points} ${TOKEN_LABEL_POINTS}` :
-                     quest.reward_type === 'nft' ? 'NFT' :
-                     `${quest.reward_points} ${TOKEN_LABEL_POINTS} + NFT`}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Scope:</span>
-                  <span className="text-foreground font-medium capitalize">{quest.scope}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Start:</span>
-                  <span className="text-foreground font-medium">{new Date(quest.start_ts).toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">End:</span>
-                  <span className="text-foreground font-medium">{new Date(quest.end_ts).toLocaleString()}</span>
-                </div>
-              </div>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Active Quests</CardTitle>
+                  <Target className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{activeQuests.length}</div>
+                  <p className="text-xs text-muted-foreground">
+                    Currently running
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Community</CardTitle>
+                  <Gift className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{communityQuests.length}</div>
+                  <p className="text-xs text-muted-foreground">
+                    Community scope
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Squad Quests</CardTitle>
+                  <Clock className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{squadQuests.length}</div>
+                  <p className="text-xs text-muted-foreground">
+                    Squad scope
+                  </p>
+                </CardContent>
+              </Card>
             </div>
-            <div className="bg-muted/50 px-4 py-3 flex justify-end gap-2">
-              <Link href={`/admin/quests/edit/${quest._id}`} className="text-[#2B96F1] hover:text-blue-600 transition-colors flex items-center gap-1">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                  <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
-                </svg>
-                Edit
-              </Link>
-              <button onClick={() => handleArchiveQuest(quest._id, quest.title)} className="text-destructive hover:text-red-600 transition-colors flex items-center gap-1">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
-                </svg>
-                Archive
-              </button>
-            </div>
+
+            {/* Filters and Sorting UI */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Filter className="h-5 w-5" />
+                  Filters & Sorting
+                </CardTitle>
+                <CardDescription>Filter and sort quests by various criteria</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-wrap gap-4 items-end">
+                  <div>
+                    <label htmlFor="status-filter" className="block text-sm font-medium mb-1">Filter by Status:</label>
+                    <select id="status-filter" name="status" value={filters.status} onChange={handleFilterChange} className="w-full p-2 border rounded-md">
+                      <option value="">All Statuses</option>
+                      {QUEST_STATUSES.map(s => <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label htmlFor="goal_type-filter" className="block text-sm font-medium mb-1">Filter by Goal Type:</label>
+                    <select id="goal_type-filter" name="goal_type" value={filters.goal_type} onChange={handleFilterChange} className="w-full p-2 border rounded-md">
+                      <option value="">All Goal Types</option>
+                      {GOAL_TYPES.map(gt => <option key={gt} value={gt}>{gt.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label htmlFor="scope-filter" className="block text-sm font-medium mb-1">Filter by Scope:</label>
+                    <select id="scope-filter" name="scope" value={filters.scope} onChange={handleFilterChange} className="w-full p-2 border rounded-md">
+                      <option value="">All Scopes</option>
+                      <option value="community">Community</option>
+                      <option value="squad">Squad</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label htmlFor="sort" className="block text-sm font-medium mb-1">Sort by:</label>
+                    <select id="sort" name="sort" value={sortParams.sortBy} onChange={handleSortChange} className="w-full p-2 border rounded-md">
+                      <option value="start_ts">Start Date</option>
+                      <option value="end_ts">End Date</option>
+                      <option value="title">Title</option>
+                      <option value="status">Status</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label htmlFor="order" className="block text-sm font-medium mb-1">Order:</label>
+                    <select id="order" name="order" value={sortParams.order} onChange={handleSortChange} className="w-full p-2 border rounded-md">
+                      <option value="desc">Descending</option>
+                      <option value="asc">Ascending</option>
+                    </select>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Quests Grid */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Quest List</CardTitle>
+                <CardDescription>Manage all community and squad quests</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {quests.length === 0 ? (
+                  <div className="text-center py-12">
+                    <Star className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                    <p className="text-muted-foreground">No quests found matching your filters.</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {quests.map(quest => (
+                      <Card key={quest._id} className="hover:shadow-lg transition-shadow">
+                        <CardHeader>
+                          <div className="flex justify-between items-start">
+                            <CardTitle className="text-lg">{quest.title}</CardTitle>
+                            <Badge variant={
+                              quest.status === 'active' ? 'default' :
+                              quest.status === 'scheduled' ? 'secondary' :
+                              quest.status === 'succeeded' ? 'outline' :
+                              'outline'
+                            }>
+                              {quest.status.charAt(0).toUpperCase() + quest.status.slice(1)}
+                            </Badge>
+                          </div>
+                          <CardDescription className="line-clamp-2">
+                            {quest.description_md}
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                          <div className="space-y-2 text-sm">
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Goal Type:</span>
+                              <span className="font-medium">{quest.goal_type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Target:</span>
+                              <span className="font-medium">{quest.goal_target}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Reward:</span>
+                              <span className="font-medium">
+                                {quest.reward_type === 'points' ? `${quest.reward_points} ${TOKEN_LABEL_POINTS}` :
+                                 quest.reward_type === 'nft' ? 'NFT' :
+                                 `${quest.reward_points} ${TOKEN_LABEL_POINTS} + NFT`}
+                              </span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Scope:</span>
+                              <Badge variant="outline" className="text-xs">
+                                {quest.scope}
+                              </Badge>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Start:</span>
+                              <span className="font-medium text-xs">{new Date(quest.start_ts).toLocaleDateString()}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">End:</span>
+                              <span className="font-medium text-xs">{new Date(quest.end_ts).toLocaleDateString()}</span>
+                            </div>
+                          </div>
+                          <div className="flex gap-2 pt-2">
+                            <Button size="sm" variant="outline" asChild>
+                              <Link href={`/admin/quests/edit/${quest._id}`}>
+                                <Edit className="h-3 w-3 mr-1" />
+                                Edit
+                              </Link>
+                            </Button>
+                            <Button 
+                              size="sm" 
+                              variant="destructive" 
+                              onClick={() => handleArchiveQuest(quest._id, quest.title)}
+                            >
+                              <Trash2 className="h-3 w-3 mr-1" />
+                              Archive
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </div>
-        ))}
-      </div>
-
-      {quests.length === 0 && (
-        <div className="text-center py-12">
-          <p className="text-muted-foreground">No quests found matching your filters.</p>
         </div>
-      )}
-    </div>
+      </main>
+    </SidebarInset>
   );
 } 

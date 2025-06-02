@@ -7,7 +7,8 @@ import { UmiProvider } from "@/providers/umiProvider";
 import { Toaster as ShadcnToaster } from "@/components/ui/toaster";
 import { Toaster as SonnerToaster } from "sonner";
 import SessionProviderWrapper from "@/providers/sessionProviderWrapper";
-import ConditionalAppHeader from "@/components/layout/ConditionalAppHeader";
+import { SidebarProvider } from "@/components/ui/sidebar";
+import { AppSidebar } from "@/components/app-sidebar";
 import AgentSetupModal from "@/components/modals/AgentSetupModal";
 // import CrossmintProviders from "@/providers/CrossmintProviders"; // Now scoped to Yield page
 
@@ -50,16 +51,16 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${inter.variable} ${orbitron.variable}`} suppressHydrationWarning>
       <head />
-      <body className="flex flex-col min-h-screen font-sans bg-background text-foreground">
+      <body className={`${inter.className} font-sans`}>
         {/* <CrossmintProviders> */}
         <SessionProviderWrapper>
           <WalletAdapterProvider>
             <UmiProvider>
               <ThemeProviderWrapper>
-                <ConditionalAppHeader />
-                <main className="flex-grow container mx-auto px-4 py-8">
+                <SidebarProvider>
+                  <AppSidebar />
                   {children}
-                </main>
+                </SidebarProvider>
                 <ShadcnToaster />
                 <SonnerToaster richColors position="bottom-right" />
                 <AgentSetupModal />

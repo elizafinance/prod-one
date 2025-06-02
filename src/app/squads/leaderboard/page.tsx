@@ -2,8 +2,32 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useWallet } from '@solana/wallet-adapter-react'; // To potentially highlight user's squad
-import { useRouter } from 'next/navigation'; // Import useRouter
+import { useWallet } from '@solana/wallet-adapter-react';
+import { useRouter } from 'next/navigation';
+import { SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
+import { Separator } from "@/components/ui/separator";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Users, Trophy, Crown, Medal, Award, Shield, ArrowRight } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface SquadLeaderboardEntry {
   squadId: string;
@@ -19,11 +43,8 @@ export default function SquadLeaderboardPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { publicKey } = useWallet();
-  const router = useRouter(); // Initialize useRouter
+  const router = useRouter();
   const currentUserWalletAddress = publicKey?.toBase58();
-  // We'd need to fetch the current user's squadId to highlight their squad on this board
-  // This could be done by fetching /api/squads/my-squad or from a global user state if available.
-  // For now, we'll skip direct highlighting on this page to keep it simpler.
 
   useEffect(() => {
     const fetchSquadLeaderboard = async () => {
@@ -47,81 +68,187 @@ export default function SquadLeaderboardPage() {
   }, []);
 
   return (
-    <main className="flex flex-col items-center min-h-screen p-4 sm:p-8 bg-white text-gray-900">
-      <div className="w-full max-w-5xl mx-auto py-8 sm:py-12">
-        <div className="flex justify-between items-center mb-10">
-          <h1 className="text-4xl sm:text-5xl font-bold font-spacegrotesk tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-teal-500 via-cyan-600 to-sky-600">
-            Squad Rankings
-          </h1>
-          <Link href="/" passHref>
-            <button 
-              className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-5 rounded-lg shadow-md hover:shadow-lg transform hover:scale-105 transition-all duration-150 ease-in-out whitespace-nowrap"
-            >
-              Back to Dashboard
-            </button>
-          </Link>
+    <SidebarInset>
+      <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-[[data-collapsible=icon]]/sidebar-wrapper:h-12">
+        <div className="flex items-center gap-2 px-4">
+          <SidebarTrigger className="-ml-1" />
+          <Separator orientation="vertical" className="mr-2 h-4" />
+          <Breadcrumb>
+            <BreadcrumbList>
+              <BreadcrumbItem className="hidden md:block">
+                <BreadcrumbLink href="/">
+                  Dashboard
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator className="hidden md:block" />
+              <BreadcrumbItem>
+                <BreadcrumbLink href="/squads">
+                  Squads
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator className="hidden md:block" />
+              <BreadcrumbItem>
+                <BreadcrumbPage>Leaderboard</BreadcrumbPage>
+              </BreadcrumbItem>
+            </BreadcrumbList>
+          </Breadcrumb>
+        </div>
+      </header>
+      <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold tracking-tight">Squad Leaderboard</h1>
+          <div className="flex gap-2">
+            <Link href="/squads/browse">
+              <Button variant="outline">
+                Browse Squads
+              </Button>
+            </Link>
+            <Link href="/squads/my">
+              <Button variant="outline">
+                <Shield className="h-4 w-4 mr-2" />
+                My Squad
+              </Button>
+            </Link>
+          </div>
         </div>
 
         {isLoading && (
-          <div className="text-center py-10">
-            <p className="text-xl text-gray-600">Forging the Squad Leaderboard...</p>
-            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-teal-600 mx-auto mt-4"></div>
-          </div>
+          <Card>
+            <CardHeader>
+              <Skeleton className="h-6 w-32" />
+              <Skeleton className="h-4 w-48 mt-2" />
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {[1, 2, 3, 4, 5].map((i) => (
+                  <div key={i} className="flex items-center justify-between py-3">
+                    <div className="flex items-center gap-3">
+                      <Skeleton className="h-8 w-8 rounded-full" />
+                      <div>
+                        <Skeleton className="h-4 w-24" />
+                        <Skeleton className="h-3 w-32 mt-1" />
+                      </div>
+                    </div>
+                    <Skeleton className="h-4 w-16" />
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
         )}
-        {error && <p className="text-center text-red-700 bg-red-100 p-4 rounded-lg border border-red-300">Error: {error}</p>}
+        
+        {error && (
+          <Card className="border-destructive">
+            <CardContent className="pt-6">
+              <p className="text-destructive text-center">Error: {error}</p>
+            </CardContent>
+          </Card>
+        )}
         
         {!isLoading && !error && leaderboard.length === 0 && (
-          <div className="text-center py-10 bg-gray-100 p-6 rounded-lg shadow-lg border border-gray-200">
-            <p className="text-2xl text-gray-700 mb-3">No Squads on the Battlefield Yet!</p>
-            <p className="text-gray-600">Be the first to create a squad and dominate the rankings.</p>
-          </div>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="text-center py-10">
+                <Trophy className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <p className="text-lg font-semibold mb-2">No Squads on the Leaderboard Yet!</p>
+                <p className="text-sm text-muted-foreground mb-4">Be the first to create a squad and dominate the rankings.</p>
+                <Link href="/squads/create">
+                  <Button>
+                    Create Squad
+                  </Button>
+                </Link>
+              </div>
+            </CardContent>
+          </Card>
         )}
 
         {!isLoading && !error && leaderboard.length > 0 && (
-          <div className="overflow-x-auto shadow-xl rounded-xl border border-gray-200 bg-white">
-            <table className="min-w-full">
-              <thead className="border-b border-gray-200 bg-gray-50">
-                <tr>
-                  <th className="text-left py-4 px-4 sm:px-6 font-semibold text-gray-600 tracking-wider uppercase text-sm">Rank</th>
-                  <th className="text-left py-4 px-4 sm:px-6 font-semibold text-gray-600 tracking-wider uppercase text-sm">Squad Name</th>
-                  <th className="text-center py-4 px-4 sm:px-6 font-semibold text-gray-600 tracking-wider uppercase text-sm">Members</th>
-                  <th className="text-right py-4 px-4 sm:px-6 font-semibold text-gray-600 tracking-wider uppercase text-sm">Total Points</th>
-                  {/* <th className="text-left py-4 px-4 sm:px-6 font-semibold text-gray-300 tracking-wider">Leader</th> */}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {leaderboard.map((squad, index) => {
-                  const rank = index + 1;
-                  let rowClasses = "transition-all duration-150 ease-in-out hover:bg-gray-50";
-                  // Add styling for top ranks if desired, similar to user leaderboard
-                  if (rank === 1) rowClasses = "bg-yellow-50 hover:bg-yellow-100";
-                  else if (rank === 2) rowClasses = "bg-slate-100 hover:bg-slate-200";
-                  else if (rank === 3) rowClasses = "bg-orange-50 hover:bg-orange-100";
+          <Card>
+            <CardHeader>
+              <CardTitle>Squad Rankings</CardTitle>
+              <CardDescription>
+                Top performing squads by total points
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-16">Rank</TableHead>
+                    <TableHead>Squad</TableHead>
+                    <TableHead className="text-center">Members</TableHead>
+                    <TableHead className="text-right">Total Points</TableHead>
+                    <TableHead className="text-right">Avg per Member</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {leaderboard.map((squad, index) => {
+                    const rank = index + 1;
 
-                  return (
-                    <tr 
-                      key={squad.squadId} 
-                      className={rowClasses} 
-                      onClick={() => router.push(`/squads/${squad.squadId}`)} 
-                      style={{cursor: 'pointer'}}
-                    >
-                      <td className="py-4 px-4 sm:px-6 font-medium text-gray-700 align-middle">
-                        {rank === 1 ? <span className="text-yellow-600 font-semibold">🏆</span> : rank === 2 ? <span className="text-slate-500 font-semibold">🥈</span> : rank === 3 ? <span className="text-orange-500 font-semibold">🥉</span> : ''} {rank}
-                      </td>
-                      <td className="py-4 px-4 sm:px-6 font-semibold text-lg text-sky-700 hover:text-sky-800 align-middle">{squad.name}</td>
-                      <td className="py-4 px-4 sm:px-6 text-center text-gray-600 align-middle">{squad.memberCount}</td>
-                      <td className="text-right py-4 px-4 sm:px-6 font-bold text-xl text-transparent bg-clip-text bg-gradient-to-r from-green-500 to-teal-500 align-middle">
-                        {squad.totalSquadPoints.toLocaleString()}
-                      </td>
-                      {/* <td className="py-4 px-4 sm:px-6 font-mono text-xs text-gray-400 align-middle">{squad.leaderWalletAddress.substring(0,6)}...</td> */}
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                    return (
+                      <TableRow 
+                        key={squad.squadId} 
+                        className={`cursor-pointer transition-colors hover:bg-muted/50 ${rank <= 3 ? "bg-muted/30" : ""}`}
+                        onClick={() => router.push(`/squads/${squad.squadId}`)}
+                      >
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            {rank === 1 && <Crown className="h-5 w-5 text-yellow-500" />}
+                            {rank === 2 && <Medal className="h-5 w-5 text-gray-400" />}
+                            {rank === 3 && <Award className="h-5 w-5 text-orange-500" />}
+                            <span className={`font-bold ${
+                              rank === 1 ? "text-yellow-600" :
+                              rank === 2 ? "text-gray-600" :
+                              rank === 3 ? "text-orange-600" :
+                              "text-foreground"
+                            }`}>
+                              #{rank}
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-3">
+                            <Avatar className="h-8 w-8">
+                              <AvatarImage src="/placeholder.svg" />
+                              <AvatarFallback>{squad.name.substring(0, 2).toUpperCase()}</AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <div className="font-medium">
+                                {squad.name}
+                              </div>
+                              {squad.description && (
+                                <p className="text-xs text-muted-foreground truncate max-w-xs">
+                                  {squad.description}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <div className="flex items-center justify-center gap-1">
+                            <Users className="h-4 w-4 text-muted-foreground" />
+                            <span className="font-medium">{squad.memberCount}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="font-bold text-lg">
+                            {squad.totalSquadPoints.toLocaleString()}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="text-sm text-muted-foreground">
+                            {squad.memberCount > 0 ? Math.round(squad.totalSquadPoints / squad.memberCount).toLocaleString() : '0'}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
         )}
       </div>
-    </main>
+    </SidebarInset>
   );
 } 

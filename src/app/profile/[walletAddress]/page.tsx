@@ -1,11 +1,23 @@
 "use client";
 
-// ALL CLIENT-SIDE IMPORTS now follow "use client"
-import { useState, useEffect, useCallback, FormEvent } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useWallet } from '@solana/wallet-adapter-react';
-import { toast } from 'sonner';
+import { User, Trophy, Users, Star, Award, ExternalLink, Share2, Crown } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
+import { Separator } from "@/components/ui/separator";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
 import UserAvatar from '@/components/UserAvatar';
 import ShareProfileButton from '@/components/ShareProfileButton';
 import GlowingBadge from '@/components/GlowingBadge';
@@ -91,150 +103,302 @@ export default function UserProfilePage() {
     }
   }, [walletAddress]);
 
-  // Loading, Error, and Not Found states JSX (simplified for brevity in instruction)
-  if (isLoading) return <main className="flex flex-col items-center justify-center min-h-screen bg-background text-foreground"><p>Loading Profile...</p></main>;
-  if (error) return <main className="flex flex-col items-center justify-center min-h-screen bg-white text-red-700"><p>Error: {error}</p><button onClick={() => router.back()} className="mt-2 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">Go Back</button></main>;
-  if (!profileData) return <main className="flex flex-col items-center justify-center min-h-screen bg-background text-foreground"><p>Profile not available.</p></main>;
+  if (isLoading) return (
+    <SidebarInset>
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-[#3366FF]"></div>
+        <p className='ml-3'>Loading profile...</p>
+      </div>
+    </SidebarInset>
+  );
+  
+  if (error) return (
+    <SidebarInset>
+      <div className="flex flex-col items-center justify-center min-h-screen">
+        <p className="text-lg text-destructive mb-4">Error: {error}</p>
+        <Button onClick={() => router.back()}>Go Back</Button>
+      </div>
+    </SidebarInset>
+  );
+  
+  if (!profileData) return (
+    <SidebarInset>
+      <div className="flex flex-col items-center justify-center min-h-screen">
+        <p>Profile not available.</p>
+      </div>
+    </SidebarInset>
+  );
 
   const tierStyleKey = profileData.highestAirdropTierLabel ? profileData.highestAirdropTierLabel.toLowerCase() : 'default';
   const currentTierStyle = tierStyles[tierStyleKey] || tierStyles.default;
   const isOwnProfile = loggedInUserWalletAddress === walletAddress;
   
   return (
-    <main className="flex flex-col items-center min-h-screen p-4 sm:p-8 bg-background text-foreground">
-      <div className="w-full max-w-2xl mx-auto my-10 bg-card border border-border shadow-xl rounded-xl p-6 sm:p-10">
-        
-        <div className="flex flex-col items-center text-center mb-8">
-          <UserAvatar 
-            profileImageUrl={profileData.xProfileImageUrl} 
-            username={profileData.xUsername}
-            size="lg"
-            className="mb-4"
-          />
-          <h1 className="text-4xl font-bold font-spacegrotesk tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-purple-500 via-pink-600 to-red-600 mb-2">
-            User Showcase
-          </h1>
-          <p className="text-lg text-foreground font-mono break-all">{profileData.maskedWalletAddress}</p>
-          {profileData.xUsername && <p className="text-md text-muted-foreground">@{profileData.xUsername}</p>}
+    <SidebarInset>
+      <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-[[data-collapsible=icon]]/sidebar-wrapper:h-12">
+        <div className="flex items-center gap-2 px-4">
+          <SidebarTrigger className="-ml-1" />
+          <Separator orientation="vertical" className="mr-2 h-4" />
+          <Breadcrumb>
+            <BreadcrumbList>
+              <BreadcrumbItem className="hidden md:block">
+                <BreadcrumbLink href="#">Platform</BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator className="hidden md:block" />
+              <BreadcrumbItem>
+                <BreadcrumbLink href="/profile">Profile</BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator className="hidden md:block" />
+              <BreadcrumbItem>
+                <BreadcrumbPage>
+                  {profileData.xUsername ? `@${profileData.xUsername}` : `${profileData.maskedWalletAddress}`}
+                </BreadcrumbPage>
+              </BreadcrumbItem>
+            </BreadcrumbList>
+          </Breadcrumb>
         </div>
+        <div className="ml-auto flex items-center gap-4 px-4">
+          <ShareProfileButton 
+            walletAddress={walletAddress}
+            username={profileData.xUsername}
+            points={profileData.points}
+            airdropTier={profileData.highestAirdropTierLabel}
+          />
+        </div>
+      </header>
 
-        {/* Airdrop Info Display for Own Profile */}
-        {isOwnProfile && (
-          <div className="my-6">
-            <AirdropInfoDisplay showTitle={false} />
-          </div>
-        )}
+      <main className="flex-1 py-6">
+        <div className="container px-4 md:px-6">
+          <div className="grid gap-6">
+            {/* Profile Header */}
+            <Card>
+              <CardHeader>
+                <div className="flex items-center gap-6">
+                  <UserAvatar 
+                    profileImageUrl={profileData.xProfileImageUrl} 
+                    username={profileData.xUsername}
+                    size="lg"
+                  />
+                  <div className="flex-1">
+                    <CardTitle className="text-3xl">
+                      {profileData.xUsername ? `@${profileData.xUsername}` : 'User Profile'}
+                    </CardTitle>
+                    <CardDescription className="font-mono text-sm mt-1">
+                      {profileData.maskedWalletAddress}
+                    </CardDescription>
+                    {isOwnProfile && (
+                      <Badge variant="secondary" className="mt-2">Your Profile</Badge>
+                    )}
+                  </div>
+                </div>
+              </CardHeader>
+            </Card>
 
-        <div className="space-y-6">
-          {/* Total Points */}
-          <div className="p-6 bg-muted border border-border rounded-lg shadow-md">
-            <h2 className="text-sm font-semibold text-purple-700 uppercase tracking-wider mb-1">Total Points</h2>
-            <p className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-pink-500 to-red-600">
-              {profileData.points.toLocaleString()}
-            </p>
-          </div>
-          {/* Airdrop Tier */}
-          {profileData.highestAirdropTierLabel && (
-            <div className="p-6 bg-muted border border-border rounded-lg shadow-md">
-              <h2 className="text-sm font-semibold text-purple-700 uppercase tracking-wider mb-2">Airdrop Tier</h2>
-              <span className={`px-4 py-2 text-lg font-bold rounded-full ${currentTierStyle}`}>
-                {profileData.highestAirdropTierLabel}
-              </span>
+            {/* Airdrop Info Display for Own Profile */}
+            {isOwnProfile && (
+              <Card>
+                <CardContent className="p-6">
+                  <AirdropInfoDisplay showTitle={false} />
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Profile Stats */}
+            <div className="grid gap-4 md:grid-cols-4">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Total Points</CardTitle>
+                  <Star className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{profileData.points.toLocaleString()}</div>
+                  <p className="text-xs text-muted-foreground">DeFAI Points earned</p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Airdrop Tier</CardTitle>
+                  <Crown className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {profileData.highestAirdropTierLabel || 'None'}
+                  </div>
+                  <p className="text-xs text-muted-foreground">Current tier status</p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Referrals Made</CardTitle>
+                  <Users className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {profileData.referralsMadeCount?.toLocaleString() || 0}
+                  </div>
+                  <p className="text-xs text-muted-foreground">Users referred</p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Achievements</CardTitle>
+                  <Award className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {profileData.earnedBadgeIds?.length || 0}
+                  </div>
+                  <p className="text-xs text-muted-foreground">Badges earned</p>
+                </CardContent>
+              </Card>
             </div>
-          )}
-          {/* Squad Info */}
-           {profileData.squadInfo && (
-            <div className="p-6 bg-muted border border-border rounded-lg shadow-md">
-              <h2 className="text-sm font-semibold text-purple-700 uppercase tracking-wider mb-1">Squad Affiliation</h2>
-              <Link href={`/squads/${profileData.squadInfo.squadId}`} passHref>
-                <span className="text-xl font-bold text-indigo-600 hover:text-indigo-800 cursor-pointer hover:underline">
-                  🛡️ {profileData.squadInfo.name}
-                </span>
-              </Link>
-            </div>
-          )}
-          {/* Badges */}
-          {profileData.earnedBadgeIds && profileData.earnedBadgeIds.length > 0 && (
-            <div className="p-6 bg-muted border border-border rounded-lg shadow-md">
-              <h2 className="text-sm font-semibold text-purple-700 uppercase tracking-wider mb-2">Achievements</h2>
-              <div className="flex flex-wrap gap-2">
-                {profileData.earnedBadgeIds.map(badgeId => {
-                  const badge = badgeDisplayMap[badgeId];
-                  return badge ? (
-                    badge.isSpecial ? (
-                      <GlowingBadge
-                        key={badgeId}
-                        icon={badge.icon}
-                        label={badge.label}
-                        color={badge.color}
-                        glowColor={badge.glowColor || "rgba(255, 255, 255, 0.5)"}
-                        size="md"
-                      />
-                    ) : (
-                      <span key={badgeId} className={`px-3 py-1 text-xs font-semibold rounded-full ${badge.color}`}>
-                        {badge.icon} {badge.label}
-                      </span>
-                    )
-                  ) : (
-                    <span key={badgeId} className="px-3 py-1 text-xs font-semibold rounded-full bg-muted text-foreground">
-                      {badgeId.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())} 
-                    </span>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-          {/* Referrals Made */}
-          <div className="p-6 bg-muted border border-border rounded-lg shadow-md">
-            <h2 className="text-sm font-semibold text-purple-700 uppercase tracking-wider mb-1">Referrals Made</h2>
-            <p className="text-3xl font-bold text-foreground">
-              {profileData.referralsMadeCount?.toLocaleString() || 0}
-            </p>
-          </div>
-          {/* Referred By Info */}
-          {profileData.referredBy && (
-            <div className="p-6 bg-muted border border-border rounded-lg shadow-md">
-              <h2 className="text-sm font-semibold text-purple-700 uppercase tracking-wider mb-2">Referred By</h2>
-              <div className="flex items-center gap-3">
-                <UserAvatar 
-                  profileImageUrl={profileData.referredBy.xProfileImageUrl} 
-                  username={profileData.referredBy.xUsername}
-                  size="sm"
-                />
-                <div>
-                  {profileData.referredBy.xUsername ? (
-                    <span className="text-md text-foreground">@{profileData.referredBy.xUsername}</span>
-                  ) : (
-                    <span className="text-md text-foreground font-mono">{profileData.referredBy.walletAddress}</span>
+
+            {/* Squad Information */}
+            {profileData.squadInfo && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Users className="h-5 w-5" />
+                    Squad Affiliation
+                  </CardTitle>
+                  <CardDescription>Current squad membership</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Link href={`/squads/${profileData.squadInfo.squadId}`}>
+                    <div className="flex items-center gap-3 p-3 border rounded-lg hover:bg-accent/5 transition-colors">
+                      <div className="text-2xl">🛡️</div>
+                      <div>
+                        <p className="font-semibold text-[#3366FF] hover:text-[#2952cc]">
+                          {profileData.squadInfo.name}
+                        </p>
+                        <p className="text-sm text-muted-foreground">View squad details</p>
+                      </div>
+                      <ExternalLink className="h-4 w-4 ml-auto text-muted-foreground" />
+                    </div>
+                  </Link>
+                </CardContent>
+              </Card>
+            )}
+            {/* Badges & Achievements */}
+            {profileData.earnedBadgeIds && profileData.earnedBadgeIds.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Award className="h-5 w-5" />
+                    Achievements & Badges
+                  </CardTitle>
+                  <CardDescription>Special recognition and accomplishments</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex flex-wrap gap-3">
+                    {profileData.earnedBadgeIds.map(badgeId => {
+                      const badge = badgeDisplayMap[badgeId];
+                      return badge ? (
+                        badge.isSpecial ? (
+                          <GlowingBadge
+                            key={badgeId}
+                            icon={badge.icon}
+                            label={badge.label}
+                            color={badge.color}
+                            glowColor={badge.glowColor || "rgba(255, 255, 255, 0.5)"}
+                            size="md"
+                          />
+                        ) : (
+                          <Badge key={badgeId} variant="outline" className="gap-1">
+                            <span>{badge.icon}</span>
+                            <span>{badge.label}</span>
+                          </Badge>
+                        )
+                      ) : (
+                        <Badge key={badgeId} variant="secondary">
+                          {badgeId.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                        </Badge>
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Referral Information */}
+            {profileData.referredBy && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Users className="h-5 w-5" />
+                    Referred By
+                  </CardTitle>
+                  <CardDescription>The user who referred this member</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center gap-3 p-3 border rounded-lg">
+                    <UserAvatar 
+                      profileImageUrl={profileData.referredBy.xProfileImageUrl} 
+                      username={profileData.referredBy.xUsername}
+                      size="sm"
+                    />
+                    <div>
+                      <p className="font-medium">
+                        {profileData.referredBy.xUsername ? 
+                          `@${profileData.referredBy.xUsername}` : 
+                          profileData.referredBy.walletAddress
+                        }
+                      </p>
+                      <p className="text-sm text-muted-foreground">Referrer</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Quick Actions */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Quick Actions</CardTitle>
+                <CardDescription>Explore more features and view community rankings</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-wrap gap-3">
+                  <Button asChild className="bg-[#3366FF] hover:bg-[#2952cc]">
+                    <Link href="/leaderboard">
+                      <Trophy className="h-4 w-4 mr-2" />
+                      View Leaderboard
+                    </Link>
+                  </Button>
+                  
+                  {profileData.squadInfo && (
+                    <Button variant="outline" asChild>
+                      <Link href={`/squads/${profileData.squadInfo.squadId}`}>
+                        <Users className="h-4 w-4 mr-2" />
+                        Visit Squad
+                      </Link>
+                    </Button>
+                  )}
+                  
+                  {!isOwnProfile && (
+                    <Button variant="outline">
+                      <Share2 className="h-4 w-4 mr-2" />
+                      Share Profile
+                    </Button>
                   )}
                 </div>
-              </div>
-            </div>
-          )}
-        </div>
+              </CardContent>
+            </Card>
 
-        {/* Share Buttons */}
-        <div className="mt-10 text-center">
-          <div className="flex flex-wrap justify-center gap-3">
-            <ShareProfileButton 
-              walletAddress={walletAddress}
-              username={profileData.xUsername}
-              points={profileData.points}
-              airdropTier={profileData.highestAirdropTierLabel}
-            />
-            <Link href="/leaderboard" passHref>
-              <button className="bg-[#2B96F1] hover:bg-blue-600 text-white font-semibold py-3 px-8 rounded-lg shadow-md hover:shadow-lg transform hover:scale-105 transition-all duration-150 ease-in-out text-lg">
-                View Leaderboard
-              </button>
-            </Link>
+            {/* Fleek Storage Integration */}
+            {isOwnProfile && (
+              <Card>
+                <CardContent className="p-6">
+                  <FleekIntegrationPanel />
+                </CardContent>
+              </Card>
+            )}
           </div>
         </div>
-      </div>
-
-      {/* Fleek Storage Integration */}
-      <div className="w-full max-w-2xl mx-auto">
-        <FleekIntegrationPanel />
-      </div>
-    </main>
+      </main>
+    </SidebarInset>
   );
 } 

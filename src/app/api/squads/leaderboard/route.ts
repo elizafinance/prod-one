@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { connectToDatabase, SquadDocument, UserDocument } from '@/lib/mongodb';
 
-const SQUAD_LEADERBOARD_LIMIT = 20; // Example limit
+const SQUAD_LEADERBOARD_LIMIT = 50; // Example limit
 
 export async function GET(request: Request) {
   try {

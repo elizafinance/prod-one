@@ -7,10 +7,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useWallet as useCrossmintWalletContext } from '@crossmint/client-sdk-react-ui'; // Renamed to avoid conflict
 import { useConnection } from '@solana/wallet-adapter-react';
-import { PublicKey, SystemProgram, Transaction, LAMPORTS_PER_SOL } from '@solana/web3.js';
+import { PublicKey, SystemProgram, Transaction, LAMPORTS_PER_SOL, TransactionMessage, VersionedTransaction } from '@solana/web3.js';
 import { getAssociatedTokenAddress, createTransferInstruction, TOKEN_PROGRAM_ID, getAccount } from '@solana/spl-token';
 import { toast } from 'sonner';
-import QRCode from 'qrcode.react'; // For receive QR code
+import { QRCodeSVG } from 'qrcode.react'; // For receive QR code
 import { CopyIcon, ExternalLinkIcon } from 'lucide-react';
 
 interface SmartWalletInteractionModalProps {
@@ -159,7 +159,16 @@ export default function SmartWalletInteractionModal({
       transaction.recentBlockhash = blockhash;
       transaction.feePayer = payerPublicKey; // Smart wallet pays fees
 
-      const signature = await crossmintWallet.sendTransaction(transaction, connection);
+      // Convert to VersionedTransaction
+      const messageV0 = new TransactionMessage({
+        payerKey: payerPublicKey,
+        recentBlockhash: blockhash,
+        instructions: transaction.instructions, // 올바른 instructions 배열을 사용합니다.
+      }).compileToV0Message();
+      const versionedTransaction = new VersionedTransaction(messageV0);
+
+      // Use type assertion to handle potential @solana/web3.js version mismatches
+      const signature = await crossmintWallet.sendTransaction(versionedTransaction as any);
       toast.info('Transaction sent. Confirming...', { id: signature });
       console.log('Transaction sent from smart wallet, signature:', signature);
       
@@ -204,7 +213,7 @@ export default function SmartWalletInteractionModal({
 
         {mode === 'receive' && smartWalletAddress && (
           <div className="mt-4 flex flex-col items-center space-y-4">
-            <QRCode value={smartWalletAddress} size={160} level="H" />
+            <QRCodeSVG value={smartWalletAddress} size={160} level="H" />
             <div className="flex items-center space-x-2 p-2 bg-muted rounded-md w-full">
               <input 
                 type="text" 

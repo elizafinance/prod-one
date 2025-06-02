@@ -85,7 +85,7 @@ export default function AppHeader() {
         setNotificationsInitialized(false); // Reset on error so it can retry
       }
     }
-  }, [authStatus, connected, session?.user?.walletAddress, uiState.fetchInitialUnreadCount, notificationsInitialized]);
+  }, [authStatus, connected, session?.user?.walletAddress, uiState, notificationsInitialized]);
 
   useEffect(() => { fetchNotificationsData(); }, [fetchNotificationsData]);
 
@@ -95,7 +95,7 @@ export default function AppHeader() {
       uiState.setUnreadNotificationCount(0);
       setNotificationsInitialized(false); // Reset local state on logout/disconnect
     }
-  }, [authStatus, connected, uiState.setUnreadNotificationCount]);
+  }, [authStatus, connected, uiState]);
 
   // Global Disconnect Watcher Effect (moved from useHomePageLogic)
   useEffect(() => {
@@ -125,7 +125,7 @@ export default function AppHeader() {
       })();
     }
     prevConnectedRef.current = connected; // Update the ref with the current connected state
-  }, [connected, authStatus, nextAuthSignOut]); // Dependencies: connected, authStatus, nextAuthSignOut
+  }, [connected, authStatus]); // Dependencies: connected, authStatus, nextAuthSignOut
 
   const handleOpenNotifications = () => {
     if (!connected || authStatus !== "authenticated") {

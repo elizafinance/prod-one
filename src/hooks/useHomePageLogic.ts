@@ -442,7 +442,6 @@ export function useHomePageLogic() {
     }
   }, [
     wallet, 
-    nextAuthSignOut, 
     setOtherUserData, 
     setMySquadData, 
     setUserCheckedNoSquad, 

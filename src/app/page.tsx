@@ -141,6 +141,7 @@ export default function HomePage() {
     isDesktop,
     setIsDesktop,
     totalCommunityPoints,
+    setTotalCommunityPoints,
     defaiBalance,
     setDefaiBalance,
 
@@ -338,8 +339,8 @@ export default function HomePage() {
 
   // Effect to handle X OAuth callback parameters
   useEffect(() => {
-    const xConnectSuccess = searchParams.get('x_connect_success');
-    const xConnectError = searchParams.get('x_connect_error');
+    const xConnectSuccess = searchParams?.get('x_connect_success');
+    const xConnectError = searchParams?.get('x_connect_error');
     const currentPath = window.location.pathname;
 
     if (xConnectSuccess === 'true') {
@@ -386,7 +387,7 @@ export default function HomePage() {
         }
       })
       .catch(err => console.error("Failed to fetch total community points for dashboard", err));
-  }, []);
+  }, [setTotalCommunityPoints]);
 
   // Fetch defaiBalance
   useEffect(() => {
@@ -515,7 +516,7 @@ export default function HomePage() {
                     </div>
                     <div className="flex flex-col gap-2">
                       <div className="text-sm font-medium text-muted-foreground">Squad Rank</div>
-                      <div className="text-3xl font-bold">{mySquadData ? '#' + (mySquadData.leaderboardRank || 'N/A') : 'No Squad'}</div>
+                      <div className="text-3xl font-bold">{mySquadData ? '#' + ((mySquadData as any).leaderboardRank || 'N/A') : 'No Squad'}</div>
                       <div className="flex items-center gap-1 text-sm text-muted-foreground">
                         <Clock className="h-4 w-4" />
                         <span>Updated 5m ago</span>
@@ -662,12 +663,12 @@ export default function HomePage() {
                   </CardHeader>
                   <CardContent>
                     <MiniSquadCard
-                      squadId={mySquadData?.squadId}
-                      squadName={mySquadData?.name}
-                      totalSquadPoints={mySquadData?.totalSquadPoints}
-                      memberCount={mySquadData?.memberWalletAddresses.length}
-                      maxMembers={mySquadData?.maxMembers}
-                      isLeader={mySquadData?.leaderWalletAddress === wallet.publicKey?.toBase58()}
+                      squadId={(mySquadData as any)?.squadId}
+                      squadName={(mySquadData as any)?.name}
+                      totalSquadPoints={(mySquadData as any)?.totalSquadPoints}
+                      memberCount={(mySquadData as any)?.memberWalletAddresses?.length}
+                      maxMembers={(mySquadData as any)?.maxMembers}
+                      isLeader={(mySquadData as any)?.leaderWalletAddress === wallet.publicKey?.toBase58()}
                       isLoading={isFetchingSquad}
                     />
                   </CardContent>
@@ -692,7 +693,7 @@ export default function HomePage() {
                         const isCompleted = (userData.completedActions || []).includes(activity.id);
                         let isEffectivelyCompleted = isCompleted;
                         if (activity.id === 'shared_milestone_profile_on_x') {
-                          const hasFrenzyBoost = userData.activeReferralBoosts?.some(b => b.description.includes('Referral Frenzy'));
+                          const hasFrenzyBoost = (userData as any).activeReferralBoosts?.some((b: any) => b.description.includes('Referral Frenzy'));
                           isEffectivelyCompleted = isCompleted || !!hasFrenzyBoost;
                         }
                         return (

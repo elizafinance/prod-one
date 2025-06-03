@@ -23,29 +23,7 @@ import {
 import VoteModal from '@/components/modals/VoteModal';
 import { useSession } from 'next-auth/react';
 import { formatPoints } from '@/lib/utils';
-
-interface ProposalCardData {
-  _id: string;
-  title: string;
-  description: string;
-  proposer: string;
-  squadId: {
-    squadId: string;
-    name: string;
-  };
-  status: string;
-  tokenReward: number;
-  epochStart: number;
-  epochEnd: number;
-  upVoteWeight: number;
-  downVoteWeight: number;
-  abstainVoteWeight: number;
-  totalEngagedWeight: number;
-  uniqueVoterCount: number;
-  broadcasted: boolean;
-  slug: string;
-  createdAt: string;
-}
+import type { ProposalCardData } from '@/components/proposals/ProposalCard';
 
 interface ApiResponse {
   proposals: ProposalCardData[];
@@ -171,9 +149,10 @@ export default function ProposalsPage() {
     fetchProposals(currentPage, true);
   };
 
-  const calculateTimeLeft = (epochEnd: number) => {
-    const now = Date.now() / 1000;
-    const timeLeft = epochEnd - now;
+  const calculateTimeLeft = (epochEnd: Date | string) => {
+    const now = Date.now();
+    const epochEndTime = epochEnd instanceof Date ? epochEnd.getTime() : new Date(epochEnd).getTime();
+    const timeLeft = (epochEndTime - now) / 1000;
     
     if (timeLeft <= 0) return "Ended";
     
@@ -185,17 +164,21 @@ export default function ProposalsPage() {
   };
 
   const getProposalStatus = (proposal: ProposalCardData) => {
-    const now = Date.now() / 1000;
-    if (now > proposal.epochEnd) return "ended";
+    const now = Date.now();
+    const epochEndTime = proposal.epochEnd instanceof Date ? proposal.epochEnd.getTime() : new Date(proposal.epochEnd).getTime();
+    if (now > epochEndTime) return "ended";
     if (proposal.broadcasted) return "broadcasted";
     return "active";
   };
 
   const renderProposalCard = (proposal: ProposalCardData) => {
     const status = getProposalStatus(proposal);
-    const netVotes = proposal.upVoteWeight - proposal.downVoteWeight;
-    const totalVotes = proposal.upVoteWeight + proposal.downVoteWeight + proposal.abstainVoteWeight;
-    const passPercentage = totalVotes > 0 ? (proposal.upVoteWeight / totalVotes) * 100 : 0;
+    const upVoteWeight = proposal.tally?.upVotesWeight || proposal.finalUpVotesWeight || 0;
+    const downVoteWeight = proposal.tally?.downVotesWeight || proposal.finalDownVotesWeight || 0;
+    const abstainVoteWeight = proposal.tally?.abstainVotesCount || proposal.finalAbstainVotesCount || 0;
+    const netVotes = upVoteWeight - downVoteWeight;
+    const totalVotes = upVoteWeight + downVoteWeight + abstainVoteWeight;
+    const passPercentage = totalVotes > 0 ? (upVoteWeight / totalVotes) * 100 : 0;
 
     return (
       <Card key={proposal._id} className="overflow-hidden">
@@ -203,12 +186,12 @@ export default function ProposalsPage() {
           <div className="flex items-start justify-between">
             <div className="space-y-1">
               <CardTitle className="text-xl">
-                <Link href={`/proposals/${proposal.slug}`} className="hover:text-[#3366FF] transition-colors">
-                  {proposal.title}
+                <Link href={`/proposals/${proposal._id}`} className="hover:text-[#3366FF] transition-colors">
+                  {proposal.reason}
                 </Link>
               </CardTitle>
               <CardDescription className="flex items-center gap-2">
-                <span>by {proposal.squadId.name}</span>
+                <span>by {proposal.squadName}</span>
                 <span>•</span>
                 <span>{calculateTimeLeft(proposal.epochEnd)}</span>
               </CardDescription>
@@ -228,7 +211,7 @@ export default function ProposalsPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-sm text-muted-foreground line-clamp-2">
-            {proposal.description}
+            {proposal.reason}
           </p>
 
           <div className="space-y-2">
@@ -241,15 +224,15 @@ export default function ProposalsPage() {
 
           <div className="grid grid-cols-3 gap-4 text-center">
             <div>
-              <p className="text-2xl font-bold text-green-600">{formatPoints(proposal.upVoteWeight)}</p>
+              <p className="text-2xl font-bold text-green-600">{formatPoints(upVoteWeight)}</p>
               <p className="text-xs text-muted-foreground">Yes</p>
             </div>
             <div>
-              <p className="text-2xl font-bold text-red-600">{formatPoints(proposal.downVoteWeight)}</p>
+              <p className="text-2xl font-bold text-red-600">{formatPoints(downVoteWeight)}</p>
               <p className="text-xs text-muted-foreground">No</p>
             </div>
             <div>
-              <p className="text-2xl font-bold text-gray-500">{formatPoints(proposal.abstainVoteWeight)}</p>
+              <p className="text-2xl font-bold text-gray-500">{formatPoints(abstainVoteWeight)}</p>
               <p className="text-xs text-muted-foreground">Abstain</p>
             </div>
           </div>
@@ -258,11 +241,7 @@ export default function ProposalsPage() {
             <div className="flex items-center gap-4 text-sm text-muted-foreground">
               <span className="flex items-center gap-1">
                 <Users className="h-4 w-4" />
-                {proposal.uniqueVoterCount} voters
-              </span>
-              <span className="flex items-center gap-1">
-                <TrendingUp className="h-4 w-4" />
-                {formatPoints(proposal.tokenReward)} reward
+                {proposal.totalVoters || proposal.totalFinalVoters || 0} voters
               </span>
             </div>
             {status === "active" && (
@@ -282,15 +261,15 @@ export default function ProposalsPage() {
 
   // Stats calculation
   const totalActiveProposals = apiResponse?.proposals.filter(p => getProposalStatus(p) === "active").length || 0;
-  const totalVotes = apiResponse?.proposals.reduce((sum, p) => sum + p.uniqueVoterCount, 0) || 0;
-  const totalRewards = apiResponse?.proposals.reduce((sum, p) => sum + p.tokenReward, 0) || 0;
+  const totalVotes = apiResponse?.proposals.reduce((sum, p) => sum + (p.totalVoters || p.totalFinalVoters || 0), 0) || 0;
+  const totalEngagedWeight = apiResponse?.proposals.reduce((sum, p) => sum + (p.tally?.totalEngagedWeight || 0), 0) || 0;
 
   return (
     <SidebarInset>
       <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-[[data-collapsible=icon]]/sidebar-wrapper:h-12">
         <div className="flex items-center gap-2 px-4">
           <SidebarTrigger className="-ml-1" />
-          <Separator orientation="vertical" className="mr-2 h-4" />
+          <Separator className="mr-2 h-4" />
           <Breadcrumb>
             <BreadcrumbList>
               <BreadcrumbItem className="hidden md:block">
@@ -350,13 +329,13 @@ export default function ProposalsPage() {
 
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Total Rewards</CardTitle>
+                  <CardTitle className="text-sm font-medium">Total Engaged Weight</CardTitle>
                   <TrendingUp className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{formatPoints(totalRewards)}</div>
+                  <div className="text-2xl font-bold">{formatPoints(totalEngagedWeight)}</div>
                   <p className="text-xs text-muted-foreground">
-                    DEFAI allocated
+                    Points engaged
                   </p>
                 </CardContent>
               </Card>
@@ -431,7 +410,9 @@ export default function ProposalsPage() {
                     {apiResponse?.proposals
                       .sort((a, b) => {
                         if (selectedSort === "ending") {
-                          return a.epochEnd - b.epochEnd;
+                          const epochEndA = a.epochEnd instanceof Date ? a.epochEnd.getTime() : new Date(a.epochEnd).getTime();
+                          const epochEndB = b.epochEnd instanceof Date ? b.epochEnd.getTime() : new Date(b.epochEnd).getTime();
+                          return epochEndA - epochEndB;
                         }
                         return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
                       })

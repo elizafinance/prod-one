@@ -181,7 +181,7 @@ function YieldPageContent() {
           </Breadcrumb>
         </div>
         <div className="ml-auto flex items-center gap-4 px-4">
-          {crossmintStatus === 'connected' ? (
+          {crossmintUser ? (
             <SmartWalletBalances />
           ) : (
             <CrossmintLoginButton />
@@ -323,11 +323,13 @@ function YieldPageContent() {
                             variant="outline" 
                             className="ml-auto"
                             onClick={async () => {
-                              setIsClaiming(true);
-                              try {
-                                await harvest();
-                              } finally {
-                                setIsClaiming(false);
+                              if (stakedPosition?.pubKey) {
+                                setIsClaiming(true);
+                                try {
+                                  await harvest(stakedPosition.pubKey);
+                                } finally {
+                                  setIsClaiming(false);
+                                }
                               }
                             }}
                             disabled={isClaiming || harvestLoading}

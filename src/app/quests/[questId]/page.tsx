@@ -239,7 +239,7 @@ export default function QuestDetailPage() {
       <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-[[data-collapsible=icon]]/sidebar-wrapper:h-12">
         <div className="flex items-center gap-2 px-4">
           <SidebarTrigger className="-ml-1" />
-          <Separator orientation="vertical" className="mr-2 h-4" />
+          <Separator className="mr-2 h-4" />
           <Breadcrumb>
             <BreadcrumbList>
               <BreadcrumbItem className="hidden md:block">
@@ -341,7 +341,7 @@ export default function QuestDetailPage() {
             <Card>
               <CardHeader>
                 <CardTitle>Quest Progress</CardTitle>
-                <CardDescription>Track the community's progress toward the goal</CardDescription>
+                <CardDescription>Track the community&apos;s progress toward the goal</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-2">
@@ -362,7 +362,7 @@ export default function QuestDetailPage() {
             <Card>
               <CardHeader>
                 <CardTitle>Description & Rules</CardTitle>
-                <CardDescription>Learn how to participate and what's required</CardDescription>
+                <CardDescription>Learn how to participate and what&apos;s required</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="prose prose-sm max-w-none dark:prose-invert">
@@ -378,7 +378,7 @@ export default function QuestDetailPage() {
                   <Gift className="h-5 w-5" />
                   Quest Rewards
                 </CardTitle>
-                <CardDescription>What you'll earn for completing this quest</CardDescription>
+                <CardDescription>What you&apos;ll earn for completing this quest</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">

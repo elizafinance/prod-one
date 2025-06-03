@@ -9,10 +9,13 @@ const ITERATIONS = 100000; // PBKDF2 iterations
 
 const encryptionKey = process.env.X_TOKEN_ENCRYPTION_KEY;
 
-if (!encryptionKey || Buffer.from(encryptionKey, 'hex').length !== KEY_LENGTH) {
-  if (process.env.NODE_ENV === 'production') {
+// During build phase, we need to allow missing env vars
+const isBuildPhase = process.env.NODE_ENV === 'production' && !process.env.X_TOKEN_ENCRYPTION_KEY && typeof window === 'undefined';
+
+if (!encryptionKey || Buffer.from(encryptionKey || '', 'hex').length !== KEY_LENGTH) {
+  if (process.env.NODE_ENV === 'production' && !isBuildPhase) {
     throw new Error('X_TOKEN_ENCRYPTION_KEY is not defined or is not a 32-byte hex string.');
-  } else {
+  } else if (!isBuildPhase) {
     console.warn('X_TOKEN_ENCRYPTION_KEY is not defined or is not a 32-byte hex string. Encryption will be insecure in development if not set.');
   }
 }

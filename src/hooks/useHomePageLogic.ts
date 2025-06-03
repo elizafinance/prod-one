@@ -30,7 +30,7 @@ export function useHomePageLogic() {
   const [initialReferrer, setInitialReferrer] = useState(null);
   const [pendingInvites, setPendingInvites] = useState([]);
   const [isFetchingInvites, setIsFetchingInvites] = useState(false);
-  const [isProcessingInvite, setIsProcessingInvite] = useState(null);
+  const [isProcessingInvite, setIsProcessingInvite] = useState<string | null>(null);
   const [squadInviteIdFromUrl, setSquadInviteIdFromUrl] = useState(null);
   const [currentTotalAirdropForSharing, setCurrentTotalAirdropForSharing] = useState(0);
   const [isCheckingDefaiBalance, setIsCheckingDefaiBalance] = useState(false);
@@ -442,7 +442,6 @@ export function useHomePageLogic() {
     }
   }, [
     wallet, 
-    nextAuthSignOut, 
     setOtherUserData, 
     setMySquadData, 
     setUserCheckedNoSquad, 
@@ -542,7 +541,9 @@ export function useHomePageLogic() {
     setIsProcessingLinkInvite,
     activationAttempted,
     isDesktop,
+    setIsDesktop,
     totalCommunityPoints,
+    setTotalCommunityPoints,
     defaiBalance,
     setDefaiBalance,
     handleWalletConnectSuccess,
@@ -551,5 +552,6 @@ export function useHomePageLogic() {
     checkDefaiBalance,
     activateRewardsAndFetchData,
     handleFullLogout,
+    update: updateSession,
   };
 } 

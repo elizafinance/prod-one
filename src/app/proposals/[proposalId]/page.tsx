@@ -198,7 +198,7 @@ export default function ProposalDetailPage({ params }: PageProps) {
               <BreadcrumbSeparator className="hidden md:block" />
               <BreadcrumbItem>
                 <BreadcrumbPage>
-                  {isLoading ? "Loading..." : proposal?.title || "Proposal Details"}
+                  {isLoading ? "Loading..." : proposal?.reason || "Proposal Details"}
                 </BreadcrumbPage>
               </BreadcrumbItem>
             </BreadcrumbList>
@@ -268,7 +268,7 @@ export default function ProposalDetailPage({ params }: PageProps) {
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">
-                    {(proposal.yesVotes || 0) + (proposal.noVotes || 0)}
+                    {((proposal.tally?.upVotesCount || proposal.finalUpVotesCount || 0) + (proposal.tally?.downVotesCount || proposal.finalDownVotesCount || 0))}
                   </div>
                   <p className="text-xs text-muted-foreground">votes cast</p>
                 </CardContent>
@@ -281,11 +281,11 @@ export default function ProposalDetailPage({ params }: PageProps) {
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold text-green-600">
-                    {proposal.yesVotes || 0}
+                    {proposal.tally?.upVotesCount || proposal.finalUpVotesCount || 0}
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    {proposal.yesVotes && proposal.noVotes 
-                      ? `${Math.round((proposal.yesVotes / (proposal.yesVotes + proposal.noVotes)) * 100)}%`
+                    {(proposal.tally?.upVotesCount || proposal.finalUpVotesCount) && (proposal.tally?.downVotesCount || proposal.finalDownVotesCount) 
+                      ? `${Math.round(((proposal.tally?.upVotesCount || proposal.finalUpVotesCount || 0) / ((proposal.tally?.upVotesCount || proposal.finalUpVotesCount || 0) + (proposal.tally?.downVotesCount || proposal.finalDownVotesCount || 0))) * 100)}%`
                       : '0%'
                     }
                   </p>
@@ -299,11 +299,11 @@ export default function ProposalDetailPage({ params }: PageProps) {
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold text-red-600">
-                    {proposal.noVotes || 0}
+                    {proposal.tally?.downVotesCount || proposal.finalDownVotesCount || 0}
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    {proposal.yesVotes && proposal.noVotes 
-                      ? `${Math.round((proposal.noVotes / (proposal.yesVotes + proposal.noVotes)) * 100)}%`
+                    {(proposal.tally?.upVotesCount || proposal.finalUpVotesCount) && (proposal.tally?.downVotesCount || proposal.finalDownVotesCount) 
+                      ? `${Math.round(((proposal.tally?.downVotesCount || proposal.finalDownVotesCount || 0) / ((proposal.tally?.upVotesCount || proposal.finalUpVotesCount || 0) + (proposal.tally?.downVotesCount || proposal.finalDownVotesCount || 0))) * 100)}%`
                       : '0%'
                     }
                   </p>
@@ -316,10 +316,10 @@ export default function ProposalDetailPage({ params }: PageProps) {
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <div>
-                    <CardTitle className="text-xl">{proposal.title}</CardTitle>
+                    <CardTitle className="text-xl">{proposal.reason}</CardTitle>
                     <CardDescription className="flex items-center gap-2 mt-2">
                       <User className="h-4 w-4" />
-                      Created by {proposal.createdByWalletAddress?.substring(0, 8)}...
+                      Created by {proposal.squadName}
                       <Calendar className="h-4 w-4 ml-4" />
                       {new Date(proposal.createdAt).toLocaleDateString()}
                     </CardDescription>

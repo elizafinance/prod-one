@@ -802,7 +802,7 @@ export default function SquadDetailsPage() {
       <header className="flex h-16 shrink-0 items-center gap-2 transition-all ease-linear">
         <div className="flex items-center gap-2 px-4">
           <SidebarTrigger className="-ml-1" />
-          <Separator orientation="vertical" className="mr-2 h-4" />
+          <Separator className="mr-2 h-4" />
           <Breadcrumb>
             <BreadcrumbList>
               <BreadcrumbItem className="hidden md:block">
@@ -864,7 +864,7 @@ export default function SquadDetailsPage() {
               <Card>
                 <CardHeader>
                   <CardTitle>Edit Squad Information</CardTitle>
-                  <CardDescription>Update your squad's name and description</CardDescription>
+                  <CardDescription>Update your squad&apos;s name and description</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <form onSubmit={handleEditSquadSubmit} className="space-y-4">

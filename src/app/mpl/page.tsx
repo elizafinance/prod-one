@@ -170,7 +170,7 @@ export default function MplPage() {
               <div className="text-sm text-muted-foreground">
                 <p className="font-medium mb-1">How MPL Marketplace Works</p>
                 <p>
-                  The MPL Marketplace uses Metaplex Protocol's hybrid escrow system to enable secure, 
+                  The MPL Marketplace uses Metaplex Protocol&apos;s hybrid escrow system to enable secure, 
                   trustless NFT swaps. Your assets remain in your control until both parties confirm the trade.
                 </p>
               </div>

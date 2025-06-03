@@ -303,7 +303,7 @@ export default function MySquadPage() {
       <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-[[data-collapsible=icon]]/sidebar-wrapper:h-12">
         <div className="flex items-center gap-2 px-4">
           <SidebarTrigger className="-ml-1" />
-          <Separator orientation="vertical" className="mr-2 h-4" />
+          <Separator className="mr-2 h-4" />
           <Breadcrumb>
             <BreadcrumbList>
               <BreadcrumbItem className="hidden md:block">
@@ -526,7 +526,7 @@ export default function MySquadPage() {
               <div className="space-y-4">
                 <div className="text-center py-8">
                   <Shield className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">You're not in a squad</h3>
+                  <h3 className="text-lg font-semibold mb-2">You&apos;re not in a squad</h3>
                   <p className="text-sm text-muted-foreground max-w-sm mx-auto">
                     Join an existing squad or create your own to earn extra rewards and compete in the leaderboards.
                   </p>

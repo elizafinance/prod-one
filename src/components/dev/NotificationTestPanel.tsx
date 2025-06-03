@@ -174,7 +174,7 @@ export default function NotificationTestPanel() {
         >
           Test: Squad Leader Changed
         </button>
-        <p className='text-xs text-lime-700 mt-1 text-center'>Simulates a change in your squad's leadership.</p>
+        <p className='text-xs text-lime-700 mt-1 text-center'>Simulates a change in your squad&apos;s leadership.</p>
       </div>
       <div>
         <button 
@@ -299,7 +299,7 @@ export default function NotificationTestPanel() {
       {/* Batch 6: More Quest Related */}
       <div>
         <button 
-          onClick={() => handleSendTestNotification('quest_completed_community', { mockRelatedUserName: 'The People\'s Challenge' })}
+          onClick={() => handleSendTestNotification('quest_completed_community', { mockRelatedUserName: "The People&apos;s Challenge" })}
           className="w-full px-4 py-2 bg-green-700 hover:bg-green-800 text-white font-semibold rounded-md transition-colors"
         >
           Test: Community Quest Completed

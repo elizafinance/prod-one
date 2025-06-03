@@ -34,6 +34,7 @@ import SquadGoalQuestCard from "@/components/dashboard/SquadGoalQuestCard";
 import { useUserAirdrop, UserAirdropData as UserAirdropHookData } from '@/hooks/useUserAirdrop'; // Explicitly import type
 import ConnectXButton from '@/components/xauth/ConnectXButton'; // Updated path
 import VerifyFollowButton from '@/components/xauth/VerifyFollowButton'; // Updated path
+import useUiStateStore from '@/store/useUiStateStore'; // <<<< IMPORT ZUSTAND STORE
 
 // Dynamically import WalletMultiButton
 const WalletMultiButtonDynamic = dynamic(
@@ -162,6 +163,8 @@ export default function HomePage() {
   // Access the wallet modal controller so we can open it programmatically
   const { setVisible: setWalletModalVisible } = useWalletModal();
   const walletPromptedRef = useRef(false);
+
+  const uiState = useUiStateStore(); // <<<< GET THE STORE INSTANCE
 
   const handleInitialAirdropCheck = async () => {
     const addressToCheck = typedAddress.trim();
@@ -443,6 +446,30 @@ export default function HomePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wallet.connected, wallet.publicKey, connection, setDefaiBalance]);
 
+  const showInsufficientBalanceMessage = authStatus === "authenticated" && wallet.connected && isRewardsActive && userData && hasSufficientDefai === false;
+
+  const handleSendTestNotification = async () => {
+    toast.info("Sending test notification...");
+    try {
+      const response = await fetch('/api/dev/test-notification', {
+        method: 'POST',
+      });
+      const data = await response.json();
+      if (response.ok) {
+        toast.success(data.message || "Test notification sent!");
+        // Trigger a refresh of the unread count for the AppHeader bell icon
+        if (session?.user?.walletAddress && authStatus === 'authenticated') {
+          uiState.fetchInitialUnreadCount(session.user.walletAddress, true);
+        }
+      } else {
+        toast.error(data.error || "Failed to send test notification.");
+      }
+    } catch (error) {
+      toast.error("Error sending test notification.");
+      console.error("Test notification error:", error);
+    }
+  };
+
   if (authStatus === "loading") {
     console.log("[HomePage] Rendering: Loading Session state");
     return <main className="flex flex-col items-center justify-center min-h-screen p-8 bg-background text-foreground"><p className="font-orbitron text-xl">Loading Session...</p></main>;
@@ -491,8 +518,6 @@ export default function HomePage() {
   console.log("[HomePage] Rendering: Fully Authenticated and Wallet Linked state");
   // Determine if points/actions section should be shown
   const showPointsSection = authStatus === "authenticated" && wallet.connected && isRewardsActive && userData && hasSufficientDefai === true;
-  // Determine if the "Insufficient Balance" message should be shown
-  const showInsufficientBalanceMessage = authStatus === "authenticated" && wallet.connected && isRewardsActive && userData && hasSufficientDefai === false;
 
   return (
     <main className="flex flex-col items-center min-h-screen bg-background text-foreground font-sans">
@@ -534,6 +559,8 @@ export default function HomePage() {
                   onLogSocialAction={logSocialAction}
                   completedActions={userData?.completedActions || []}
                 />
+
+                {/* TEST NOTIFICATION BUTTON - REMOVED FROM HERE */}
 
                 {/* Airdrop Snapshot Horizontal */}
                 {(authStatus === "authenticated" && wallet.connected && isRewardsActive && userData && hasSufficientDefai === true) && (
@@ -608,6 +635,20 @@ export default function HomePage() {
                     </div>
                   </div>
                 )}
+
+                {/* TEST NOTIFICATION BUTTON - DESKTOP - START (New Location) */}
+                {authStatus === "authenticated" && wallet.connected && (
+                  <div className="my-4 p-3 bg-yellow-100 border border-yellow-300 rounded-lg shadow-sm">
+                    <button 
+                      onClick={handleSendTestNotification}
+                      className="w-full px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-white font-semibold rounded-md transition-colors"
+                    >
+                      Send Test Notification
+                    </button>
+                    <p className='text-xs text-yellow-700 mt-1 text-center'>Dev tool: Click to send a test notification to yourself.</p>
+                  </div>
+                )}
+                {/* TEST NOTIFICATION BUTTON - DESKTOP - END (New Location) */}
 
                 {/* Milestones / Earn Actions Table (Accordion for Desktop) */}
                 {showPointsSection && userData && (
@@ -849,6 +890,21 @@ export default function HomePage() {
                   showTitle={false} 
                   defaiBalanceFetched={defaiBalance}
                 />
+
+                {/* TEST NOTIFICATION BUTTON - MOBILE - START (New Location) */}
+                {authStatus === "authenticated" && wallet.connected && (
+                  <div className="my-4 p-3 bg-yellow-100 border border-yellow-300 rounded-lg shadow-sm w-full">
+                    <button 
+                      onClick={handleSendTestNotification}
+                      className="w-full px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-white font-semibold rounded-md transition-colors"
+                    >
+                      Send Test Notification
+                    </button>
+                    <p className='text-xs text-yellow-700 mt-1 text-center'>Dev tool: Click to send a test notification to yourself.</p>
+                  </div>
+                )}
+                {/* TEST NOTIFICATION BUTTON - MOBILE - END (New Location) */}
+
                 <DashboardActionRow 
                   isRewardsActive={isRewardsActive}
                   currentTotalAirdropForSharing={currentTotalAirdropForSharing}

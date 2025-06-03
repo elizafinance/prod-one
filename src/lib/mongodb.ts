@@ -202,7 +202,7 @@ export type NotificationType =
 
 export interface NotificationDocument {
   _id?: ObjectId;
-  userId: string;
+  recipientWalletAddress: string;
   type: NotificationType;
   title: string;
   message: string;
@@ -211,6 +211,7 @@ export interface NotificationDocument {
   isArchived?: boolean; 
   createdAt: Date;      
   updatedAt: Date;      
+  notificationId: string;
   relatedQuestId?: string;
   relatedQuestTitle?: string;
   relatedSquadId?: string;

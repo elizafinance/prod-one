@@ -190,7 +190,7 @@ const baseHandler = withAuth(async (request: Request, session) => {
       undefined,
       undefined,
       pointsToAward,
-      'points',
+      AIR.LABEL,
       DONATION_BADGE_ID
     );
     

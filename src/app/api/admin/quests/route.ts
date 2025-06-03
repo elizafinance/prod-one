@@ -6,6 +6,8 @@ import { getServerSession } from "next-auth/next"; // For auth (actual options t
 import { authOptions } from "@/lib/auth"; // Assuming your authOptions are here
 import { User } from '@/models/User';
 import { Notification } from '@/models/Notification';
+import { createNotification } from '@/lib/notificationUtils'; // <<<< IMPORT STANDARDIZED UTILITY
+import { connectToDatabase as connectToNativeDb } from '@/lib/mongodb'; // For passing native Db to createNotification
 
 // Interface for POST request body (adjust as needed based on CommunityQuest schema)
 interface CreateQuestRequestBody {
@@ -55,7 +57,6 @@ export async function GET(request: NextRequest) {
   const skip = (page - 1) * limit;
 
   try {
-    await connectToDatabase();
     await ensureMongooseConnected();
     
     const totalQuests = await CommunityQuestModel.countDocuments(query);
@@ -87,6 +88,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Forbidden: Requires admin privileges' }, { status: 403 });
   }
   const adminIdentifier = session.user.walletAddress || session.user.id || 'ADMIN_USER';
+  const adminUsername = session.user.xUsername || session.user.name || adminIdentifier;
 
   try {
     const body: CreateQuestRequestBody = await request.json();
@@ -105,8 +107,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'End date must be after start date' }, { status: 400 });
     }
 
-    await connectToDatabase();
     await ensureMongooseConnected();
+    const { db: nativeDb } = await connectToNativeDb(); // Get native Db instance for createNotification
 
     const newQuestData: any = {
       title: body.title,
@@ -180,24 +182,39 @@ export async function POST(request: NextRequest) {
     // Notify squad members about new squad-scope quest becoming available
     if (newQuest.scope === 'squad') {
       try {
-        // Find all users that belong to any squad
-        const squadUsers = await User.find({ squadId: { $exists: true, $ne: null } }).select('_id walletAddress squadId').lean();
-        if (squadUsers.length) {
-          const notifs = squadUsers.map((u: any) => ({
-            recipientUserId: u._id,
-            recipientWalletAddress: u.walletAddress,
-            type: 'general',
-            title: 'New Squad Quest!',
-            message: `${body.title} is now live. Rally your squad to hit the goal.`,
-            data: { questId: newQuest._id, squadId: u.squadId },
-            isRead: false,
-            createdAt: new Date()
-          }));
-          // Bulk insert (ignore errors silently)
-          await Notification.insertMany(notifs, { ordered: false });
+        // User model is Mongoose, find returns Mongoose documents
+        const squadUsers = await User.find({ squadId: { $exists: true, $ne: null } }).select('_id walletAddress squadId xUsername').lean();
+        
+        if (squadUsers.length > 0) {
+          const notificationTitle = `New Squad Quest: ${newQuest.title}`;
+          const ctaUrl = `/quests/${newQuest._id.toString()}`;
+          let notificationsSentCount = 0;
+
+          for (const user of squadUsers) {
+            if (user.walletAddress) { // Ensure user has a wallet address to receive notification
+              const notificationMessage = `A new quest "${newQuest.title}" is now available for your squad!`;
+              await createNotification(
+                nativeDb, // Use the native Db instance
+                user.walletAddress, 
+                'new_squad_quest', // <<<< CHANGE TYPE TO BE MORE SPECIFIC
+                notificationTitle,
+                notificationMessage,
+                ctaUrl,
+                newQuest._id.toString(),    // relatedQuestId
+                newQuest.title,             // relatedQuestTitle
+                user.squadId,               // relatedSquadId
+                undefined,                  // relatedSquadName (can fetch squad name if needed, or omit)
+                adminIdentifier,            // relatedUserId (admin who created the quest)
+                adminUsername               // relatedUserName (admin's name)
+              );
+              notificationsSentCount++;
+            }
+          }
+          console.log(`[Admin Quests POST] Attempted to send ${notificationsSentCount} notifications for new squad quest '${newQuest.title}'.`);
         }
       } catch (notifyErr) {
         console.error('[Admin Quests POST] Error creating notifications for squad quest:', notifyErr);
+        // Non-critical error, don't fail the quest creation itself
       }
     }
 

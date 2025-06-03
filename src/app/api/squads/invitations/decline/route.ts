@@ -44,15 +44,24 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Invitation could not be declined (already processed).' }, { status: 409 });
     }
 
+    const notificationTitle = `Invite Declined: ${invitation.squadName}`;
+    const notificationMessage = `@${currentUserXUsername || currentUserWalletAddress.substring(0,6)} declined the invitation to join your squad, "${invitation.squadName}".`;
+    const ctaUrl = invitation.squadId ? `/squads/${invitation.squadId}` : '/squads';
+
     await createNotification(
       db,
       invitation.invitedByUserWalletAddress,
       'squad_invite_declined',
-      `@${currentUserXUsername} has declined your invitation to join "${invitation.squadName}".`,
+      notificationTitle,
+      notificationMessage,
+      ctaUrl,
+      undefined,
+      undefined,
       invitation.squadId,
       invitation.squadName,
       currentUserWalletAddress,
-      currentUserXUsername
+      currentUserXUsername,
+      invitation.invitationId
     );
 
     return NextResponse.json({ message: 'Squad invitation declined successfully.' });

@@ -61,15 +61,25 @@ export default async function handler(
     }
 
     // 4. Send notification to requester
+    const notificationTitle = `Request Update: ${joinRequest.squadName}`;
+    const notificationMessage = `Your request to join the squad "${joinRequest.squadName}" was rejected by the leader.`;
+    // CTA could be to browse other squads or back to their dashboard
+    const ctaUrl = `/squads/browse`; 
+
     await createNotification(
       db,
-      joinRequest.requestingUserWalletAddress,
-      'squad_join_request_rejected',
-      `Your request to join squad "${joinRequest.squadName}" was rejected.`,
-      joinRequest.squadId,
-      joinRequest.squadName,
-      leaderWalletAddress,
-      session.user.xUsername || undefined
+      joinRequest.requestingUserWalletAddress, // recipientWalletAddress
+      'squad_join_request_rejected',           // type
+      notificationTitle,                       // title
+      notificationMessage,                     // message
+      ctaUrl,                                  // ctaUrl
+      undefined,                               // relatedQuestId
+      undefined,                               // relatedQuestTitle
+      joinRequest.squadId,                     // relatedSquadId
+      joinRequest.squadName,                   // relatedSquadName
+      leaderWalletAddress,                     // relatedUserId (the leader who rejected)
+      session.user.xUsername || undefined,     // relatedUserName (leader's name)
+      joinRequest.requestId                    // relatedInvitationId (using for join request ID)
     );
 
     return res.status(200).json({ message: 'Join request rejected successfully' });

@@ -55,18 +55,50 @@ export async function POST(request: Request) {
         const newLeaderUserDoc = await usersCollection.findOne({walletAddress: newLeaderWalletAddress});
         const newLeaderXUsername = newLeaderUserDoc?.xUsername || newLeaderWalletAddress;
 
+        const notificationTitle = `New Leader for ${currentSquad.name}`;
+        const notificationMessage = `@${userXUsername} left your squad, "${currentSquad.name}". @${newLeaderXUsername} is now the new leader.`;
+        const squadPageCtaUrl = currentSquad.squadId ? `/squads/${currentSquad.squadId}` : '/squads';
+
         for (const memberAddr of remainingMembers) {
-          await createNotification(db, memberAddr, 'squad_leader_changed',
-            `@${userXUsername} left "${currentSquad.name}". @${newLeaderXUsername} is the new leader.`,
-            squadIdUserWasIn, currentSquad.name, newLeaderWalletAddress, newLeaderXUsername);
+          await createNotification(
+            db, 
+            memberAddr,                       // recipientWalletAddress
+            'squad_leader_changed',           // type
+            notificationTitle,                // title
+            notificationMessage,              // message
+            squadPageCtaUrl,                  // ctaUrl
+            undefined,                        // relatedQuestId
+            undefined,                        // relatedQuestTitle
+            squadIdUserWasIn,                 // relatedSquadId
+            currentSquad.name,                // relatedSquadName
+            newLeaderWalletAddress,           // relatedUserId (the NEW leader)
+            newLeaderXUsername                // relatedUserName (NEW leader's name)
+            // userWalletAddress (old leader) & userXUsername (old leader name) are part of the message
+            );
         }
       }
     } else { 
       if (remainingMembers.length > 0) {
+        const notificationTitle = `@${userXUsername} Left Squad`;
+        const notificationMessage = `@${userXUsername} has left your squad, "${currentSquad.name}".`;
+        const squadPageCtaUrl = currentSquad.squadId ? `/squads/${currentSquad.squadId}` : '/squads';
+
         for (const memberAddr of remainingMembers) { // This includes the leader
-          await createNotification(db, memberAddr, 'squad_member_left',
-            `@${userXUsername} has left your squad "${currentSquad.name}".`,
-            squadIdUserWasIn, currentSquad.name, userWalletAddress, userXUsername);
+          await createNotification(
+            db, 
+            memberAddr,                   // recipientWalletAddress
+            'squad_member_left',        // type
+            notificationTitle,            // title
+            notificationMessage,          // message
+            squadPageCtaUrl,              // ctaUrl
+            undefined,                    // relatedQuestId
+            undefined,                    // relatedQuestTitle
+            squadIdUserWasIn,             // relatedSquadId
+            currentSquad.name,            // relatedSquadName
+            userWalletAddress,            // relatedUserId (the user who left)
+            userXUsername                 // relatedUserName (name of the user who left)
+            // No relatedInvitationId needed
+            );
         }
       }
     }

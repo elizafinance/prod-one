@@ -114,31 +114,49 @@ export default async function handler(
 
     // 8. Send notifications
     // To requester
+    const requesterNotificationTitle = `Welcome to ${squad.name}!`;
+    const requesterNotificationMessage = `Your request to join the squad "${squad.name}" has been approved by the leader. Welcome aboard!`;
+    const squadPageCtaUrl = squad.squadId ? `/squads/${squad.squadId}` : '/squads';
+
     await createNotification(
       db,
-      joinRequest.requestingUserWalletAddress,
-      'squad_join_request_approved',
-      `Your request to join squad "${squad.name}" was approved! Welcome aboard!`,
-      squad.squadId,
-      squad.name,
-      leaderWalletAddress,
-      session.user.xUsername || undefined
+      joinRequest.requestingUserWalletAddress, // recipientWalletAddress
+      'squad_join_request_approved',           // type
+      requesterNotificationTitle,              // title
+      requesterNotificationMessage,            // message
+      squadPageCtaUrl,                         // ctaUrl
+      undefined,                               // relatedQuestId
+      undefined,                               // relatedQuestTitle
+      squad.squadId,                           // relatedSquadId
+      squad.name,                              // relatedSquadName
+      leaderWalletAddress,                     // relatedUserId (the leader who approved)
+      session.user.xUsername || undefined,     // relatedUserName (leader's name)
+      joinRequest.requestId                    // relatedInvitationId (using for join request ID)
     );
 
     // To existing squad members (excluding requester)
     const updatedSquad = await squadsCollection.findOne({ squadId: squad.squadId });
     if (updatedSquad) {
+      const memberNotificationTitle = `New Member: @${joinRequest.requestingUserXUsername || joinRequest.requestingUserWalletAddress.substring(0,6)}`;
+      const memberNotificationMessage = `@${joinRequest.requestingUserXUsername || joinRequest.requestingUserWalletAddress.substring(0,6)} has just joined your squad, "${updatedSquad.name}", after their join request was approved.`;
+      const squadPageCtaUrlForMembers = updatedSquad.squadId ? `/squads/${updatedSquad.squadId}` : '/squads';
+
       for (const memberAddr of updatedSquad.memberWalletAddresses) {
-        if (memberAddr !== joinRequest.requestingUserWalletAddress) {
+        if (memberAddr !== joinRequest.requestingUserWalletAddress) { // Don't notify the user who just joined
           await createNotification(
             db,
-            memberAddr,
-            'squad_member_joined',
-            `@${joinRequest.requestingUserXUsername || joinRequest.requestingUserWalletAddress.substring(0,6)} has joined your squad "${updatedSquad.name}"!`,
-            updatedSquad.squadId,
-            updatedSquad.name,
-            joinRequest.requestingUserWalletAddress,
-            joinRequest.requestingUserXUsername || undefined
+            memberAddr,                 // recipientWalletAddress
+            'squad_member_joined',      // type
+            memberNotificationTitle,    // title
+            memberNotificationMessage,  // message
+            squadPageCtaUrlForMembers,  // ctaUrl
+            undefined,                  // relatedQuestId
+            undefined,                  // relatedQuestTitle
+            updatedSquad.squadId,       // relatedSquadId
+            updatedSquad.name,          // relatedSquadName
+            joinRequest.requestingUserWalletAddress, // relatedUserId (the user who joined)
+            joinRequest.requestingUserXUsername || undefined // relatedUserName (name of the user who joined)
+            // No relatedInvitationId for this general member joined notification
           );
         }
       }

@@ -501,8 +501,7 @@ export default function HomePage() {
     <main className="flex flex-col items-center min-h-screen bg-background text-foreground font-sans">
       {/* Header takes full width, AppHeader is sticky */}
       {/* Added pt-16 (or h-16 from header) to main content area if AppHeader isn't setting body padding */}
-      <div className="w-full pt-16 md:pt-20"> 
-
+            <div className="w-full pt-16 md:pt-20">
         {/* Desktop Layout (≥ lg) */}
         {isDesktop ? (
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">

@@ -5,11 +5,12 @@ import { authOptions } from '@/lib/auth';
 import { ObjectId, Filter, Document } from 'mongodb';
 import { AIR } from '@/config/points.config';
 import { randomBytes } from 'crypto';
+import { isAdminSession } from '@/lib/adminUtils';
 
 export async function GET(request: NextRequest) {
   const session: any = await getServerSession(authOptions);
 
-  if (!session?.user?.role || session.user.role !== 'admin') {
+  if (!isAdminSession(session)) {
     return NextResponse.json({ error: 'Forbidden: Requires admin privileges' }, { status: 403 });
   }
 
@@ -109,7 +110,7 @@ export async function GET(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   const session: any = await getServerSession(authOptions);
 
-  if (!session?.user?.role || session.user.role !== 'admin') {
+  if (!isAdminSession(session)) {
     return NextResponse.json({ error: 'Forbidden: Requires admin privileges' }, { status: 403 });
   }
   
@@ -224,7 +225,7 @@ async function generateUniqueReferralCode(db: any, length = 8): Promise<string> 
 
 export async function POST(request: NextRequest) {
   const session: any = await getServerSession(authOptions);
-  if (!session?.user?.role || session.user.role !== 'admin') {
+  if (!isAdminSession(session)) {
     return NextResponse.json({ error: 'Forbidden: Requires admin privileges' }, { status: 403 });
   }
 

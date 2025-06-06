@@ -8,6 +8,7 @@ import { User } from '@/models/User';
 import { Notification } from '@/models/Notification';
 import { createNotification } from '@/lib/notificationUtils'; // <<<< IMPORT STANDARDIZED UTILITY
 import { connectToDatabase as connectToNativeDb } from '@/lib/mongodb'; // For passing native Db to createNotification
+import { isAdminSession } from '@/lib/adminUtils';
 
 // Interface for POST request body (adjust as needed based on CommunityQuest schema)
 interface CreateQuestRequestBody {
@@ -34,7 +35,7 @@ interface CreateQuestRequestBody {
 export async function GET(request: NextRequest) {
   const session:any = await getServerSession(authOptions);
   // NOTE: Assumes session.user.role is correctly typed via next-auth.d.ts
-  if (!session?.user?.role || session.user.role !== 'admin') { 
+  if (!isAdminSession(session)) { 
     return NextResponse.json({ error: 'Forbidden: Requires admin privileges' }, { status: 403 });
   }
 
@@ -84,7 +85,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const session:any = await getServerSession(authOptions);
   // NOTE: Assumes session.user.role, walletAddress, id are correctly typed via next-auth.d.ts
-  if (!session?.user?.role || session.user.role !== 'admin') { 
+  if (!isAdminSession(session)) { 
     return NextResponse.json({ error: 'Forbidden: Requires admin privileges' }, { status: 403 });
   }
   const adminIdentifier = session.user.walletAddress || session.user.id || 'ADMIN_USER';

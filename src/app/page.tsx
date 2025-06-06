@@ -24,7 +24,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Button } from "@/components/ui/button";
 import AirdropInfoDisplay from "@/components/airdrop/AirdropInfoDisplay";
 import { AIR } from '@/config/points.config'; // Import AIR config
-import { formatPoints } from '@/lib/utils'; // Import formatPoints
+import { formatPoints, generateReferralLink, getBaseUrl } from '@/lib/utils'; // Import formatPoints and referral utilities
 import AirdropSnapshotHorizontal from "@/components/dashboard/AirdropSnapshotHorizontal";
 import DashboardActionRow from "@/components/layout/DashboardActionRow";
 import MiniSquadCard from "@/components/dashboard/MiniSquadCard";
@@ -264,9 +264,9 @@ export default function HomePage() {
         return;
     }
     const airdropAmountStr = currentTotalAirdropForSharing.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0 });
-    const siteBaseUrl = "https://squad.defairewards.net";
+    const siteBaseUrl = getBaseUrl();
     const twitterHandle = "DeFAIRewards";
-    const shareUrl = userData?.referralCode ? `${siteBaseUrl}/?ref=${userData.referralCode}` : `${siteBaseUrl}/?ref=d93263c7`;
+    const shareUrl = userData?.referralCode ? generateReferralLink(userData.referralCode) : generateReferralLink('d93263c7');
     const text = `I'm getting ${airdropAmountStr} $DEFAI from @${twitterHandle} in the migration! 🚀 My referral link: ${shareUrl} \nGet ready for DEFAI SUMMER - buy $DeFAI now! #DeFAIRewards #TGE #AI #Solana`;
     const hashtags = "DeFAIRewards,TGE,AI,Solana";
     const twitterIntentUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&hashtags=${encodeURIComponent(hashtags)}&via=${twitterHandle}`;
@@ -681,8 +681,8 @@ export default function HomePage() {
                       )}
                     </div>
                     <div className="flex items-center bg-muted/50 p-1.5 rounded-md border border-input">
-                      <input type="text" readOnly value={`https://squad.defairewards.net/?ref=${userData.referralCode}`} className="text-foreground text-xs break-all bg-transparent outline-none flex-grow p-1" />
-                      <button onClick={() => handleCopyToClipboard(`https://squad.defairewards.net/?ref=${userData.referralCode}`)} className="ml-2 py-1 px-2 text-xs bg-[#2563EB] text-white rounded hover:bg-blue-700 transition-colors">
+                      <input type="text" readOnly value={generateReferralLink(userData.referralCode)} className="text-foreground text-xs break-all bg-transparent outline-none flex-grow p-1" />
+                      <button onClick={() => handleCopyToClipboard(generateReferralLink(userData.referralCode))} className="ml-2 py-1 px-2 text-xs bg-[#2563EB] text-white rounded hover:bg-blue-700 transition-colors">
                         Copy
                       </button>
                     </div>
@@ -892,8 +892,8 @@ export default function HomePage() {
                   <div className="my-3 p-3 bg-card rounded-lg text-center w-full border border-border">
                     <p className="text-sm font-semibold text-foreground mb-1">Your Referral Link:</p>
                     <div className="flex items-center bg-muted p-1.5 rounded border border-input">
-                      <input type="text" readOnly value={`https://squad.defairewards.net/?ref=${userData.referralCode}`} className="text-foreground text-xs break-all bg-transparent outline-none flex-grow p-0.5" />
-                      <button onClick={() => handleCopyToClipboard(`https://squad.defairewards.net/?ref=${userData.referralCode}`)} className="ml-1.5 py-1 px-1.5 text-xs bg-[#2563EB] text-white rounded hover:bg-blue-700">
+                      <input type="text" readOnly value={generateReferralLink(userData.referralCode)} className="text-foreground text-xs break-all bg-transparent outline-none flex-grow p-0.5" />
+                      <button onClick={() => handleCopyToClipboard(generateReferralLink(userData.referralCode))} className="ml-1.5 py-1 px-1.5 text-xs bg-[#2563EB] text-white rounded hover:bg-blue-700">
                         Copy
                       </button>
                     </div>

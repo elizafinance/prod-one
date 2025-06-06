@@ -1,3 +1,5 @@
+import './config/env-loader.js';
+
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 

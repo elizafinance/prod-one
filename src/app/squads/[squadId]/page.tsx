@@ -11,6 +11,7 @@ import { QuestProgressData, useSquadQuestProgressStore } from '@/store/useQuestP
 // import CommunityQuest from '@/models/communityQuest.model'; // This is the Mongoose model
 import RequestToJoinModal from '@/components/modals/RequestToJoinModal';
 import { TOKEN_LABEL_POINTS } from '@/lib/labels';
+import { generateReferralLink } from '@/lib/utils';
 
 // Updated interface to match the enriched data from the new API
 interface EnrichedSquadMember {
@@ -1044,11 +1045,18 @@ export default function SquadDetailsPage() {
                     <input 
                       type="text" 
                       readOnly 
-                      value={`https://squad.defairewards.net/?ref=${squadDetails.leaderReferralCode}&squadInvite=${squadDetails.squadId}`}
+                      value={squadDetails.leaderReferralCode && squadDetails.squadId 
+                        ? generateReferralLink(squadDetails.leaderReferralCode, squadDetails.squadId)
+                        : ''
+                      }
                       className="text-gray-700 text-sm break-all bg-transparent outline-none flex-grow p-1"
                     />
                     <button 
-                      onClick={() => handleCopyToClipboard(`https://squad.defairewards.net/?ref=${squadDetails.leaderReferralCode}&squadInvite=${squadDetails.squadId}`)}
+                      onClick={() => {
+                        if (squadDetails.leaderReferralCode && squadDetails.squadId) {
+                          handleCopyToClipboard(generateReferralLink(squadDetails.leaderReferralCode, squadDetails.squadId));
+                        }
+                      }}
                       className="ml-2 py-1 px-2 text-xs bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
                     >
                       Copy

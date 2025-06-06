@@ -1,14 +1,28 @@
+import mongoose from 'mongoose';
 import CommunityQuest from '../models/communityQuest.model.js'; // Assuming .js for standalone scheduler
 import QuestContribution from '../models/questContribution.model.js'; // Added for participation check
-import { connectToDatabase } from '../lib/mongodb.js'; // Assuming .js
-import { createNotification, NotificationType } from '../lib/notificationUtils.js'; // <<<< IMPORT STANDARDIZED UTILITY
+import { connectToDatabase } from '../../dist-scripts/lib/mongodb.js'; // Compiled version
+import { createNotification } from '../../dist-scripts/lib/notificationUtils.js'; // <<<< IMPORT STANDARDIZED UTILITY
 import { Db } from 'mongodb'; // For Db type
+
+// Initialize Mongoose connection
+async function initializeMongoose() {
+  if (mongoose.connection.readyState === 0) {
+    const mongoUri = process.env.MONGODB_URI;
+    if (!mongoUri) {
+      throw new Error('MONGODB_URI environment variable is not defined');
+    }
+    await mongoose.connect(mongoUri);
+    console.log('[QuestLifecycleService] Mongoose connected for scheduler');
+  }
+}
 
 async function activateScheduledQuests() {
   console.log('[QuestLifecycleService] Checking for scheduled quests to activate...');
   let activatedQuestsData = []; // To store data of quests that are activated
   let notifiedCount = 0; // To track how many notifications were attempted/created
   try {
+    await initializeMongoose(); // Initialize Mongoose connection
     const { db } = await connectToDatabase(); // Get Db instance
     const now = new Date();
     
@@ -97,6 +111,7 @@ async function expireOverdueQuests() {
   let expiredCount = 0;
   let notifiedUserCount = 0;
   try {
+    await initializeMongoose(); // Initialize Mongoose connection
     const { db } = await connectToDatabase();
     const now = new Date();
 

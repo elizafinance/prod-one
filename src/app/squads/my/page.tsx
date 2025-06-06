@@ -73,6 +73,18 @@ export default function MySquadPage() {
     setIsLoadingPoints(false);
   }, [isLoadingPoints]);
 
+  // Fetch user points for squad creation eligibility when user is authenticated and wallet is connected.
+  useEffect(() => {
+    if (authStatus === "authenticated" && connected && publicKey && !isLoadingPoints) {
+      // Check if points haven't been fetched yet or if the user context might have changed
+      // This condition might need refinement based on how often you want this to re-fetch.
+      // For now, it fetches if userPoints is null, implying initial load or a reset.
+      if (userPoints === null) {
+        fetchUserPoints(publicKey.toBase58());
+      }
+    }
+  }, [authStatus, connected, publicKey, fetchUserPoints, isLoadingPoints, userPoints]);
+
   const fetchMySquadData = useCallback(async (userWalletAddress: string) => {
     if (authStatus !== "authenticated" || !typedSession?.user?.xId) {
       setError("User not authenticated. Cannot fetch squad data.");

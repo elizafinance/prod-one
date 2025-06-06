@@ -94,16 +94,25 @@ export default async function handler(
 
     await squadJoinRequestsCollection.insertOne(newJoinRequest);
 
+    const notificationTitle = `Join Request: ${targetSquad.name}`;
+    const notificationMessage = `${session.user.xUsername ? '@' + session.user.xUsername : userWalletAddress.substring(0,6)} wants to join your squad, "${targetSquad.name}". Message: "${message || '-'}"`;
+    // CTA for leader could be a page to manage join requests for their squad
+    const ctaUrl = `/squads/${targetSquad.squadId}/manage?tab=requests`; 
+
     await createNotification(
       db,
-      targetSquad.leaderWalletAddress,
-      'squad_join_request_received',
-      `${session.user.xUsername ? '@' + session.user.xUsername : userWalletAddress.substring(0,6)} wants to join your squad "${targetSquad.name}"`,
-      targetSquad.squadId,
-      targetSquad.name,
-      userWalletAddress,
-      session.user.xUsername || undefined,
-      requestId
+      targetSquad.leaderWalletAddress,    // recipientWalletAddress (squad leader)
+      'squad_join_request_received',    // type
+      notificationTitle,                  // title
+      notificationMessage,                // message
+      ctaUrl,                             // ctaUrl
+      undefined,                          // relatedQuestId
+      undefined,                          // relatedQuestTitle
+      targetSquad.squadId,                // relatedSquadId
+      targetSquad.name,                   // relatedSquadName
+      userWalletAddress,                  // relatedUserId (the user who sent the request)
+      session.user.xUsername || undefined,// relatedUserName (name of the user who sent request)
+      requestId                           // relatedInvitationId (using this to store the join request ID)
     );
 
     return res.status(201).json({ message: 'Request to join squad sent successfully!', requestId });

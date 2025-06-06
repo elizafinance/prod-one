@@ -1,7 +1,9 @@
 // src/scheduler.js
+import './config/env-loader.js';
+
 import cron from 'node-cron';
 import { questLifecycleService } from './services/questLifecycle.service.js';
-import { connectToDatabase } from './lib/mongodb.js'; // For initial connection if needed by service
+import { connectToDatabase } from '../dist-scripts/lib/mongodb.js'; // For initial connection if needed by service
 
 console.log('[Scheduler] Starting up...');
 

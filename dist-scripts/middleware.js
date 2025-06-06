@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getToken } from 'next-auth/jwt';
+import { isAdminToken } from '@/lib/adminUtils';
 export async function middleware(request) {
     var _a;
     const token = await getToken({ req: request });
@@ -26,16 +27,14 @@ export async function middleware(request) {
         console.log('[Middleware] Token role:', token === null || token === void 0 ? void 0 : token.role);
         console.log('[Middleware] Token user:', token === null || token === void 0 ? void 0 : token.user);
         console.log('[Middleware] Token dbId:', token === null || token === void 0 ? void 0 : token.dbId);
-        // Check if token exists and has admin role
-        const isAdmin = token && (token.role === 'admin' ||
-            ((_a = token === null || token === void 0 ? void 0 : token.user) === null || _a === void 0 ? void 0 : _a.role) === 'admin' ||
-            (token === null || token === void 0 ? void 0 : token.role) === 'admin');
+        // Check if token exists and wallet address is admin
+        const isAdmin = token && isAdminToken(token);
         if (!isAdmin) {
-            console.log('[Middleware] Access denied - Not admin');
+            console.log('[Middleware] Access denied - Wallet not in admin list');
             const url = new URL('/', request.url);
             return NextResponse.redirect(url);
         }
-        console.log('[Middleware] Admin access granted');
+        console.log('[Middleware] Admin access granted for wallet:', token.walletAddress);
         return NextResponse.next();
     }
     // Require authentication for all other routes

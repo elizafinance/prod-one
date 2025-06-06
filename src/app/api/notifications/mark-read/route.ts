@@ -10,14 +10,19 @@ interface MarkReadRequestBody {
 export async function POST(request: Request) {
   const session = await getServerSession(authOptions) as any;
   if (!session || !session.user || typeof session.user.walletAddress !== 'string') {
-    console.warn('[Notifications] User not authenticated when marking notifications as read');
+    console.warn('[Notifications Mark-Read] User not authenticated or wallet not available in session when trying to mark read');
     return NextResponse.json({ error: 'User not authenticated or wallet not available in session' }, { status: 401 });
   }
   const currentUserWalletAddress = session.user.walletAddress;
+  // <<< PRIMARY LOGGING FOR WALLET ADDRESS USED IN QUERY >>>
+  console.log(`[Notifications Mark-Read] Wallet address from session being used for DB query: ${currentUserWalletAddress}`);
 
   try {
     const body: MarkReadRequestBody = await request.json();
     const { notificationIds } = body;
+
+    // <<< MOVE/ADD LOGGING FOR session.user.walletAddress AND notificationIds HERE >>>
+    console.log(`[Notifications Mark-Read] Session wallet for query: ${currentUserWalletAddress}, Received Notification IDs from client:`, notificationIds);
 
     if (!notificationIds || !Array.isArray(notificationIds) || notificationIds.length === 0) {
       return NextResponse.json({ error: 'notificationIds array is required and cannot be empty.' }, { status: 400 });
@@ -35,6 +40,16 @@ export async function POST(request: Request) {
     const { db } = await connectToDatabase();
     const notificationsCollection = db.collection<NotificationDocument>('notifications');
 
+    // --- BEGIN DIAGNOSTIC LOGGING ---
+    if (notificationIds && notificationIds.length > 0) {
+      const diagnosticDocs = await notificationsCollection.find({
+        recipientWalletAddress: currentUserWalletAddress,
+        notificationId: { $in: notificationIds }
+      }).project({ notificationId: 1, isRead: 1, type: 1, title:1 }).toArray();
+      console.log(`[Notifications Mark-Read DIAGNOSTIC] Docs found for IDs [${notificationIds.join(', ')}]:`, JSON.stringify(diagnosticDocs, null, 2));
+    }
+    // --- END DIAGNOSTIC LOGGING ---
+
     const result = await notificationsCollection.updateMany(
       {
         recipientWalletAddress: currentUserWalletAddress,
@@ -44,7 +59,7 @@ export async function POST(request: Request) {
       { $set: { isRead: true, updatedAt: new Date() } } // Add updatedAt for tracking
     );
 
-    console.log(`[Notifications] Marked ${result.modifiedCount} notifications as read`);
+    console.log(`[Notifications] Marked ${result.modifiedCount} notifications as read using notificationId`);
 
     return NextResponse.json({ 
       message: 'Notifications marked as read successfully.', 

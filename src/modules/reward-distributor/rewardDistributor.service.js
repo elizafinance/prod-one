@@ -1,12 +1,12 @@
-import { rabbitmqService } from '../../services/rabbitmq.service';
-import { rabbitmqConfig } from '../../config/rabbitmq.config';
-import { connectToDatabase, UserDocument } from '../../lib/mongodb.js';
+import { rabbitmqService } from '../../services/rabbitmq.service.js';
+import { rabbitmqConfig } from '../../config/rabbitmq.config.js';
+import { connectToDatabase } from '../../../dist-scripts/lib/mongodb.js';
 import CommunityQuest from '../../models/communityQuest.model.js';
 import QuestContribution from '../../models/questContribution.model.js';
 import QuestRewardLedger from '../../models/questRewardLedger.model.js';
 import { notificationService } from '../../services/notification.service.js';
-import User from '../../models/user.model';
-import Squad from '../../models/squad.model';
+import { User } from '../../../dist-scripts/models/User.js';
+import { Squad } from '../../../dist-scripts/models/Squad.js';
 
 const MAX_RETRIES = 3;
 

@@ -1,9 +1,9 @@
-import { rabbitmqService } from '../../services/rabbitmq.service';
-import { rabbitmqConfig } from '../../config/rabbitmq.config';
-import { redisService } from '../../services/redis.service';
-import { redisConfig } from '../../config/redis.config';
-import CommunityQuest from '../../models/communityQuest.model';
-import QuestContribution from '../../models/questContribution.model';
+import { rabbitmqService } from '../../services/rabbitmq.service.js';
+import { rabbitmqConfig } from '../../config/rabbitmq.config.js';
+import { redisService } from '../../services/redis.service.js';
+import { redisConfig } from '../../config/redis.config.js';
+import CommunityQuest from '../../models/communityQuest.model.js';
+import QuestContribution from '../../models/questContribution.model.js';
 // import QuestRewardLedger from '../../models/questRewardLedger.model'; // For later reward distribution
 
 const MAX_RETRIES = 3;

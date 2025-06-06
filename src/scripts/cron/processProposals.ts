@@ -5,6 +5,8 @@ import { Proposal, IProposal } from '../../models/Proposal';
 import { Vote, IVote } from '../../models/Vote';
 import { Notification } from '../../models/Notification';
 import { Squad } from '../../models/Squad';
+import { createNotification, NotificationType } from '../../lib/notificationUtils';
+import { Db } from 'mongodb';
 
 // Configuration from environment variables with defaults
 const CRON_PROPOSAL_PASS_THRESHOLD = parseInt(process.env.CRON_PROPOSAL_PASS_THRESHOLD || "0", 10);
@@ -39,9 +41,10 @@ async function distributeTokens(proposal: IProposal): Promise<boolean> {
 }
 
 async function createNotificationsForSquadMembers(
+  db: Db,
   squadId: mongoose.Types.ObjectId,
   proposal: IProposal,
-  notificationType: 'proposal_passed' | 'proposal_failed' | 'proposal_executed',
+  notificationType: NotificationType,
   title: string,
   message: string
 ) {
@@ -52,31 +55,41 @@ async function createNotificationsForSquadMembers(
       return;
     }
 
-    const notifications = squad.memberWalletAddresses.map((walletAddress: string) => ({
-      recipientWalletAddress: walletAddress,
-      type: notificationType,
-      title,
-      message,
-      data: {
-        proposalId: (proposal._id as mongoose.Types.ObjectId).toString(),
-        proposalName: proposal.tokenName,
-        squadId: squad.squadId, 
-        squadName: squad.name,
-      },
-    }));
+    const ctaUrl = `/squads/${squad.squadId}/proposals/${proposal._id.toString()}`;
+    const proposalCreatorUserId = proposal.createdByUserId?.toString();
 
-    if (notifications.length > 0) {
-      await Notification.insertMany(notifications);
-      console.log(`Created ${notifications.length} notifications for proposal ${(proposal._id as mongoose.Types.ObjectId).toString()} results for squad ${squad.name}.`);
+    let notificationsSentCount = 0;
+    for (const walletAddress of squad.memberWalletAddresses) {
+      await createNotification(
+        db,
+        walletAddress,
+        notificationType,
+        title,
+        message,
+        ctaUrl,
+        proposal._id.toString(),
+        proposal.tokenName,
+        squad.squadId,
+        squad.name,
+        proposalCreatorUserId,
+        undefined
+      );
+      notificationsSentCount++;
+    }
+
+    if (notificationsSentCount > 0) {
+      console.log(`Sent ${notificationsSentCount} '${notificationType}' notifications for proposal ${proposal._id.toString()} to squad ${squad.name}.`);
     }
   } catch (error) {
-    console.error(`Error creating notifications for squad ${squadId} / proposal ${(proposal._id as mongoose.Types.ObjectId).toString()}:`, error);
+    console.error(`Error creating notifications for squad ${squadId} / proposal ${proposal._id.toString()}:`, error);
   }
 }
 
 async function processEndedProposals() {
   console.log('Starting proposal processing job...');
   let dbConnection;
+  let mongoDbInstance: Db | null = null;
+
   try {
     if (mongoose.connection.readyState !== 1) {
       console.log('No existing Mongoose connection, attempting to connect for cron job...');
@@ -85,8 +98,14 @@ async function processEndedProposals() {
       }
       dbConnection = await mongoose.connect(process.env.MONGODB_URI);
       console.log('Mongoose connected successfully for cron job.');
+      mongoDbInstance = dbConnection.connection.db;
     } else {
       console.log('Using existing Mongoose connection for cron job.');
+      mongoDbInstance = mongoose.connection.db;
+    }
+
+    if (!mongoDbInstance) {
+      throw new Error("Failed to get native MongoDB instance for cron job.");
     }
 
     const now = new Date();
@@ -153,65 +172,78 @@ async function processEndedProposals() {
       console.log(`Proposal ${(proposal._id as mongoose.Types.ObjectId).toString()} final status is ${proposal.status} and results saved.`);
 
       // Prepare notification based on the final status of the proposal
-      let notificationTitle: string;
-      let notificationMessage: string;
-      let notificationType: 'proposal_passed' | 'proposal_failed' | 'proposal_executed';
+      let outcomeNotificationTitle: string;
+      let outcomeNotificationMessage: string;
+      let outcomeNotificationType: NotificationType;
 
       if (proposal.status === 'closed_executed') {
-        notificationTitle = `Proposal \'${proposal.tokenName}\' Executed!`;
-        notificationMessage = `The passed proposal \'${proposal.tokenName}\' for squad ${proposal.squadName} has been executed and rewards are on their way!`;
-        notificationType = 'proposal_executed';
+        outcomeNotificationTitle = `Proposal Executed: ${proposal.tokenName}`;
+        outcomeNotificationMessage = `The passed proposal '${proposal.tokenName}' for squad ${proposal.squadName} has been executed and rewards are on their way!`;
+        outcomeNotificationType = 'proposal_executed';
       } else if (proposal.status === 'closed_passed') {
-        notificationTitle = `Proposal \'${proposal.tokenName}\' Passed!`;
-        notificationMessage = `Great news! The proposal \'${proposal.tokenName}\' for squad ${proposal.squadName} has passed! Token distribution is pending.`;
-        notificationType = 'proposal_passed';
+        outcomeNotificationTitle = `Proposal Passed: ${proposal.tokenName}`;
+        outcomeNotificationMessage = `The proposal '${proposal.tokenName}' for squad ${proposal.squadName} has passed! Token distribution is pending.`;
+        outcomeNotificationType = 'proposal_passed';
       } else { // 'closed_failed'
-        notificationTitle = `Proposal \'${proposal.tokenName}\' Failed`;
-        notificationMessage = `The voting period for proposal \'${proposal.tokenName}\' for squad ${proposal.squadName} has ended. Unfortunately, it did not pass.`;
-        notificationType = 'proposal_failed';
+        outcomeNotificationTitle = `Proposal Failed: ${proposal.tokenName}`;
+        outcomeNotificationMessage = `The voting period for proposal '${proposal.tokenName}' for squad ${proposal.squadName} has ended. Unfortunately, it did not pass.`;
+        outcomeNotificationType = 'proposal_failed';
       }
 
-      await createNotificationsForSquadMembers(proposal.squadId, proposal, notificationType, 
-        `${notificationTitle} (Squad: ${proposal.squadName})`, 
-        `The proposal \'${proposal.tokenName}\' for squad ${proposal.squadName} has concluded. ${notificationMessage}`
+      await createNotificationsForSquadMembers(
+        mongoDbInstance,
+        proposal.squadId, 
+        proposal, 
+        outcomeNotificationType, 
+        outcomeNotificationTitle,
+        outcomeNotificationMessage
       );
       
       // Auto-broadcasting based on points if it passed (even if execution is pending/failed but proposal itself is valid)
       if ((proposal.status === 'closed_passed' || proposal.status === 'closed_executed') && 
           upVotesWeight >= BROADCAST_THRESHOLD_POINTS && !proposal.broadcasted) {
           proposal.broadcasted = true;
-          await proposal.save(); // Save the broadcast status
+          await proposal.save();
 
-          // Platform-wide broadcast notifications
+          // Platform-wide broadcast notifications - REFACTORED SECTION
           try {
-            const { db } = await connectToDatabase();
-            const usersCollection = db.collection('users');
-            const users = await usersCollection.find({}, { projection: { walletAddress: 1 } }).toArray();
+            // mongoDbInstance is already available and is the native Db type
+            const usersCollection = mongoDbInstance.collection<UserDocument>('users'); 
+            const usersToNotify = await usersCollection.find({ walletAddress: { $exists: true, $ne: null } }, { projection: { walletAddress: 1, xUsername: 1 } }).toArray();
 
-            const broadcastNotifs = users
-              .filter(u => u.walletAddress)
-              .map(u => ({
-                recipientWalletAddress: u.walletAddress as string,
-                type: 'proposal_broadcasted' as const,
-                title: `Proposal '${proposal.tokenName}' Broadcasted!`,
-                message: `A proposal from squad ${proposal.squadName} has reached the broadcast threshold. Join the discussion!`,
-                data: {
-                  proposalId: (proposal._id as mongoose.Types.ObjectId).toString(),
-                  proposalName: proposal.tokenName,
-                  squadId: proposal.squadId.toString(),
-                  squadName: proposal.squadName,
-                },
-              }));
-
-            if (broadcastNotifs.length) {
-              await Notification.insertMany(broadcastNotifs);
-              console.log(`Created ${broadcastNotifs.length} platform-wide broadcast notifications.`);
+            const broadcastTitle = `Proposal Broadcast: ${proposal.tokenName}`;
+            const broadcastMessage = `A significant proposal "${proposal.tokenName}" from squad ${proposal.squadName} has passed and reached the broadcast threshold. Check it out!`;
+            const broadcastCtaUrl = `/squads/${proposal.squadId.toString()}/proposals/${proposal._id.toString()}`;
+            
+            let broadcastSentCount = 0;
+            if (usersToNotify.length > 0) {
+              for (const user of usersToNotify) {
+                if (user.walletAddress) { // Ensure walletAddress exists
+                  await createNotification(
+                    mongoDbInstance,                // db instance
+                    user.walletAddress,             // recipientWalletAddress
+                    'proposal_broadcasted',         // type
+                    broadcastTitle,
+                    broadcastMessage,
+                    broadcastCtaUrl,
+                    proposal._id.toString(),      // relatedQuestId (using for proposalId)
+                    proposal.tokenName,           // relatedQuestTitle (using for proposalName)
+                    proposal.squadId.toString(),  // relatedSquadId (ensure it's a string if squadId on proposal is ObjectId)
+                    proposal.squadName,
+                    proposal.createdByUserId?.toString(), // relatedUserId (proposal creator)
+                    undefined                     // relatedUserName (can be enhanced by fetching creator's username)
+                  );
+                  broadcastSentCount++;
+                }
+              }
+            }
+            if (broadcastSentCount > 0) {
+              console.log(`Sent ${broadcastSentCount} platform-wide 'proposal_broadcasted' notifications for proposal ${proposal._id.toString()}.`);
             }
           } catch (err) {
             console.error('Error creating broadcast notifications:', err);
           }
-
-          console.log(`Proposal ${(proposal._id as mongoose.Types.ObjectId).toString()} also met broadcast threshold and marked as broadcasted.`);
+          console.log(`Proposal ${proposal._id.toString()} also met broadcast threshold and marked as broadcasted.`);
       }
     }
     console.log('Finished processing ended proposals.');

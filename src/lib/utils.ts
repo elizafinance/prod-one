@@ -62,3 +62,57 @@ export function formatPoints(points: number | null | undefined): string {
   }
   return points.toLocaleString();
 }
+
+/**
+ * Get the base URL for the application based on environment
+ * Returns localhost for development, production URL for production
+ * 
+ * Development detection:
+ * - CLIENT: NODE_ENV=development OR hostname is localhost/127.0.0.1
+ * - SERVER: NODE_ENV=development
+ * 
+ * Port detection for development:
+ * - Uses PORT or NEXT_PUBLIC_PORT environment variables
+ * - Defaults to 3000 if not specified
+ */
+export function getBaseUrl(): string {
+  // Check if we're in development or localhost
+  if (typeof window !== 'undefined') {
+    // Client-side
+    const hostname = window.location.hostname;
+    const isDev = process.env.NODE_ENV === 'development' || hostname === 'localhost' || hostname === '127.0.0.1';
+    
+    if (isDev) {
+      return `${window.location.protocol}//${window.location.host}`;
+    }
+  } else {
+    // Server-side
+    const isDev = process.env.NODE_ENV === 'development';
+    if (isDev) {
+      const port = process.env.PORT || process.env.NEXT_PUBLIC_PORT || '3000';
+      return `http://localhost:${port}`;
+    }
+  }
+  
+  // Production URL
+  return 'https://squad.defairewards.net';
+}
+
+/**
+ * Generate a complete referral link with the appropriate base URL
+ * Automatically uses localhost for development, production URL for production
+ * 
+ * @param referralCode - The referral code to include in the link
+ * @param squadInvite - Optional squad ID for squad invitations
+ * @returns Complete referral URL with proper base URL for current environment
+ */
+export function generateReferralLink(referralCode: string, squadInvite?: string): string {
+  const baseUrl = getBaseUrl();
+  let url = `${baseUrl}/?ref=${referralCode}`;
+  
+  if (squadInvite) {
+    url += `&squadInvite=${squadInvite}`;
+  }
+  
+  return url;
+}

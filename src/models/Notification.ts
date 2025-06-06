@@ -9,6 +9,7 @@ interface INotification extends Document {
   data?: Record<string, any>; // For things like proposalId, squadId, etc.
   isRead: boolean;
   createdAt: Date;
+  notificationId: string;
 }
 
 const NotificationSchema = new Schema<INotification>({
@@ -24,6 +25,7 @@ const NotificationSchema = new Schema<INotification>({
   data: { type: Schema.Types.Mixed },
   isRead: { type: Boolean, default: false, index: true },
   createdAt: { type: Date, default: Date.now, index: true },
+  notificationId: { type: String, required: true, unique: true, index: true },
 });
 
 NotificationSchema.index({ recipientWalletAddress: 1, isRead: 1, createdAt: -1 }); // Common query for user notifications

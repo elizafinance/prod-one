@@ -1,4 +1,4 @@
-import { connectToDatabase } from '../lib/mongodb.js';
+import { connectToDatabase } from '../../dist-scripts/lib/mongodb.js';
 import { v4 as uuidv4 } from 'uuid';
 
 /**

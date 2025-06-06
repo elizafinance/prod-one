@@ -48,15 +48,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // 3. Notify squad leader
     const squad = await squadsCollection.findOne({ squadId: joinRequest.squadId });
     if (squad) {
+      const notificationTitle = `Join Request Cancelled: ${squad.name}`;
+      const notificationMessage = `${session.user.xUsername ? '@' + session.user.xUsername : requestingWallet.substring(0,6)} cancelled their pending request to join your squad, "${squad.name}".`;
+      const ctaUrl = `/squads/${squad.squadId}/manage?tab=requests`; // Link to squad request management
+
       await createNotification(
         db,
-        squad.leaderWalletAddress,
-        'squad_join_request_rejected', // reuse existing type for UI, different message
-        `${session.user.xUsername ? '@' + session.user.xUsername : requestingWallet.substring(0,6)} cancelled their join request to squad "${squad.name}"`,
-        squad.squadId,
-        squad.name,
-        requestingWallet,
-        session.user.xUsername || undefined
+        squad.leaderWalletAddress,            // recipientWalletAddress (squad leader)
+        'squad_join_request_cancelled',     // type
+        notificationTitle,                    // title
+        notificationMessage,                  // message
+        ctaUrl,                               // ctaUrl
+        undefined,                            // relatedQuestId
+        undefined,                            // relatedQuestTitle
+        squad.squadId,                        // relatedSquadId
+        squad.name,                           // relatedSquadName
+        requestingWallet,                     // relatedUserId (the user who cancelled)
+        session.user.xUsername || undefined,  // relatedUserName (name of the user who cancelled)
+        joinRequest.requestId                 // relatedInvitationId (using for join request ID)
       );
     }
 

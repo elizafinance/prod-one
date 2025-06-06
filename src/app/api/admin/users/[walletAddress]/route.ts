@@ -3,6 +3,7 @@ import { connectToDatabase, UserDocument } from '@/lib/mongodb';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 import { getPointsService, AwardPointsOptions } from '@/services/points.service';
+import { isAdminSession } from '@/lib/adminUtils';
 
 // Helper function for Admin Audit Logging (can be moved to a separate file later)
 async function logAdminAction(db: any, adminUserId: string, action: string, targetEntityType: string, targetEntityId: string, changes: any, reason?: string) {
@@ -27,7 +28,7 @@ export async function GET(
   { params }: { params: { walletAddress: string } }
 ) {
   const session: any = await getServerSession(authOptions);
-  if (!session?.user?.role || session.user.role !== 'admin') {
+  if (!isAdminSession(session)) {
     return NextResponse.json({ error: 'Forbidden: Requires admin privileges' }, { status: 403 });
   }
 
@@ -83,7 +84,7 @@ export async function PATCH(
   const session: any = await getServerSession(authOptions);
   const adminUserForLog = session?.user as any;
   
-  if (!adminUserForLog?.role || adminUserForLog.role !== 'admin') {
+  if (!isAdminSession(session)) {
     return NextResponse.json({ error: 'Forbidden: Requires admin privileges' }, { status: 403 });
   }
 

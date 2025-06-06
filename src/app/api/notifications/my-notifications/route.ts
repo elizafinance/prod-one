@@ -37,7 +37,7 @@ export async function GET(request: Request) {
 
     const genericDbNotifications = await notificationsCollection
       .find({
-        userId: currentUserWalletAddress,
+        recipientWalletAddress: currentUserWalletAddress,
         isArchived: { $ne: true },
       })
       .sort({ createdAt: -1 })
@@ -92,8 +92,8 @@ export async function GET(request: Request) {
       // and includes `source`. All fields from NotificationDocument are optional here.
       return {
         _id: notif._id?.toString(), // Convert ObjectId to string here for the response
-        notificationId: notif.source === 'invite' ? notif.relatedInvitationId : notif._id?.toString(),
-        userId: notif.userId,
+        notificationId: notif.source === 'invite' ? notif.relatedInvitationId : notif.notificationId,
+        userId: notif.recipientWalletAddress,
         type: notif.type,
         title: notif.title,
         message: notif.message,
@@ -113,6 +113,9 @@ export async function GET(request: Request) {
         badgeId: notif.badgeId,
       };
     });
+
+    // <<< ADD DIAGNOSTIC LOG HERE >>>
+    console.log(`[API my-notifications] Transformed notifications being sent to client for ${currentUserWalletAddress}:`, JSON.stringify(transformedNotifications.map(n => ({ notificationId: n.notificationId, type: n.type, title: n.title, isRead: n.isRead })), null, 2));
 
     return NextResponse.json({ 
         notifications: transformedNotifications,

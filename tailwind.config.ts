@@ -23,8 +23,9 @@ const config: Config = {
   			]
   		},
   		backgroundImage: {
-  			'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
-  			'gradient-conic': 'conic-gradient(from 180deg at 50% 50%, var(--tw-gradient-stops))'
+  			'gradient-radial': 'radial-gradient(ellipse at center, var(--tw-gradient-stops))',
+  			'gradient-conic': 'conic-gradient(from 180deg at 50% 50%, var(--tw-gradient-stops))',
+  			'shimmer': 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.1) 50%, transparent 100%)'
   		},
   		borderRadius: {
   			lg: 'var(--radius)',
@@ -74,6 +75,7 @@ const config: Config = {
   			'accordion-up': 'accordion-up 0.2s ease-out',
   			'float': 'float 3s ease-in-out infinite',
   			'fadeIn': 'fadeIn 0.5s ease-out',
+  			shimmer: 'shimmer 8s ease-in-out infinite',
   		},
   		keyframes: {
   			'accordion-down': {
@@ -99,6 +101,14 @@ const config: Config = {
   			fadeIn: {
   				'from': { opacity: '0' },
   				'to': { opacity: '1' },
+  			},
+  			shimmer: {
+  				'0%': {
+  					backgroundPosition: '200% 0',
+  				},
+  				'100%': {
+  					backgroundPosition: '-200% 0',
+  				},
   			},
   		},
   		boxShadow: {

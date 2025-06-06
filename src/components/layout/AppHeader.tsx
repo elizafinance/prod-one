@@ -18,10 +18,7 @@ import AgentSetupModal from '@/components/modals/AgentSetupModal'; // Path confi
 import { useRouter } from 'next/navigation'; // For redirection
 
 // Type imports using ComponentProps for better robustness if props are not explicitly exported
-// This assumes NotificationsPanel and UserAvatar are functional or class components.
-// If they are forwardRef components, a different approach might be needed for types.
-// type NotificationsPanelProps = ComponentProps<typeof NotificationsPanel>;
-// type UserAvatarProps = ComponentProps<typeof UserAvatar>;
+import type { ComponentProps } from 'react';
 
 // Dynamically import WalletMultiButton (if used in header)
 const WalletMultiButtonDynamic = dynamic(
@@ -35,17 +32,14 @@ const XIcon = () => (
   </svg>
 );
 
-const navItems: NavItem[] = [
-  { href: "/", label: "Dashboard", exact: true },
+const navLinks = [
   { href: "/leaderboard", label: "Leaderboard" },
-  { href: "/quests", label: "Quests" },
   { href: "/squads", label: "Squads" },
-  { href: "/squads/browse", label: "Squads Browse" },
-  { href: "/proposals", label: "Proposals" },
+  { href: "/rewards", label: "Rewards" },
   { href: "/yield", label: "Yield" },
+  { href: "/intel", label: "Intel" },
   { href: "/myair", label: "My AIR" },
   // The Airdrop Checker is part of the Dashboard page, so no separate nav item usually needed
-  // If it were a distinct page: { href: "/airdrop-checker", label: "Airdrop Checker" },
 ];
 
 export default function AppHeader() {

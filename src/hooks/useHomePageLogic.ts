@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import { PublicKey } from '@solana/web3.js';
 import { getAssociatedTokenAddress, getAccount } from '@solana/spl-token';
 import { checkRequiredEnvVars } from '@/utils/checkEnv';
+import { useEnv, getEnvVar } from '@/hooks/useEnv';
 import { useUserAirdrop, UserAirdropData } from '@/hooks/useUserAirdrop';
 import { useWalletModal } from '@solana/wallet-adapter-react-ui';
 
@@ -16,6 +17,9 @@ export function useHomePageLogic() {
   const { connection } = useConnection();
   const { setVisible: setWalletModalVisible } = useWalletModal();
   const walletPromptedRef = useRef(false);
+  
+  // Get environment variables via API to bypass Next.js bundling issues
+  const { envVars, isLoading: isEnvLoading, error: envError } = useEnv();
 
   const userAirdrop = useUserAirdrop();
   const [typedAddress, setTypedAddress] = useState('');
@@ -141,13 +145,13 @@ export function useHomePageLogic() {
   }, [wallet.connected, session, isFetchingInvites]);
 
   const checkDefaiBalance = useCallback(async (userPublicKey: PublicKey | null, conn: any) => {
-    if (!userPublicKey || !conn) {
+    if (!userPublicKey || !conn || !envVars) {
         return;
     }
     setIsCheckingDefaiBalance(true);
-    const tokenMintAddress = process.env.NEXT_PUBLIC_DEFAI_TOKEN_MINT_ADDRESS;
-    const tokenDecimals = parseInt(process.env.NEXT_PUBLIC_DEFAI_TOKEN_DECIMALS || '9', 10);
-    const requiredDefaiAmount = parseInt(process.env.NEXT_PUBLIC_REQUIRED_DEFAI_AMOUNT || '5000', 10);
+    const tokenMintAddress = getEnvVar('NEXT_PUBLIC_DEFAI_TOKEN_MINT_ADDRESS', envVars);
+    const tokenDecimals = parseInt(getEnvVar('NEXT_PUBLIC_DEFAI_TOKEN_DECIMALS', envVars) || '9', 10);
+    const requiredDefaiAmount = parseInt(getEnvVar('NEXT_PUBLIC_REQUIRED_DEFAI_AMOUNT', envVars) || '5000', 10);
 
     if (tokenMintAddress) {
       try {
@@ -164,7 +168,7 @@ export function useHomePageLogic() {
       }
     }
     setIsCheckingDefaiBalance(false);
-  }, []);
+  }, [envVars]);
 
   const activateRewardsAndFetchData = useCallback(async (connectedWalletAddress: string, xUserId: string, userDbId: string | undefined) => {
     setActivationAttempted(true);
@@ -346,8 +350,13 @@ export function useHomePageLogic() {
   }, [authStatus, userDetailsFetched]);
 
   useEffect(() => {
-    checkRequiredEnvVars();
-  }, []);
+    // Check environment variables once they're loaded from API
+    if (envVars && !isEnvLoading) {
+      checkRequiredEnvVars(envVars);
+    } else if (envError) {
+      console.error('[HomePageLogic] Failed to load environment variables:', envError);
+    }
+  }, [envVars, isEnvLoading, envError]);
 
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);

@@ -16,6 +16,7 @@ import { BellIcon } from '@heroicons/react/24/outline'; // Example icon, install
 import UserAvatar from "@/components/UserAvatar";
 import { PublicKey, Connection } from '@solana/web3.js';
 import { getAssociatedTokenAddress, getAccount } from '@solana/spl-token';
+import { getDefaiBalance, hasSufficientDefaiBalance } from '@/utils/tokenBalance';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useConnection } from '@solana/wallet-adapter-react';
 import { checkRequiredEnvVars } from '@/utils/checkEnv';
@@ -135,6 +136,7 @@ export default function HomePage() {
     setCurrentTotalAirdropForSharing,
     isCheckingDefaiBalance,
     hasSufficientDefai,
+    setHasSufficientDefai,
     showWelcomeModal,
     setShowWelcomeModal,
     isProcessingLinkInvite,
@@ -423,28 +425,30 @@ export default function HomePage() {
       .catch(err => console.error("Failed to fetch total community points for dashboard", err));
   }, []);
 
-  // Fetch defaiBalance (example, adjust to your actual API/logic if not already in AirdropInfoDisplay a level up)
+  // Fetch defaiBalance using the robust token balance utility
    useEffect(() => {
     if (wallet.connected && wallet.publicKey && connection) {
       const fetchBalance = async () => {
-        const tokenMintAddress = process.env.NEXT_PUBLIC_DEFAI_TOKEN_MINT_ADDRESS;
-        const tokenDecimals = parseInt(process.env.NEXT_PUBLIC_DEFAI_TOKEN_DECIMALS || '9', 10);
-        if (tokenMintAddress) {
-          try {
-            const mint = new PublicKey(tokenMintAddress);
-            const ata = await getAssociatedTokenAddress(mint, wallet.publicKey!);
-            const accountInfo = await getAccount(connection, ata, 'confirmed');
-            setDefaiBalance(Number(accountInfo.amount) / (10 ** tokenDecimals));
-          } catch (e) {
-            console.warn("Could not fetch DeFAI balance for dashboard snapshot", e);
-            setDefaiBalance(0); // Assume 0 if not found or error
+        try {
+          const result = await hasSufficientDefaiBalance(connection, wallet.publicKey!);
+          setDefaiBalance(result.balance);
+          setHasSufficientDefai(result.hasSufficient);
+          
+          if (result.error) {
+            console.warn("DeFAI balance fetch warning:", result.error);
           }
+          
+          console.log(`[HomePage] DeFAI Balance: ${result.balance}, Required: ${result.required}, Sufficient: ${result.hasSufficient}`);
+        } catch (e) {
+          console.warn("Could not fetch DeFAI balance for dashboard snapshot", e);
+          setDefaiBalance(0);
+          setHasSufficientDefai(false);
         }
       };
       fetchBalance();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [wallet.connected, wallet.publicKey, connection, setDefaiBalance]);
+  }, [wallet.connected, wallet.publicKey, connection, setDefaiBalance, setHasSufficientDefai]);
 
   const showInsufficientBalanceMessage = authStatus === "authenticated" && wallet.connected && isRewardsActive && userData && hasSufficientDefai === false;
 

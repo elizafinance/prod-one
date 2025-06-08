@@ -81,8 +81,10 @@ export async function GET(req: NextRequest) {
 
     const tokens = await tokenResponse.json();
     const accessToken = tokens.access_token;
-    const refreshToken = tokens.refresh_token; // May not always be present, handle if needed
+    const refreshToken = tokens.refresh_token; // Should now be present with offline.access scope
     const scopes = tokens.scope.split(' '); // Scopes granted
+    
+    console.log(`[X Connect Callback] Token exchange successful. Scopes: ${scopes.join(', ')}, Has refresh token: ${!!refreshToken}`);
 
     // 2. Fetch X user profile data (/2/users/me)
     const userProfileResponse = await fetch('https://api.twitter.com/2/users/me', {

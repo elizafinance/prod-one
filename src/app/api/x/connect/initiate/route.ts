@@ -52,7 +52,7 @@ export async function GET(req: NextRequest) {
     cookieStore.set('x_oauth_state', state, cookieOptions);
     cookieStore.set('x_pkce_code_verifier', codeVerifier, cookieOptions);
 
-    const scopes = ['users.read', 'follows.read', 'tweet.read']; // Adjust scopes as needed for X API v2
+    const scopes = ['users.read', 'follows.read', 'tweet.read', 'offline.access']; // Added offline.access for refresh tokens
     const authUrl = new URL('https://twitter.com/i/oauth2/authorize');
     authUrl.searchParams.set('response_type', 'code');
     authUrl.searchParams.set('client_id', X_CLIENT_ID);

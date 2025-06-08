@@ -10,6 +10,7 @@ import { checkRequiredEnvVars } from '@/utils/checkEnv';
 import { useEnv, getEnvVar } from '@/hooks/useEnv';
 import { useUserAirdrop, UserAirdropData } from '@/hooks/useUserAirdrop';
 import { useWalletModal } from '@solana/wallet-adapter-react-ui';
+import { hasSufficientDefaiBalance } from '@/utils/tokenBalance';
 
 export function useHomePageLogic() {
   const { data: session, status: authStatus, update: updateSession } = useSession();
@@ -149,24 +150,24 @@ export function useHomePageLogic() {
         return;
     }
     setIsCheckingDefaiBalance(true);
-    const tokenMintAddress = getEnvVar('NEXT_PUBLIC_DEFAI_TOKEN_MINT_ADDRESS', envVars);
-    const tokenDecimals = parseInt(getEnvVar('NEXT_PUBLIC_DEFAI_TOKEN_DECIMALS', envVars) || '9', 10);
-    const requiredDefaiAmount = parseInt(getEnvVar('NEXT_PUBLIC_REQUIRED_DEFAI_AMOUNT', envVars) || '5000', 10);
-
-    if (tokenMintAddress) {
-      try {
-        const mint = new PublicKey(tokenMintAddress);
-        const ata = await getAssociatedTokenAddress(mint, userPublicKey);
-        const accountInfo = await getAccount(conn, ata, 'confirmed');
-        const balance = Number(accountInfo.amount) / (10 ** tokenDecimals);
-        setDefaiBalance(balance);
-        setHasSufficientDefai(balance >= requiredDefaiAmount);
-      } catch (e) {
-        console.warn("Could not fetch DeFAI balance", e);
-        setDefaiBalance(0);
-        setHasSufficientDefai(false);
+    
+    try {
+      const result = await hasSufficientDefaiBalance(conn, userPublicKey);
+      
+      setDefaiBalance(result.balance);
+      setHasSufficientDefai(result.hasSufficient);
+      
+      if (result.error) {
+        console.warn("DeFAI balance check warning:", result.error);
       }
+      
+      console.log(`[checkDefaiBalance] Balance: ${result.balance}, Required: ${result.required}, Sufficient: ${result.hasSufficient}`);
+    } catch (e) {
+      console.error("Could not fetch DeFAI balance", e);
+      setDefaiBalance(0);
+      setHasSufficientDefai(false);
     }
+    
     setIsCheckingDefaiBalance(false);
   }, [envVars]);
 
@@ -544,6 +545,7 @@ export function useHomePageLogic() {
     setCurrentTotalAirdropForSharing,
     isCheckingDefaiBalance,
     hasSufficientDefai,
+    setHasSufficientDefai,
     showWelcomeModal,
     setShowWelcomeModal,
     isProcessingLinkInvite,

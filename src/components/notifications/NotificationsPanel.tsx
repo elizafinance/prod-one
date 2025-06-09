@@ -248,16 +248,17 @@ export default function NotificationsPanel({ isOpen, onClose, onUpdateUnreadCoun
           </div>
 
           {/* Clear All Notifications Button - FOR TESTING - Panel */}
-          <div className="p-2 border-b border-border text-center">
-            <button
-              onClick={handleClearAllNotifications}
-              disabled={isLoading || notifications.length === 0}
-              className="w-full px-3 py-1.5 text-xs bg-red-600 hover:bg-red-700 text-white font-semibold rounded-md shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Clear All Notifications (Dev Panel)
-            </button>
-          </div>
-          {/* --- END Clear All Button --- */}
+          {process.env.NODE_ENV === 'development' && (
+            <div className="p-2 border-b border-border text-center">
+              <button
+                onClick={handleClearAllNotifications}
+                disabled={isLoading || notifications.length === 0}
+                className="w-full px-3 py-1.5 text-xs bg-red-600 hover:bg-red-700 text-white font-semibold rounded-md shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Clear All Notifications (Dev Panel)
+              </button>
+            </div>
+          )}
 
           {isLoading && (
             <div className="p-8 flex justify-center items-center">

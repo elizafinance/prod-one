@@ -9,22 +9,32 @@ const ITERATIONS = 100000; // PBKDF2 iterations
 
 const encryptionKey = process.env.X_TOKEN_ENCRYPTION_KEY;
 
-// During build phase, we need to allow missing env vars
-const isBuildPhase = process.env.NODE_ENV === 'production' && !process.env.X_TOKEN_ENCRYPTION_KEY && typeof window === 'undefined';
+// Determine if we're in the special Next.js build phase (when NODE_ENV === 'production',
+// but the code is being statically evaluated to collect page data).
+// During this phase, environment secrets are often unavailable, so we should not hard-fail.
+const isNextBuildPhase = process.env.NEXT_PHASE === 'phase-production-build';
 
 if (!encryptionKey || Buffer.from(encryptionKey || '', 'hex').length !== KEY_LENGTH) {
-  if (process.env.NODE_ENV === 'production' && !isBuildPhase) {
+  if (process.env.NODE_ENV === 'production' && !isNextBuildPhase) {
+    // In true production *runtime* (not build-time) we still enforce that the key must exist.
     throw new Error('X_TOKEN_ENCRYPTION_KEY is not defined or is not a 32-byte hex string.');
-  } else if (!isBuildPhase) {
-    console.warn('X_TOKEN_ENCRYPTION_KEY is not defined or is not a 32-byte hex string. Encryption will be insecure in development if not set.');
+  } else {
+    // In development or build-time, fall back to an insecure placeholder key and emit a warning.
+    console.warn('X_TOKEN_ENCRYPTION_KEY is not defined or is not a 32-byte hex string. Using an insecure placeholder key for this build/run.');
   }
 }
 
+// Helper to determine if we're at production runtime (as opposed to build-time or development)
+const isProductionRuntime = process.env.NODE_ENV === 'production' && !isNextBuildPhase;
+
 // Derive a key of KEY_LENGTH bytes using PBKDF2
 const getKey = (salt: Buffer): Buffer => {
-  if (!encryptionKey) { // Should not happen if check above is done, but as a safeguard
-    if (process.env.NODE_ENV === 'production') throw new Error('Encryption key is missing for getKey');
-    // In dev, use a placeholder if not set, though this is insecure
+  if (!encryptionKey || Buffer.from(encryptionKey, 'hex').length !== KEY_LENGTH) {
+    if (isProductionRuntime) {
+      throw new Error('Encryption key is missing or invalid at runtime.');
+    }
+    // For development or build-time, use a predictable (but insecure) placeholder key so that
+    // encryption/decryption still works without secrets. NEVER USE THIS IN REAL PRODUCTION.
     return crypto.pbkdf2Sync('dev_dummy_encryption_key_replace_me', salt, ITERATIONS, KEY_LENGTH, 'sha512');
   }
   return crypto.pbkdf2Sync(Buffer.from(encryptionKey, 'hex'), salt, ITERATIONS, KEY_LENGTH, 'sha512');

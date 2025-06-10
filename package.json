@@ -27,6 +27,7 @@
   },
   "dependencies": {
     "@crossmint/client-sdk-react-ui": "^1.19.21",
+    "@fleek-platform/sdk": "^3.0.0",
     "@headlessui/react": "^2.2.3",
     "@heroicons/react": "^2.1.5",
     "@hookform/resolvers": "^3.9.0",
@@ -96,8 +97,7 @@
     "tailwind-merge": "^2.5.2",
     "tailwindcss-animate": "^1.0.7",
     "uuid": "^11.1.0",
-    "zustand": "^4.5.5",
-    "@fleek-platform/sdk": "^3.0.0"
+    "zustand": "^4.5.5"
   },
   "devDependencies": {
     "@jest/globals": "^29.7.0",
@@ -111,6 +111,7 @@
     "@types/mongodb": "^4.0.6",
     "@types/node": "22.7.8",
     "@types/node-cron": "^3.0.11",
+    "@types/qrcode.react": "^3.0.0",
     "@types/react": "^18",
     "@types/react-dom": "^18",
     "@types/supertest": "^6.0.3",

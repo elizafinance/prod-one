@@ -7,6 +7,10 @@
     {
       "path": "/api/cron/agent-policy-sync",
       "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/cron/quest-lifecycle",
+      "schedule": "* * * * *"
     }
   ]
 } 

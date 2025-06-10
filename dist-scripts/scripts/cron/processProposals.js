@@ -1,9 +1,9 @@
+// @ts-nocheck
 import mongoose from 'mongoose';
-import { connectToDatabase } from '@/lib/mongodb'; // Adjust if your helper is different or not used
-import { Proposal } from '@/models/Proposal';
-import { Vote } from '@/models/Vote';
-import { Notification } from '@/models/Notification'; // Added Notification model
-import { Squad } from '@/models/Squad'; // Added Squad model
+import { Proposal } from '../../models/Proposal';
+import { Vote } from '../../models/Vote';
+import { Squad } from '../../models/Squad';
+import { createNotification } from '../../lib/notificationUtils';
 // Configuration from environment variables with defaults
 const CRON_PROPOSAL_PASS_THRESHOLD = parseInt(process.env.CRON_PROPOSAL_PASS_THRESHOLD || "0", 10);
 const CRON_PROPOSAL_ARCHIVE_DELAY_DAYS = parseInt(process.env.CRON_PROPOSAL_ARCHIVE_DELAY_DAYS || "7", 10);
@@ -34,28 +34,23 @@ async function distributeTokens(proposal) {
     }
     // --- End of actual distribution logic placeholder ---
 }
-async function createNotificationsForSquadMembers(squadId, proposal, notificationType, title, message) {
+async function createNotificationsForSquadMembers(db, squadId, proposal, notificationType, title, message) {
+    var _a;
     try {
         const squad = await Squad.findById(squadId);
         if (!squad) {
             console.warn(`Squad ${squadId} not found when trying to send proposal result notifications.`);
             return;
         }
-        const notifications = squad.memberWalletAddresses.map((walletAddress) => ({
-            recipientWalletAddress: walletAddress,
-            type: notificationType,
-            title,
-            message,
-            data: {
-                proposalId: proposal._id.toString(),
-                proposalName: proposal.tokenName,
-                squadId: squad.squadId,
-                squadName: squad.name,
-            },
-        }));
-        if (notifications.length > 0) {
-            await Notification.insertMany(notifications);
-            console.log(`Created ${notifications.length} notifications for proposal ${proposal._id.toString()} results for squad ${squad.name}.`);
+        const ctaUrl = `/squads/${squad.squadId}/proposals/${proposal._id.toString()}`;
+        const proposalCreatorUserId = (_a = proposal.createdByUserId) === null || _a === void 0 ? void 0 : _a.toString();
+        let notificationsSentCount = 0;
+        for (const walletAddress of squad.memberWalletAddresses) {
+            await createNotification(db, walletAddress, notificationType, title, message, ctaUrl, proposal._id.toString(), proposal.tokenName, squad.squadId, squad.name, proposalCreatorUserId, undefined);
+            notificationsSentCount++;
+        }
+        if (notificationsSentCount > 0) {
+            console.log(`Sent ${notificationsSentCount} '${notificationType}' notifications for proposal ${proposal._id.toString()} to squad ${squad.name}.`);
         }
     }
     catch (error) {
@@ -63,8 +58,10 @@ async function createNotificationsForSquadMembers(squadId, proposal, notificatio
     }
 }
 async function processEndedProposals() {
+    var _a;
     console.log('Starting proposal processing job...');
     let dbConnection;
+    let mongoDbInstance = null;
     try {
         if (mongoose.connection.readyState !== 1) {
             console.log('No existing Mongoose connection, attempting to connect for cron job...');
@@ -73,9 +70,14 @@ async function processEndedProposals() {
             }
             dbConnection = await mongoose.connect(process.env.MONGODB_URI);
             console.log('Mongoose connected successfully for cron job.');
+            mongoDbInstance = dbConnection.connection.db;
         }
         else {
             console.log('Using existing Mongoose connection for cron job.');
+            mongoDbInstance = mongoose.connection.db;
+        }
+        if (!mongoDbInstance) {
+            throw new Error("Failed to get native MongoDB instance for cron job.");
         }
         const now = new Date();
         const activeProposalsToEnd = await Proposal.find({
@@ -135,52 +137,57 @@ async function processEndedProposals() {
             await proposal.save();
             console.log(`Proposal ${proposal._id.toString()} final status is ${proposal.status} and results saved.`);
             // Prepare notification based on the final status of the proposal
-            let notificationTitle;
-            let notificationMessage;
-            let notificationType;
+            let outcomeNotificationTitle;
+            let outcomeNotificationMessage;
+            let outcomeNotificationType;
             if (proposal.status === 'closed_executed') {
-                notificationTitle = `Proposal \'${proposal.tokenName}\' Executed!`;
-                notificationMessage = `The passed proposal \'${proposal.tokenName}\' for squad ${proposal.squadName} has been executed and rewards are on their way!`;
-                notificationType = 'proposal_executed';
+                outcomeNotificationTitle = `Proposal Executed: ${proposal.tokenName}`;
+                outcomeNotificationMessage = `The passed proposal '${proposal.tokenName}' for squad ${proposal.squadName} has been executed and rewards are on their way!`;
+                outcomeNotificationType = 'proposal_executed';
             }
             else if (proposal.status === 'closed_passed') {
-                notificationTitle = `Proposal \'${proposal.tokenName}\' Passed!`;
-                notificationMessage = `Great news! The proposal \'${proposal.tokenName}\' for squad ${proposal.squadName} has passed! Token distribution is pending.`;
-                notificationType = 'proposal_passed';
+                outcomeNotificationTitle = `Proposal Passed: ${proposal.tokenName}`;
+                outcomeNotificationMessage = `The proposal '${proposal.tokenName}' for squad ${proposal.squadName} has passed! Token distribution is pending.`;
+                outcomeNotificationType = 'proposal_passed';
             }
             else { // 'closed_failed'
-                notificationTitle = `Proposal \'${proposal.tokenName}\' Failed`;
-                notificationMessage = `The voting period for proposal \'${proposal.tokenName}\' for squad ${proposal.squadName} has ended. Unfortunately, it did not pass.`;
-                notificationType = 'proposal_failed';
+                outcomeNotificationTitle = `Proposal Failed: ${proposal.tokenName}`;
+                outcomeNotificationMessage = `The voting period for proposal '${proposal.tokenName}' for squad ${proposal.squadName} has ended. Unfortunately, it did not pass.`;
+                outcomeNotificationType = 'proposal_failed';
             }
-            await createNotificationsForSquadMembers(proposal.squadId, proposal, notificationType, `${notificationTitle} (Squad: ${proposal.squadName})`, `The proposal \'${proposal.tokenName}\' for squad ${proposal.squadName} has concluded. ${notificationMessage}`);
+            await createNotificationsForSquadMembers(mongoDbInstance, proposal.squadId, proposal, outcomeNotificationType, outcomeNotificationTitle, outcomeNotificationMessage);
             // Auto-broadcasting based on points if it passed (even if execution is pending/failed but proposal itself is valid)
             if ((proposal.status === 'closed_passed' || proposal.status === 'closed_executed') &&
                 upVotesWeight >= BROADCAST_THRESHOLD_POINTS && !proposal.broadcasted) {
                 proposal.broadcasted = true;
-                await proposal.save(); // Save the broadcast status
-                // Platform-wide broadcast notifications
+                await proposal.save();
+                // Platform-wide broadcast notifications - REFACTORED SECTION
                 try {
-                    const { db } = await connectToDatabase();
-                    const usersCollection = db.collection('users');
-                    const users = await usersCollection.find({}, { projection: { walletAddress: 1 } }).toArray();
-                    const broadcastNotifs = users
-                        .filter(u => u.walletAddress)
-                        .map(u => ({
-                        recipientWalletAddress: u.walletAddress,
-                        type: 'proposal_broadcasted',
-                        title: `Proposal '${proposal.tokenName}' Broadcasted!`,
-                        message: `A proposal from squad ${proposal.squadName} has reached the broadcast threshold. Join the discussion!`,
-                        data: {
-                            proposalId: proposal._id.toString(),
-                            proposalName: proposal.tokenName,
-                            squadId: proposal.squadId.toString(),
-                            squadName: proposal.squadName,
-                        },
-                    }));
-                    if (broadcastNotifs.length) {
-                        await Notification.insertMany(broadcastNotifs);
-                        console.log(`Created ${broadcastNotifs.length} platform-wide broadcast notifications.`);
+                    // mongoDbInstance is already available and is the native Db type
+                    const usersCollection = mongoDbInstance.collection('users');
+                    const usersToNotify = await usersCollection.find({ walletAddress: { $exists: true, $ne: null } }, { projection: { walletAddress: 1, xUsername: 1 } }).toArray();
+                    const broadcastTitle = `Proposal Broadcast: ${proposal.tokenName}`;
+                    const broadcastMessage = `A significant proposal "${proposal.tokenName}" from squad ${proposal.squadName} has passed and reached the broadcast threshold. Check it out!`;
+                    const broadcastCtaUrl = `/squads/${proposal.squadId.toString()}/proposals/${proposal._id.toString()}`;
+                    let broadcastSentCount = 0;
+                    if (usersToNotify.length > 0) {
+                        for (const user of usersToNotify) {
+                            if (user.walletAddress) { // Ensure walletAddress exists
+                                await createNotification(mongoDbInstance, // db instance
+                                user.walletAddress, // recipientWalletAddress
+                                'proposal_broadcasted', // type
+                                broadcastTitle, broadcastMessage, broadcastCtaUrl, proposal._id.toString(), // relatedQuestId (using for proposalId)
+                                proposal.tokenName, // relatedQuestTitle (using for proposalName)
+                                proposal.squadId.toString(), // relatedSquadId (ensure it's a string if squadId on proposal is ObjectId)
+                                proposal.squadName, (_a = proposal.createdByUserId) === null || _a === void 0 ? void 0 : _a.toString(), // relatedUserId (proposal creator)
+                                undefined // relatedUserName (can be enhanced by fetching creator's username)
+                                );
+                                broadcastSentCount++;
+                            }
+                        }
+                    }
+                    if (broadcastSentCount > 0) {
+                        console.log(`Sent ${broadcastSentCount} platform-wide 'proposal_broadcasted' notifications for proposal ${proposal._id.toString()}.`);
                     }
                 }
                 catch (err) {

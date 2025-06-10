@@ -1,5 +1,6 @@
 // @ts-nocheck
-import TwitterProvider from "next-auth/providers/twitter";
+var _a;
+import CredentialsProvider from "next-auth/providers/credentials";
 import { connectToDatabase } from "@/lib/mongodb"; // Assuming mongodb.ts is also in @/lib
 import { randomBytes } from 'crypto';
 import { AIR } from '@/config/points.config'; // Import AIR constants
@@ -24,167 +25,152 @@ async function generateUniqueReferralCode(db, length = 8) {
     }
     return referralCode;
 }
+// Diagnostics helper – writes denied sign-ins to a dedicated collection so we can trace the exact reason later.
+async function logAuthFailure(reason, context = {}) {
+    try {
+        const { db } = await connectToDatabase();
+        await db.collection('authFailures').insertOne({
+            reason,
+            context,
+            timestamp: new Date(),
+        });
+    }
+    catch (logErr) {
+        // We never want logging to break auth – just emit to console if DB logging fails.
+        console.error('[AuthFailureLogger] Failed to persist auth failure', logErr, { reason, context });
+    }
+}
 export const authOptions = {
     providers: [
-        TwitterProvider({
-            clientId: process.env.X_CLIENT_ID,
-            clientSecret: process.env.X_CLIENT_SECRET,
-            version: "2.0", // Add explicit version
+        CredentialsProvider({
+            id: 'wallet',
+            name: 'Wallet',
+            credentials: {
+                walletAddress: { label: 'Wallet Address', type: 'text' },
+                chain: { label: 'Chain', type: 'text' },
+            },
+            async authorize(credentials, req) {
+                // console.log("[NextAuth DEBUG - authorize] Received credentials:", JSON.stringify(credentials, null, 2)); // Log received credentials
+                try {
+                    const walletAddressRaw = credentials === null || credentials === void 0 ? void 0 : credentials.walletAddress;
+                    const chain = credentials === null || credentials === void 0 ? void 0 : credentials.chain;
+                    if (!walletAddressRaw) {
+                        throw new Error('walletAddress is required');
+                    }
+                    const walletAddress = walletAddressRaw.trim();
+                    let db = null;
+                    let usersCollection = null;
+                    try {
+                        if (process.env.MONGODB_URI && process.env.MONGODB_DB_NAME) {
+                            const conn = await connectToDatabase();
+                            db = conn.db;
+                            usersCollection = db.collection('users');
+                        }
+                    }
+                    catch (err) {
+                        console.warn('[Credentials Authorize] Could not connect to MongoDB. Falling back to dev user.', err);
+                    }
+                    // If we still don't have a collection (DB unavailable in dev), shortcut with an in-memory user
+                    if (!usersCollection) {
+                        // Dev fallback: return ephemeral user so sign-in succeeds without DB
+                        return {
+                            id: walletAddress,
+                            dbId: walletAddress,
+                            walletAddress,
+                            xId: walletAddress,
+                            role: 'user',
+                            name: walletAddress,
+                            chain: chain || 'unknown',
+                        };
+                    }
+                    const now = new Date();
+                    // Attempt to find existing user by walletAddress
+                    let userDoc = await usersCollection.findOne({ walletAddress });
+                    if (!userDoc) {
+                        // Create new user with INITIAL_LOGIN points and referralCode
+                        const referralCode = await generateUniqueReferralCode(db);
+                        const newUser = {
+                            walletAddress,
+                            walletChain: chain || 'unknown',
+                            xUserId: walletAddress, // Use wallet address as xUserId placeholder
+                            points: AIR.INITIAL_LOGIN,
+                            referralCode,
+                            completedActions: ['initial_connection'],
+                            createdAt: now,
+                            updatedAt: now,
+                            lastLoginAt: now,
+                            role: 'user',
+                            isActive: true,
+                        };
+                        const insert = await usersCollection.insertOne(newUser);
+                        userDoc = Object.assign({ _id: insert.insertedId }, newUser);
+                        if (!userDoc.xUserId) {
+                            await usersCollection.updateOne({ _id: userDoc._id }, { $set: { xUserId: walletAddress } });
+                            userDoc.xUserId = walletAddress;
+                        }
+                    }
+                    else {
+                        // Update lastLoginAt, updatedAt, and potentially walletChain if provided and different
+                        const updates = { lastLoginAt: now, updatedAt: now };
+                        if (chain && userDoc.walletChain !== chain) {
+                            updates.walletChain = chain;
+                        }
+                        await usersCollection.updateOne({ _id: userDoc._id }, { $set: updates });
+                        if (updates.walletChain)
+                            userDoc.walletChain = updates.walletChain; // Reflect update in userDoc
+                    }
+                    // Return user object expected by NextAuth
+                    const authUserObject = {
+                        id: userDoc._id.toHexString(),
+                        dbId: userDoc._id.toHexString(),
+                        walletAddress: userDoc.walletAddress,
+                        xId: userDoc.xUserId || userDoc.walletAddress,
+                        role: userDoc.role || 'user',
+                        name: userDoc.xUsername || userDoc.walletAddress,
+                        chain: userDoc.walletChain || chain || 'unknown',
+                    };
+                    // console.log("[NextAuth DEBUG - authorize] Returning user object:", JSON.stringify(authUserObject, null, 2));
+                    return authUserObject;
+                }
+                catch (err) {
+                    console.error('[NextAuth DEBUG - authorize] Error:', err);
+                    return null;
+                }
+            },
         }),
+        // TwitterProvider removed – wallet-only auth
     ],
-    debug: true, // Enable debug logs
+    debug: process.env.NODE_ENV === 'development', // Enable debug logs only in development
     session: {
         strategy: "jwt",
         maxAge: 72 * 60 * 60, // 72 hours in seconds
     },
     callbacks: {
-        async signIn({ user, account, profile }) {
-            var _a, _b, _c;
-            // Debug logging
-            console.log('==== NextAuth SignIn Debug ====');
-            console.log('Environment:', {
-                X_CLIENT_ID_SET: !!process.env.X_CLIENT_ID,
-                X_CLIENT_SECRET_SET: !!process.env.X_CLIENT_SECRET,
-                NEXTAUTH_SECRET_SET: !!process.env.NEXTAUTH_SECRET,
-                NODE_ENV: process.env.NODE_ENV
-            });
-            console.log('Account:', JSON.stringify(account, null, 2));
-            console.log('Profile:', JSON.stringify(profile, null, 2));
-            console.log('User:', JSON.stringify(user, null, 2));
-            console.log('============================');
-            if (!account) {
-                console.error('[NextAuth SignIn] No account object provided');
-                return false;
+        async signIn({ user, account }) {
+            // Only allow the custom wallet/credentials provider
+            if ((account === null || account === void 0 ? void 0 : account.provider) === 'wallet' || (account === null || account === void 0 ? void 0 : account.provider) === 'credentials') {
+                return true;
             }
-            // --- Twitter login (existing flow) ---
-            if ((account === null || account === void 0 ? void 0 : account.provider) === "twitter" && profile) {
-                const twitterProfile = profile;
-                try {
-                    const { db } = await connectToDatabase();
-                    const usersCollection = db.collection('users');
-                    const actionsCollection = db.collection('actions');
-                    const xUserId = String((_c = (_b = (_a = twitterProfile.id_str) !== null && _a !== void 0 ? _a : profile.id) !== null && _b !== void 0 ? _b : account === null || account === void 0 ? void 0 : account.providerAccountId) !== null && _c !== void 0 ? _c : user.id // NextAuth user.id (fallback)
-                    );
-                    if (!xUserId || xUserId === "undefined") {
-                        console.error(`[NextAuth SignIn] Critical: X User ID not found or invalid in profile. Denying access. Profile data:`, JSON.stringify(profile, null, 2), JSON.stringify(user, null, 2), JSON.stringify(account, null, 2));
-                        return false;
-                    }
-                    // Attach custom fields to the user object that NextAuth will pass to the JWT callback
-                    user.xId = xUserId;
-                    let determinedWalletAddress = undefined;
-                    // Convert findOne + insertOne to a single findOneAndUpdate with upsert
-                    const xUsername = twitterProfile.screen_name || user.name || undefined;
-                    let rawProfileImageUrl = twitterProfile.profile_image_url_https || user.image || undefined;
-                    if (rawProfileImageUrl && !(rawProfileImageUrl.startsWith('http://') || rawProfileImageUrl.startsWith('https://'))) {
-                        rawProfileImageUrl = undefined; // Or use a default placeholder if preferred
-                    }
-                    const xProfileImageUrl = rawProfileImageUrl;
-                    const updateOnInsert = {
-                        xUserId: xUserId,
-                        walletAddress: undefined, // Wallet is linked in a separate step
-                        points: AIR.INITIAL_LOGIN,
-                        referralCode: await generateUniqueReferralCode(db), // Generate code for new users
-                        completedActions: ['initial_connection'],
-                        createdAt: new Date(),
-                        role: 'user' // Default role
-                    };
-                    // --- Attempt the upsert with basic retry on duplicate key errors (e.g. referralCode collision) ---
-                    let dbUserResult = null;
-                    const MAX_UPSERT_ATTEMPTS = 3;
-                    for (let attempt = 1; attempt <= MAX_UPSERT_ATTEMPTS; attempt++) {
-                        try {
-                            dbUserResult = await usersCollection.findOneAndUpdate({ xUserId: xUserId }, {
-                                $setOnInsert: attempt === 1 ? updateOnInsert : Object.assign(Object.assign({}, updateOnInsert), { referralCode: await generateUniqueReferralCode(db) // Fresh code for retries
-                                 }),
-                                $set: {
-                                    xUsername: xUsername,
-                                    xProfileImageUrl: xProfileImageUrl,
-                                    updatedAt: new Date(),
-                                },
-                            }, {
-                                upsert: true,
-                                returnDocument: 'after', // Returns the new or updated document
-                            });
-                            // Success – break the retry loop
-                            if (dbUserResult === null || dbUserResult === void 0 ? void 0 : dbUserResult.value)
-                                break;
-                        }
-                        catch (upsertErr) {
-                            if ((upsertErr === null || upsertErr === void 0 ? void 0 : upsertErr.code) === 11000 && attempt < MAX_UPSERT_ATTEMPTS) {
-                                console.warn(`[NextAuth SignIn] Duplicate key on upsert attempt ${attempt}. Retrying with new referral code...`);
-                                continue; // Retry the loop
-                            }
-                            // For any other error (or final failed attempt) re-throw to outer catch
-                            throw upsertErr;
-                        }
-                    }
-                    if (!dbUserResult || !dbUserResult.value) {
-                        // As a fallback, attempt to fetch the user (might have been inserted but not returned)
-                        const fallbackUser = await usersCollection.findOne({ xUserId });
-                        if (fallbackUser) {
-                            dbUserResult = { value: fallbackUser };
-                        }
-                        else {
-                            console.error(`[NextAuth SignIn] Critical: Failed to upsert user for xUserId: ${xUserId} after ${MAX_UPSERT_ATTEMPTS} attempts.`);
-                            return false;
-                        }
-                    }
-                    const dbUser = dbUserResult.value;
-                    // If the user was just inserted, record the initial_connection action
-                    // We can check if createdAt is very recent or if specific fields match the $setOnInsert values
-                    // A more direct way is to see if the document returned from findOneAndUpdate has the properties from $setOnInsert
-                    // For simplicity, we check if the points are exactly AIR.INITIAL_LOGIN and completedActions has only 'initial_connection'
-                    // This assumes points are not reset to initial_login value otherwise.
-                    // A more robust check would be if dbUserResult.lastErrorObject?.upserted exists and is true,
-                    // but that depends on the MongoDB driver version and return.
-                    // Let's check if the `createdAt` and `updatedAt` are the same, which is a good indicator of a new insert.
-                    const wasInserted = dbUser.createdAt.getTime() === dbUser.updatedAt.getTime() && dbUser.points === AIR.INITIAL_LOGIN;
-                    if (wasInserted) {
-                        // Record action for new user
-                        await actionsCollection.insertOne({
-                            walletAddress: xUserId, // Use xUserId as identifier before wallet link
-                            actionType: 'initial_connection',
-                            pointsAwarded: AIR.INITIAL_LOGIN,
-                            timestamp: new Date(),
-                            notes: `New user via X login: ${xUserId}`
-                        });
-                    }
-                    user.dbId = dbUser._id.toHexString();
-                    user.walletAddress = dbUser.walletAddress || undefined; // Wallet address from DB (might be undefined)
-                    user.role = dbUser.role || 'user';
-                    return true;
-                }
-                catch (error) {
-                    console.error(`[NextAuth SignIn] Error during signIn callback for xUserId ${(user === null || user === void 0 ? void 0 : user.xId) || 'UNKNOWN'}: `, error);
-                    if (error.code === 11000) {
-                        console.error("[NextAuth SignIn] Duplicate key error during user upsert after retries. Denying access.", error);
-                    }
-                    return false;
-                }
-            }
-            // Only Twitter accounts allowed – deny any others
-            console.log(`[NextAuth SignIn] Account provider ${account === null || account === void 0 ? void 0 : account.provider} not allowed.`);
+            // Deny all other providers (legacy Twitter removed)
+            await logAuthFailure('Denied sign-in: Invalid provider.', { provider: account === null || account === void 0 ? void 0 : account.provider });
             return false;
         },
-        async jwt({ token, user }) {
-            console.log('[NextAuth JWT] Received token:', JSON.stringify(token, null, 2));
-            console.log('[NextAuth JWT] Received user:', JSON.stringify(user, null, 2));
-            if (user === null || user === void 0 ? void 0 : user.xId)
-                token.xId = user.xId;
-            if (user === null || user === void 0 ? void 0 : user.dbId)
-                token.dbId = user.dbId;
-            if (user === null || user === void 0 ? void 0 : user.walletAddress)
+        async jwt({ token, user, account, profile, isNewUser }) {
+            // console.log("[NextAuth DEBUG - jwt callback] Initial token:", JSON.stringify(token, null, 2));
+            // console.log("[NextAuth DEBUG - jwt callback] User object (from authorize or session update):", JSON.stringify(user, null, 2));
+            // console.log("[NextAuth DEBUG - jwt callback] Account object (from provider):", JSON.stringify(account, null, 2));
+            // console.log("[NextAuth DEBUG - jwt callback] Profile object (from provider):", JSON.stringify(profile, null, 2));
+            // console.log("[NextAuth DEBUG - jwt callback] isNewUser:", isNewUser);
+            if (user) { // This block runs on sign-in or when session is updated with user object
+                token.dbId = user.dbId || user.id;
                 token.walletAddress = user.walletAddress;
-            if (user === null || user === void 0 ? void 0 : user.name)
-                token.name = user.name;
-            if (user === null || user === void 0 ? void 0 : user.email)
-                token.email = user.email;
-            if (user === null || user === void 0 ? void 0 : user.image)
-                token.picture = user.image;
-            if (user === null || user === void 0 ? void 0 : user.role)
                 token.role = user.role;
-            // If we have a dbId, fetch the latest role from the database
-            if (token.dbId) {
+                token.chain = user.chain; // Persist chain from user object (returned by authorize) into JWT
+                // console.log("[NextAuth DEBUG - jwt callback] Token updated from user object. New chain:", token.chain);
+            }
+            // Fetch from DB to ensure critical data is fresh, but be mindful of performance.
+            // This might be redundant if authorize always returns the most up-to-date data required for the token.
+            if (token.dbId && typeof token.dbId === 'string' && process.env.MONGODB_URI && process.env.MONGODB_DB_NAME) {
                 try {
                     const { db } = await connectToDatabase();
                     const usersCollection = db.collection('users');
@@ -192,69 +178,94 @@ export const authOptions = {
                     if (ObjectId.isValid(token.dbId)) {
                         const userFromDb = await usersCollection.findOne({ _id: new ObjectId(token.dbId) });
                         if (userFromDb) {
+                            token.walletAddress = userFromDb.walletAddress || token.walletAddress;
                             token.role = userFromDb.role || 'user';
-                            console.log('[NextAuth JWT] Updated role from DB:', token.role);
+                            token.chain = userFromDb.walletChain || token.chain || 'unknown';
+                            token.linkedXUsername = userFromDb.linkedXUsername;
+                            token.followsDefAIRewards = userFromDb.followsDefAIRewards;
+                            token.linkedXProfileImageUrl = userFromDb.linkedXProfileImageUrl;
+                            // console.log("[NextAuth JWT DEBUG] userFromDb.linkedXProfileImageUrl:", userFromDb.linkedXProfileImageUrl); // Commented out
+                            // console.log("[NextAuth JWT DEBUG] token.linkedXProfileImageUrl set to:", token.linkedXProfileImageUrl); // Commented out
                         }
+                        else {
+                            console.warn('[NextAuth JWT] User not found in DB for dbId:', token.dbId);
+                            // If user not found, might indicate an issue. Could clear parts of token or invalidate.
+                            // For now, we'll let it proceed with existing token data but log a warning.
+                        }
+                    }
+                    else {
+                        console.warn('[NextAuth JWT] Invalid ObjectId for dbId:', token.dbId);
                     }
                 }
                 catch (error) {
-                    console.error("[NextAuth JWT] Error fetching user role:", error);
+                    console.error("[NextAuth JWT] Error fetching user data from DB:", error);
                 }
             }
-            console.log('[NextAuth JWT] Final token:', JSON.stringify(token, null, 2));
+            // console.log('[NextAuth JWT] Final token:', JSON.stringify(token, null, 2));
             return token;
         },
         async session({ session, token }) {
-            if (session.user) {
-                session.user.xId = token.xId || null;
-                session.user.dbId = token.dbId || null;
-                session.user.walletAddress = token.walletAddress || null;
-                session.user.name = token.name || null;
-                session.user.email = token.email || null;
-                session.user.image = token.picture || null;
-                session.user.role = token.role || 'user';
-                if (token.dbId && typeof token.dbId === 'string') {
-                    try {
-                        const { db } = await connectToDatabase();
-                        const usersCollection = db.collection('users');
-                        const { ObjectId } = await import('mongodb');
-                        if (ObjectId.isValid(token.dbId)) {
-                            const userFromDb = await usersCollection.findOne({ _id: new ObjectId(token.dbId) });
-                            if (userFromDb) {
-                                session.user.role = userFromDb.role || 'user';
-                                token.role = userFromDb.role || 'user';
-                            }
-                        }
-                    }
-                    catch (error) {
-                        console.error("[NextAuth Session] Error fetching user role:", error);
-                        session.user.role = 'user';
-                        token.role = 'user';
-                    }
-                }
-                else {
-                    session.user.role = 'user';
-                    token.role = 'user';
-                }
-            }
+            // console.log("[NextAuth DEBUG - session callback] Token received:", JSON.stringify(token, null, 2));
+            session.user.id = token.sub || token.dbId;
+            session.user.dbId = token.dbId || null;
+            session.user.walletAddress = token.walletAddress || null;
+            session.user.role = token.role || 'user';
+            session.user.chain = token.chain || 'unknown';
+            session.user.linkedXUsername = token.linkedXUsername || null;
+            session.user.followsDefAIRewards = typeof token.followsDefAIRewards === 'boolean' ? token.followsDefAIRewards : null;
+            session.user.linkedXProfileImageUrl = token.linkedXProfileImageUrl || null;
+            // console.log("[NextAuth Session DEBUG] token.linkedXProfileImageUrl:", token.linkedXProfileImageUrl); // Commented out
+            // console.log("[NextAuth Session DEBUG] session.user.linkedXProfileImageUrl set to:", session.user.linkedXProfileImageUrl); // Commented out
             return session;
         },
     },
-    secret: process.env.NEXTAUTH_SECRET,
-    pages: {},
+    secret: process.env.NEXTAUTH_SECRET, // Explicitly use the secret from env
+    pages: {
+    // signIn: '/auth/signin', // Example: define custom sign-in page
+    // error: '/auth/error', // Example: define custom error page for auth errors
+    },
     cookies: {
         sessionToken: {
             name: process.env.NODE_ENV === 'production' ? '__Secure-next-auth.session-token' : 'next-auth.session-token',
-            options: { httpOnly: true, sameSite: 'none', path: '/', secure: process.env.NODE_ENV === 'production' },
+            options: {
+                httpOnly: true,
+                sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // 'none' for production if cross-site, 'lax' otherwise and for dev
+                path: '/',
+                secure: process.env.NODE_ENV === 'production',
+                domain: process.env.COOKIE_DOMAIN || undefined, // Use COOKIE_DOMAIN from env
+            },
         },
         callbackUrl: {
             name: process.env.NODE_ENV === 'production' ? '__Secure-next-auth.callback-url' : 'next-auth.callback-url',
-            options: { sameSite: 'none', path: '/', secure: process.env.NODE_ENV === 'production' },
+            options: {
+                sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+                path: '/',
+                secure: process.env.NODE_ENV === 'production',
+                domain: process.env.COOKIE_DOMAIN || undefined,
+            },
         },
         csrfToken: {
-            name: process.env.NODE_ENV === 'production' ? '__Secure-next-auth.csrf-token' : 'next-auth.csrf-token',
-            options: { httpOnly: true, sameSite: 'none', path: '/', secure: process.env.NODE_ENV === 'production' },
+            name: process.env.NODE_ENV === 'production' ? (((_a = process.env.NEXTAUTH_URL) === null || _a === void 0 ? void 0 : _a.startsWith("https://")) ? '__Host-next-auth.csrf-token' : '__Secure-next-auth.csrf-token') : 'next-auth.csrf-token',
+            options: {
+                httpOnly: true,
+                sameSite: 'lax', // CSRF token is usually 'lax'
+                path: '/',
+                secure: process.env.NODE_ENV === 'production',
+                domain: process.env.COOKIE_DOMAIN || undefined, // CSRF tokens are typically not domain-wide but scoped to the host
+            },
         },
+        // Consider PKCE cookie config if using OAuth providers that support PKCE
+        // pkceCodeVerifier: {
+        //   name: process.env.NODE_ENV === 'production' ? '__Secure-next-auth.pkce.code_verifier' : 'next-auth.pkce.code_verifier',
+        //   options: {
+        //     httpOnly: true,
+        //     sameSite: 'lax',
+        //     path: '/',
+        //     secure: process.env.NODE_ENV === 'production',
+        //     maxAge: 60 * 15, // 15 minutes
+        //     domain: process.env.COOKIE_DOMAIN || undefined,
+        //   }
+        // }
     },
-    trustHost: true,
+    trustHost: true, // Useful if your app is behind a proxy
 };

@@ -2,9 +2,9 @@ import { NextRequest } from 'next/server';
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { connectToDatabase, NotificationDocument } from '@/lib/mongodb';
+import { ChangeStream } from 'mongodb';
 
 const SSE_HEARTBEAT_INTERVAL = 15000; // 15 seconds for heartbeat
-const SSE_DATA_CHECK_INTERVAL = 5000;  // 5 seconds to check for new data
 
 export async function GET(request: NextRequest) {
   const session = await getServerSession(authOptions) as any;
@@ -16,64 +16,80 @@ export async function GET(request: NextRequest) {
 
   const stream = new ReadableStream({
     async start(controller) {
-      let lastKnownUnreadCount = -1; // Initialize to a value that will trigger the first send
-      let isCancelled = false;
+      const { db } = await connectToDatabase();
+      const notificationsCollection = db.collection<NotificationDocument>('notifications');
+
+      let changeStream: ChangeStream | null = null;
 
       const sendEvent = (data: object) => {
-        if (isCancelled) return;
         try {
           controller.enqueue(`data: ${JSON.stringify(data)}\n\n`);
         } catch (e) {
           console.error("[SSE Stream] Error enqueuing data:", e);
-          // Potentially close stream if controller is broken
         }
       };
-
-      const checkUnreadCount = async () => {
-        if (isCancelled) return;
+      
+      const sendUnreadCount = async () => {
         try {
-          const { db } = await connectToDatabase();
-          const notificationsCollection = db.collection<NotificationDocument>('notifications');
-          const currentUnreadCount = await notificationsCollection.countDocuments({
+          const count = await notificationsCollection.countDocuments({
             recipientWalletAddress: userWalletAddress,
             isRead: false
           });
-
-          if (currentUnreadCount !== lastKnownUnreadCount) {
-            lastKnownUnreadCount = currentUnreadCount;
-            sendEvent({ type: 'unread_count_update', count: currentUnreadCount });
-          }
+          sendEvent({ type: 'unread_count_update', count });
         } catch (error) {
-          console.error('[SSE checkUnreadCount] Error fetching unread count:', error);
-          // Optionally send an error event to client, or just log
+          console.error('[SSE Change Stream] Error fetching initial unread count:', error);
         }
       };
 
-      // Initial check
-      await checkUnreadCount();
+      // 1. Send the initial count immediately on connection
+      await sendUnreadCount();
 
-      // Periodic check for data
-      const dataIntervalId = setInterval(checkUnreadCount, SSE_DATA_CHECK_INTERVAL);
+      // 2. Define a pipeline to watch for relevant changes
+      const pipeline = [
+        {
+          // We only care about operations affecting the logged-in user.
+          // This filter works for inserts and updates where fullDocument is available.
+          // For deletes, we might need a broader listener if user-specific deletes are frequent.
+          // For now, this covers the most common cases: new notifs and marking as read.
+          $match: {
+            'fullDocument.recipientWalletAddress': userWalletAddress
+          }
+        }
+      ];
 
-      // Heartbeat to keep connection alive
+      // 3. Open the change stream
+      changeStream = notificationsCollection.watch(pipeline, { fullDocument: 'updateLookup' });
+      console.log(`[SSE Change Stream] Opened for user ${userWalletAddress}`);
+
+      // 4. Listen for changes and trigger a recount
+      changeStream.on('change', (change) => {
+        console.log(`[SSE Change Stream] Change detected for ${userWalletAddress}, type: ${change.operationType}. Triggering recount.`);
+        sendUnreadCount();
+      });
+      
+      changeStream.on('error', (error) => {
+          console.error(`[SSE Change Stream] Error for user ${userWalletAddress}:`, error);
+          // Consider closing the stream if the error is fatal
+      });
+
+      // 5. Heartbeat to keep the connection alive
       const heartbeatIntervalId = setInterval(() => {
-        if (isCancelled) return;
         sendEvent({ type: 'heartbeat', timestamp: Date.now() });
       }, SSE_HEARTBEAT_INTERVAL);
 
       // Handle client disconnect
       request.signal.addEventListener('abort', () => {
-        console.log(`[SSE Stream] Client disconnected for ${userWalletAddress}`);
-        isCancelled = true;
-        clearInterval(dataIntervalId);
+        console.log(`[SSE Change Stream] Client disconnected for ${userWalletAddress}. Closing stream.`);
         clearInterval(heartbeatIntervalId);
+        if (changeStream) {
+          changeStream.close();
+        }
         try {
           controller.close();
         } catch (e) {
-            console.error("[SSE Stream] Error closing controller on abort:", e);
+          console.error("[SSE Stream] Error closing controller on abort:", e);
         }
       });
-
     }
   });
 
@@ -82,8 +98,6 @@ export async function GET(request: NextRequest) {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache',
       'Connection': 'keep-alive',
-      // Optional: CORS headers if your client is on a different domain/port during dev
-      // 'Access-Control-Allow-Origin': '*', 
     }
   });
 } 

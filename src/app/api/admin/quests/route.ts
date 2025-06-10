@@ -5,7 +5,6 @@ import CommunityQuestModel from '@/models/communityQuest.model'; // Renamed for 
 import { getServerSession } from "next-auth/next"; // For auth (actual options to be used)
 import { authOptions } from "@/lib/auth"; // Assuming your authOptions are here
 import { User } from '@/models/User';
-import { Notification } from '@/models/Notification';
 import { createNotification } from '@/lib/notificationUtils'; // <<<< IMPORT STANDARDIZED UTILITY
 import { connectToDatabase as connectToNativeDb } from '@/lib/mongodb'; // For passing native Db to createNotification
 import { isAdminSession } from '@/lib/adminUtils';

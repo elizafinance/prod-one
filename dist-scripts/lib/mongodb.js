@@ -1,5 +1,3 @@
-import '../../src/config/env-loader.js';
-
 import { MongoClient } from 'mongodb';
 const MONGODB_URI = process.env.MONGODB_URI;
 const MONGODB_DB_NAME = process.env.MONGODB_DB_NAME;

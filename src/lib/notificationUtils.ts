@@ -1,5 +1,5 @@
 import { Db, ObjectId } from 'mongodb';
-import { NotificationDocument, NotificationType } from '@/lib/mongodb';
+import { NotificationDocument, NotificationType } from './mongodb.js';
 import { v4 as uuidv4 } from 'uuid';
 
 export async function createNotification(

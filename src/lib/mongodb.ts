@@ -235,7 +235,7 @@ export interface NotificationDocument {
 
 // Assuming ISquadJoinRequest and its model file exist as per HEAD branch
 // If SquadJoinRequest.ts doesn't exist or is not intended, this line should be removed.
-export type { ISquadJoinRequest } from '@/models/SquadJoinRequest';
+export type { ISquadJoinRequest } from '../models/SquadJoinRequest.js';
 
 // Interface for the new Meetup Check-in feature
 export interface MeetupCheckInDocument {

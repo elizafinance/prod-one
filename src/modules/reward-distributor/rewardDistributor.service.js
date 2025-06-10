@@ -4,7 +4,7 @@ import { connectToDatabase } from '../../../dist-scripts/lib/mongodb.js';
 import CommunityQuest from '../../models/communityQuest.model.js';
 import QuestContribution from '../../models/questContribution.model.js';
 import QuestRewardLedger from '../../models/questRewardLedger.model.js';
-import { notificationService } from '../../services/notification.service.js';
+import { createNotification } from '../../../dist-scripts/lib/notificationUtils.js';
 import { User } from '../../../dist-scripts/models/User.js';
 import { Squad } from '../../../dist-scripts/models/Squad.js';
 
@@ -147,17 +147,19 @@ async function distributeRewardsForSquad(quest, squadId, completedAt) {
 
       ledgerEntry.status = 'processed'; 
       await QuestRewardLedger.create(ledgerEntry);
-      await notificationService.createNotification({
-        userId: userId,
-        type: 'squad_reward_received',
-        title: `🏆 Squad Quest Reward!`,
-        message: `Your squad, ${squad.name}, completed '${quest.title}'! You've received a reward. Details: ${reward.description || reward.type}`,
-        ctaUrl: `/quests/${quest._id}`,
-        relatedQuestId: quest._id.toString(),
-        relatedQuestTitle: quest.title,
-        relatedSquadId: squadId,
-        relatedSquadName: squad.name,
-      });
+
+      await createNotification(
+        db,
+        userId,
+        'squad_reward_received',
+        `🏆 Squad Quest Reward!`,
+        `Your squad, ${squad.name}, completed '${quest.title}'! You've received a reward. Details: ${reward.description || reward.type}`,
+        `/quests/${quest._id}`,
+        quest._id.toString(),
+        quest.title,
+        squadId,
+        squad.name
+      );
     }
   }
 }
@@ -229,15 +231,18 @@ async function distributeRewardsForCommunityQuest(quest, completedAt) {
 
       ledgerEntry.status = 'processed';
       await QuestRewardLedger.create(ledgerEntry);
-      await notificationService.createNotification({
-        userId: userId,
-        type: 'quest_reward_received',
-        title: `🎁 Quest Reward!`, 
-        message: `You've received a reward for completing '${quest.title}'! Details: ${reward.description || reward.type}`,
-        ctaUrl: `/quests/${quest._id}`,
-        relatedQuestId: quest._id.toString(),
-        relatedQuestTitle: quest.title,
-      });
+
+      const { db } = await connectToDatabase();
+      await createNotification(
+        db,
+        userId,
+        'quest_reward_received',
+        `🎁 Quest Reward!`, 
+        `You've received a reward for completing '${quest.title}'! Details: ${reward.description || reward.type}`,
+        `/quests/${quest._id}`,
+        quest._id.toString(),
+        quest.title,
+      );
     }
   }
 }

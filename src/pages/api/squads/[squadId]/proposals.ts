@@ -3,7 +3,6 @@ import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth'; // Corrected path
 import { connectToDatabase, SquadDocument, UserDocument } from '@/lib/mongodb'; // Adjust path
 import { Proposal, IProposal } from '@/models/Proposal'; // Adjust path
-import { Notification } from '@/models/Notification'; // Added
 import { Types } from 'mongoose';
 import { ensureMongooseConnected } from '@/lib/mongooseConnect';
 import { createNotification } from '@/lib/notificationUtils';

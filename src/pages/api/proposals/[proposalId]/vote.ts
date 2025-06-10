@@ -2,16 +2,14 @@ import { NextApiRequest, NextApiResponse } from 'next';
 import { getServerSession } from 'next-auth/next';
 import { type Session } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { User, IUser } from '@/models/User';
+import { User } from '@/models/User';
 import { ensureMongooseConnected } from '@/lib/mongooseConnect';
-import { Proposal, IProposal } from '@/models/Proposal';
-import { Vote, IVote } from '@/models/Vote';
-import { Squad, ISquad } from '@/models/Squad';
-import { Notification } from '@/models/Notification';
+import { Proposal } from '@/models/Proposal';
+import { Vote } from '@/models/Vote';
+import { Squad } from '@/models/Squad';
 import { Types } from 'mongoose';
 import bs58 from 'bs58';
 import nacl from 'tweetnacl';
-import { PublicKey } from '@solana/web3.js';
 
 // Placeholder types, define them properly if you have a specific structure
 type VoteResponse = any; 

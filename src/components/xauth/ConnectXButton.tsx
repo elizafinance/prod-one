@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { toast } from 'sonner';
+import { redirectTo } from '../../utils/redirect';
+
 
 export default function ConnectXButton() {
   const { data: session, status, update: updateSession } = useSession();
@@ -18,7 +20,8 @@ export default function ConnectXButton() {
       }
       const data = await response.json();
       if (data.authorizationUrl) {
-        window.location.href = data.authorizationUrl;
+        console.log("data.authorizationUrl", data.authorizationUrl);
+        redirectTo(data.authorizationUrl);
       } else {
         throw new Error('Authorization URL not received from server.');
       }

@@ -50,6 +50,7 @@
     "src/lib/transferSol.ts",
     "src/lib/yield.ts",
     "src/lib/redis.ts",
+    "src/lib/encryption.ts",
     "src/services/getPositionVault.ts",
     "src/services/meetupMatcher.service.ts",
     "src/workers",

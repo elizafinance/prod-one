@@ -2,15 +2,7 @@ import { NextResponse, NextRequest } from 'next/server';
 import { Connection, PublicKey } from '@solana/web3.js';
 import { getTokenBalance } from '@/utils/tokenBalance';
 import { rateLimit } from '../../../../../lib/rateLimit';
-
-// Security: Input validation
-const SOLANA_ADDRESS_PATTERN = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
-
-function validateWalletAddress(address: string): boolean {
-  if (!address || typeof address !== 'string') return false;
-  if (address.length < 32 || address.length > 44) return false;
-  return SOLANA_ADDRESS_PATTERN.test(address);
-}
+import { validateSolanaAddress } from '@/lib/validation';
 
 // Security: Rate limiting per IP
 const limiter = rateLimit({
@@ -41,7 +33,7 @@ export async function GET(
 
     // Security: Input validation
     const walletAddress = params.walletAddress;
-    if (!validateWalletAddress(walletAddress)) {
+    if (!validateSolanaAddress(walletAddress)) {
       return NextResponse.json(
         { error: 'Invalid wallet address format' },
         { status: 400 }

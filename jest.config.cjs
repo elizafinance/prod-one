@@ -25,6 +25,7 @@ const customJestConfig = {
     '^@/public/(.*)$': '<rootDir>/public/$1', // For assets if imported
     // If you have a very generic @/* setup, ensure it comes last or is specific enough
     // For example, if all else fails for @/*, try to map it to src/*
+    
     // '^@/(.*)$': '<rootDir>/src/$1', // General fallback - use with caution if specific maps above exist
   },
   preset: 'ts-jest',

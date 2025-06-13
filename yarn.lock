@@ -11048,13 +11048,6 @@ feaxios@^0.0.23:
   dependencies:
     is-retry-allowed "^3.0.0"
 
-feaxios@^0.0.23:
-  version "0.0.23"
-  resolved "https://registry.yarnpkg.com/feaxios/-/feaxios-0.0.23.tgz#76f37a2666232377ce75354e46dd85cbceeb1758"
-  integrity sha512-eghR0A21fvbkcQBgZuMfQhrXxJzC0GNUGC9fXhBge33D+mFDTwl0aJ35zoQQn575BhyjQitRc5N4f+L4cP708g==
-  dependencies:
-    is-retry-allowed "^3.0.0"
-
 fflate@^0.7.3:
   version "0.7.4"
   resolved "https://registry.yarnpkg.com/fflate/-/fflate-0.7.4.tgz#61587e5d958fdabb5a9368a302c25363f4f69f50"

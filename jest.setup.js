@@ -64,6 +64,8 @@ jest.mock('next-auth/react', () => ({
 
 // Mock environment variables if your components rely on them directly
 // For example, if MyAirPanel or its children directly access process.env
+process.env.MONGODB_URI = 'TEST_URI';
+process.env.MONGODB_DB_NAME = 'TEST_DB';
 // process.env.NEXT_PUBLIC_SOLANA_RPC_ENDPOINT = 'https://api.devnet.solana.com';
 // process.env.NEXT_PUBLIC_HYBRID_COLLECTION_MINT_PDA = 'YOUR_TEST_COLLECTION_PDA';
 

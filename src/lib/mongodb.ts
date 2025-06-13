@@ -181,6 +181,8 @@ export type NotificationType =
   | 'referral_success' 
   | 'referred_by_success' 
   | 'quest_completed_community'
+  | 'quest_failed_community'
+  | 'quest_newly_active'
   | 'quest_reward_received'   
   | 'squad_invite_received'
   | 'squad_invite_accepted'
@@ -194,7 +196,14 @@ export type NotificationType =
   | 'squad_join_request_received' 
   | 'squad_join_request_approved' 
   | 'squad_join_request_rejected' 
+  | 'squad_join_request_cancelled'
   | 'squad_reward_received'  
+  | 'proposal_created'
+  | 'proposal_passed'
+  | 'proposal_failed'
+  | 'proposal_executed'
+  | 'proposal_broadcasted'
+  | 'new_squad_quest'
   | 'milestone_unlocked'     
   | 'badge_earned'           
   | 'rank_up'                
@@ -202,7 +211,7 @@ export type NotificationType =
 
 export interface NotificationDocument {
   _id?: ObjectId;
-  userId: string;
+  recipientWalletAddress: string;
   type: NotificationType;
   title: string;
   message: string;
@@ -211,6 +220,7 @@ export interface NotificationDocument {
   isArchived?: boolean; 
   createdAt: Date;      
   updatedAt: Date;      
+  notificationId: string;
   relatedQuestId?: string;
   relatedQuestTitle?: string;
   relatedSquadId?: string;
@@ -225,7 +235,7 @@ export interface NotificationDocument {
 
 // Assuming ISquadJoinRequest and its model file exist as per HEAD branch
 // If SquadJoinRequest.ts doesn't exist or is not intended, this line should be removed.
-export type { ISquadJoinRequest } from '@/models/SquadJoinRequest';
+export type { ISquadJoinRequest } from '../models/SquadJoinRequest.js';
 
 // Interface for the new Meetup Check-in feature
 export interface MeetupCheckInDocument {

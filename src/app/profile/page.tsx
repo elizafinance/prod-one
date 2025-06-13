@@ -62,14 +62,32 @@ export default function ProfilePage() {
     try {
       const response = await fetch('/api/x/connect/disconnect', { method: 'POST' });
       const data = await response.json();
+      
       if (!response.ok) {
         throw new Error(data.error || "Failed to disconnect X account.");
       }
-      toast.success("X account disconnected successfully.");
+      
+      // Handle different success scenarios
+      if (data.alreadyDisconnected) {
+        toast.info("X account was already disconnected.");
+      } else {
+        toast.success("X account disconnected successfully.");
+      }
+      
+      // Always update session to reflect current state
       await updateSession(); 
+      
     } catch (error: any) {
       console.error("Error disconnecting X account:", error);
-      toast.error(error.message || "Could not disconnect X account.");
+      
+      // Handle specific error cases
+      if (error.message.includes('No X account linked')) {
+        toast.info("X account is already disconnected.");
+        // Still update session to clear any stale data
+        await updateSession();
+      } else {
+        toast.error(error.message || "Could not disconnect X account.");
+      }
     } finally {
       setIsDisconnecting(false);
     }
@@ -146,6 +164,8 @@ export default function ProfilePage() {
           {session.user.linkedXUsername && (
             <VerifyFollowButton linkedXUsername={session.user.linkedXUsername} />
           )}
+
+
 
           {session.user.linkedXUsername && (
             <Button 

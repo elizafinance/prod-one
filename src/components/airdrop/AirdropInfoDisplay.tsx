@@ -1,7 +1,7 @@
 /* eslint-disable @next/next/no-img-element */
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useWallet, useConnection } from '@solana/wallet-adapter-react';
 import { PublicKey } from '@solana/web3.js';
 import { getAssociatedTokenAddress, getAccount } from '@solana/spl-token';
@@ -28,6 +28,8 @@ const AirdropInfoDisplay: React.FC<AirdropInfoDisplayProps> = ({ onNotConnected,
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [initialAirdropAllocation, setInitialAirdropAllocation] = useState<number | null>(null);
+  const fetchingRef = useRef(false);
+  const lastFetchKeyRef = useRef<string | null>(null);
 
   const tokenMintAddress = process.env.NEXT_PUBLIC_DEFAI_TOKEN_MINT_ADDRESS;
   const tokenDecimals = parseInt(process.env.NEXT_PUBLIC_DEFAI_TOKEN_DECIMALS || '9', 10);
@@ -54,6 +56,17 @@ const AirdropInfoDisplay: React.FC<AirdropInfoDisplayProps> = ({ onNotConnected,
       return;
     }
     
+    // Create a unique key for this fetch attempt
+    const fetchKey = `${publicKey.toBase58()}-${typedSession.user.walletAddress}`;
+    
+    // Prevent duplicate calls
+    if (fetchingRef.current || lastFetchKeyRef.current === fetchKey) {
+      console.log('[AirdropInfoDisplay] Skipping fetch - already fetching or recently fetched');
+      return;
+    }
+    
+    fetchingRef.current = true;
+    lastFetchKeyRef.current = fetchKey;
     setIsLoading(true);
     setError(null);
 
@@ -92,6 +105,11 @@ const AirdropInfoDisplay: React.FC<AirdropInfoDisplayProps> = ({ onNotConnected,
             console.warn("[AirdropInfoDisplay] Initial airdrop amount not a number:", airdropData.AIRDROP);
             return 0;
           }
+          // Handle 404 gracefully - user is not in the initial airdrop list
+          if (airdropCheckResponse.status === 404) {
+            console.log("[AirdropInfoDisplay] Wallet not found in initial airdrop list - setting allocation to 0");
+            return 0;
+          }
           console.warn("[AirdropInfoDisplay] Failed to fetch initial airdrop allocation, status:", airdropCheckResponse.status);
           return 0;
         })()
@@ -127,19 +145,25 @@ const AirdropInfoDisplay: React.FC<AirdropInfoDisplayProps> = ({ onNotConnected,
     if (fetchError) setError(fetchError);
 
     setIsLoading(false);
+    fetchingRef.current = false;
+    
+    // Reset the fetch key after 30 seconds to allow re-fetching if needed
+    setTimeout(() => {
+      lastFetchKeyRef.current = null;
+    }, 30000);
 
   }, [connected, publicKey, typedSession]);
 
   useEffect(() => {
-    if (connected && publicKey && typedSession?.user?.walletAddress && authStatus === 'authenticated') {
-      if (!tokenMintAddress) {
-        setError("DeFAI token mint address is not configured. Check NEXT_PUBLIC_DEFAI_TOKEN_MINT_ADDRESS.");
-        toast.error("Airdrop configuration error.");
-        return;
-      }
+    // Only run once when all conditions are met
+    if (connected && publicKey && typedSession?.user?.walletAddress && authStatus === 'authenticated' && tokenMintAddress) {
+      console.log('[AirdropInfoDisplay] Fetching airdrop data - conditions met');
       fetchAirdropData();
+    } else if (!tokenMintAddress && connected) {
+      setError("DeFAI token mint address is not configured. Check NEXT_PUBLIC_DEFAI_TOKEN_MINT_ADDRESS.");
+      toast.error("Airdrop configuration error.");
     }
-  }, [connected, publicKey, typedSession, authStatus, fetchAirdropData, tokenMintAddress]);
+  }, [connected, publicKey, authStatus, tokenMintAddress, typedSession?.user?.walletAddress, fetchAirdropData]); // Added fetchAirdropData back
 
   if (!connected || !publicKey || authStatus !== 'authenticated' || !typedSession?.user?.walletAddress) {
     return onNotConnected ? <>{onNotConnected()}</> : null;

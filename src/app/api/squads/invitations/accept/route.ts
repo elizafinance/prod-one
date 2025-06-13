@@ -196,29 +196,46 @@ export async function POST(request: Request) {
     );
 
     // Create notification for the user who sent the invite (or squad leader)
+    const inviterNotificationTitle = `@${currentUserXUsername} joined ${squadToJoin.name}!`;
+    const inviterNotificationMessage = `@${currentUserXUsername} accepted your invitation to join "${squadToJoin.name}".`;
+    const squadPageCtaUrl = squadToJoin.squadId ? `/squads/${squadToJoin.squadId}` : '/squads';
+
     await createNotification(
       db,
-      invitation.invitedByUserWalletAddress,
-      'squad_invite_accepted',
-      `@${currentUserXUsername} has accepted your invitation to join "${squadToJoin.name}"!`,
-      squadToJoin.squadId,
-      squadToJoin.name,
-      currentUserWalletAddress,
-      currentUserXUsername
+      invitation.invitedByUserWalletAddress, // recipientWalletAddress
+      'squad_invite_accepted',             // type
+      inviterNotificationTitle,            // title
+      inviterNotificationMessage,          // message
+      squadPageCtaUrl,                     // ctaUrl (link to the squad page)
+      undefined,                           // relatedQuestId
+      undefined,                           // relatedQuestTitle
+      squadToJoin.squadId,                 // relatedSquadId
+      squadToJoin.name,                    // relatedSquadName
+      currentUserWalletAddress,            // relatedUserId (the user who accepted/joined)
+      currentUserXUsername,                // relatedUserName (name of the user who accepted/joined)
+      invitation.invitationId              // relatedInvitationId (the ID of the invitation that was accepted)
     );
 
     // Notify other squad members (excluding the one who just joined and the inviter if they are different from leader)
+    const memberNotificationTitle = `New Member: @${currentUserXUsername}`;
+    const memberNotificationMessage = `@${currentUserXUsername} has just joined your squad, "${squadToJoin.name}"!`;
+
     squadToJoin.memberWalletAddresses.forEach(async (memberAddress) => {
       if (memberAddress !== currentUserWalletAddress && memberAddress !== invitation.invitedByUserWalletAddress) {
         await createNotification(
           db,
-          memberAddress,
-          'squad_member_joined',
-          `@${currentUserXUsername} has joined your squad "${squadToJoin.name}"!`,
-          squadToJoin.squadId,
-          squadToJoin.name,
-          currentUserWalletAddress,
-          currentUserXUsername
+          memberAddress,                   // recipientWalletAddress
+          'squad_member_joined',           // type
+          memberNotificationTitle,         // title
+          memberNotificationMessage,       // message
+          squadPageCtaUrl,                 // ctaUrl (link to the squad page)
+          undefined,                       // relatedQuestId
+          undefined,                       // relatedQuestTitle
+          squadToJoin.squadId,             // relatedSquadId
+          squadToJoin.name,                // relatedSquadName
+          currentUserWalletAddress,        // relatedUserId (the user who joined)
+          currentUserXUsername             // relatedUserName (the name of the user who joined)
+          // No relatedInvitationId needed for a general 'member joined' notification to other members
         );
       }
     });

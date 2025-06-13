@@ -24,22 +24,40 @@ export async function POST(req: NextRequest) {
   try {
     const user = await usersCollection.findOne({ _id: userId });
 
-    if (!user || !user.linkedXAccessToken) {
-      return NextResponse.json({ error: 'No X account linked or access token missing.' }, { status: 400 });
+    if (!user) {
+      return NextResponse.json({ error: 'User not found.' }, { status: 404 });
     }
 
-    const accessTokenToRevoke = decrypt(user.linkedXAccessToken);
+    // Check if X account is linked by checking for any X-related fields
+    const hasXData = user.linkedXId || user.linkedXUsername || user.linkedXAccessToken;
+    
+    if (!hasXData) {
+      console.log(`[X Disconnect] No X account data found for user ${userId}. May have been already cleared.`);
+      return NextResponse.json({ 
+        success: true, 
+        message: 'X account is already disconnected.',
+        alreadyDisconnected: true 
+      });
+    }
 
-    // 1. Attempt to revoke the token with X
-    // X API v2: POST /2/oauth2/revoke (takes token and client_id or client_id + client_secret)
+    let accessTokenToRevoke = null;
+    
+    // Try to decrypt access token if it exists
+    if (user.linkedXAccessToken) {
+      try {
+        accessTokenToRevoke = decrypt(user.linkedXAccessToken);
+      } catch (error) {
+        console.warn(`[X Disconnect] Failed to decrypt access token for user ${userId}, proceeding with cleanup:`, error);
+      }
+    }
+
+    // 1. Attempt to revoke the token with X (if we have a valid token)
     if (X_CLIENT_ID && accessTokenToRevoke) {
       try {
         const revokeResponse = await fetch('https://api.twitter.com/2/oauth2/revoke', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
-            // Basic Auth for client credentials is also an option for confidential clients
-            // 'Authorization': `Basic ${Buffer.from(`${X_CLIENT_ID}:${process.env.X_CLIENT_SECRET}`).toString('base64')}`,
           },
           body: new URLSearchParams({
             token: accessTokenToRevoke,
@@ -53,18 +71,17 @@ export async function POST(req: NextRequest) {
           if (revokeData.revoked) {
             console.log(`[X Disconnect] Successfully revoked X token for user ${userId}`);
           } else {
-            // Token might have already been invalid, or some other non-critical issue with revoke
             console.warn(`[X Disconnect] X token revocation endpoint returned ok but revoked:false for user ${userId}. Proceeding with DB cleanup.`);
           }
         } else {
-          // Log error but proceed with DB cleanup, as user intent is to disconnect from our app
-          const errorData = await revokeResponse.text(); // Use .text() for potentially non-JSON error responses
+          const errorData = await revokeResponse.text();
           console.warn(`[X Disconnect] Failed to revoke X token for user ${userId}. Status: ${revokeResponse.status}. Error: ${errorData}. Proceeding with DB cleanup.`);
         }
       } catch (revokeError: any) {
         console.error(`[X Disconnect] Exception during X token revocation for user ${userId}:`, revokeError.message);
-        // Proceed with DB cleanup even if revocation fails
       }
+    } else {
+      console.log(`[X Disconnect] No valid access token to revoke for user ${userId}, proceeding with DB cleanup.`);
     }
 
     // 2. Remove X-related fields from the user's document in the database
@@ -87,13 +104,13 @@ export async function POST(req: NextRequest) {
       }
     );
 
-    if (updateResult.modifiedCount === 0 && updateResult.matchedCount === 0) {
-      // This case should ideally be caught by the check for user earlier
-      return NextResponse.json({ error: 'User not found or X account not linked.' }, { status: 404 });
-    }
-    
-    console.log(`[X Disconnect] Successfully disconnected X account for user ${userId} from database.`);
-    return NextResponse.json({ success: true, message: 'X account disconnected successfully.' });
+    console.log(`[X Disconnect] Successfully cleaned X account data for user ${userId} from database. Modified count: ${updateResult.modifiedCount}`);
+    return NextResponse.json({ 
+      success: true, 
+      message: 'X account disconnected successfully.',
+      tokenRevoked: !!accessTokenToRevoke,
+      dataCleared: updateResult.modifiedCount > 0
+    });
 
   } catch (error: any) {
     console.error(`[X Disconnect] General error for user ${session.user.dbId}:`, error);

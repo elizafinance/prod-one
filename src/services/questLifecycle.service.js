@@ -1,14 +1,29 @@
+import mongoose from 'mongoose';
 import CommunityQuest from '../models/communityQuest.model.js'; // Assuming .js for standalone scheduler
 import QuestContribution from '../models/questContribution.model.js'; // Added for participation check
-import { connectToDatabase } from '../lib/mongodb.js'; // Assuming .js
-import { notificationService } from './notification.service.js'; // Added for creating notifications
+import { connectToDatabase } from '../../dist-scripts/lib/mongodb.js'; // Compiled version
+import { createNotification } from '../../dist-scripts/lib/notificationUtils.js'; // <<<< IMPORT STANDARDIZED UTILITY
+import { Db } from 'mongodb'; // For Db type
+
+// Initialize Mongoose connection
+async function initializeMongoose() {
+  if (mongoose.connection.readyState === 0) {
+    const mongoUri = process.env.MONGODB_URI;
+    if (!mongoUri) {
+      throw new Error('MONGODB_URI environment variable is not defined');
+    }
+    await mongoose.connect(mongoUri);
+    console.log('[QuestLifecycleService] Mongoose connected for scheduler');
+  }
+}
 
 async function activateScheduledQuests() {
   console.log('[QuestLifecycleService] Checking for scheduled quests to activate...');
   let activatedQuestsData = []; // To store data of quests that are activated
   let notifiedCount = 0; // To track how many notifications were attempted/created
   try {
-    await connectToDatabase();
+    await initializeMongoose(); // Initialize Mongoose connection
+    const { db } = await connectToDatabase(); // Get Db instance
     const now = new Date();
     
     // Find quests to activate
@@ -36,23 +51,52 @@ async function activateScheduledQuests() {
       );
       
       for (const quest of activatedQuestsData) {
-        // Create a general notification that a new quest has started.
-        // Instead of sending to all users (which could be too many),
-        // send to a placeholder recipient. This can be used by other systems
-        // to announce on social media, a global in-app feed, or to admins.
-        await notificationService.createNotification(
-          'SYSTEM_ANNOUNCEMENT_CHANNEL', // Placeholder recipient
-          'quest_newly_active',
-          `A new community quest has started: "${quest.title}"! Join now!`,
-          {
-            relatedQuestId: quest._id.toString(),
-            relatedQuestTitle: quest.title
-          }
-        );
-        notifiedCount++;
+        // If this were to be a user-facing notification via our system for testing:
+        // We would need a recipient. For actual system announcements, this might go elsewhere.
+        // For now, this demonstrates using createNotification if it *were* user-directed.
+        // The original 'SYSTEM_ANNOUNCEMENT_CHANNEL' is not a valid wallet address.
+        // To make this runnable in a test scenario where a user gets it, we'd mock a recipient.
+        // For the actual service, it might skip user notifications or have a different strategy.
+        
+        // Example: If we decided admins should get this notification:
+        // const adminWallets = ["ADMIN_WALLET_1", "ADMIN_WALLET_2"];
+        // for (const adminWallet of adminWallets) {
+        //   await createNotification(
+        //     db,
+        //     adminWallet, 
+        //     'quest_newly_active', // Assuming this type exists or is 'general'
+        //     `New Quest Active: ${quest.title}`,
+        //     `A community quest "${quest.title}" has just started! Monitor its progress. `,
+        //     `/admin/quests/${quest._id.toString()}`,
+        //     quest._id.toString(),
+        //     quest.title
+        //   );
+        //  notifiedCount++;
+        // }
+
+        // For now, let's log that this is where a system-wide announcement would be made,
+        // rather than trying to force it into a user-specific notification for this refactor.
+        console.log(`[QuestLifecycleService] System Announcement: Quest "${quest.title}" is now active. Actual notification to users/channels would happen via a different mechanism or if this service had user recipients for this event type.`);
+        // If we still want to use createNotification for a generic system log or to a specific admin user for testing:
+        // (This part is more for showing how to use createNotification if it were applicable)
+        // For example, notify a predefined system admin wallet for testing:
+        const testAdminRecipient = process.env.TEST_ADMIN_WALLET_FOR_SYSTEM_NOTIFS;
+        if (testAdminRecipient) {
+            await createNotification(
+                db,
+                testAdminRecipient,
+                'system_message', // Or 'quest_newly_active' if defined & appropriate
+                `System: New Quest Active - ${quest.title}`,
+                `A community quest "${quest.title}" has just started. (System Notification Test).`,
+                `/quests/${quest._id.toString()}`, // General link
+                quest._id.toString(),
+                quest.title
+            );
+            notifiedCount++; // Count this test notification
+        }
       }
       if (notifiedCount > 0) {
-        console.log(`[QuestLifecycleService] Created ${notifiedCount} 'quest_newly_active' system notifications.`);
+        console.log(`[QuestLifecycleService] Created ${notifiedCount} test system notifications for 'quest_newly_active'.`);
       }
     }
     return { activated: result.modifiedCount, notified: notifiedCount };
@@ -67,7 +111,8 @@ async function expireOverdueQuests() {
   let expiredCount = 0;
   let notifiedUserCount = 0;
   try {
-    await connectToDatabase();
+    await initializeMongoose(); // Initialize Mongoose connection
+    const { db } = await connectToDatabase();
     const now = new Date();
 
     // Find active quests whose end_ts has passed and are not yet succeeded
@@ -87,22 +132,31 @@ async function expireOverdueQuests() {
         console.log(`[QuestLifecycleService] Expired ${updateResult.modifiedCount} overdue active quests.`);
         // For each expired quest, notify participants
         for (const quest of overdueActiveQuests) {
-          if (overdueIds.includes(quest._id)) { // Process only if it was part of the update batch
+          // Ensure we only process quests that were part of the updateMany batch.
+          // This check is a bit redundant given the find query but good for safety.
+          if (overdueIds.some(id => id.equals(quest._id))) { 
             const participants = await QuestContribution.find({ quest_id: quest._id, metric_value: { $gt: 0 } }).distinct('user_id');
             if (participants.length > 0) {
               console.log(`[QuestLifecycleService] Notifying ${participants.length} participants of expired quest "${quest.title}"`);
+              const notificationTitle = `Quest Expired: ${quest.title}`;
+              const notificationMessage = `The community quest "${quest.title}" has ended and the goal was not met. Better luck next time!`;
+              const ctaUrl = `/quests/${quest._id.toString()}`;
+
               for (const userId of participants) {
-                // Assuming user_id from QuestContribution can be used as recipientWalletAddress
-                // This requires QuestContribution.user_id to be the wallet address string or a ref that resolves to it.
-                // If user_id is an ObjectId, you might need to fetch the user doc to get walletAddress.
-                // For simplicity, assuming userId (from distinct) is a walletAddress here.
-                await notificationService.createNotification(
-                  userId.toString(), // Ensure it's a string, adjust if user_id is not walletAddress
-                  'quest_failed_community',
-                  `The community quest "${quest.title}" has ended and the goal was not met. Better luck next time!`,
-                  { relatedQuestId: quest._id.toString(), relatedQuestTitle: quest.title }
-                );
-                notifiedUserCount++;
+                // Assuming userId from QuestContribution is a walletAddress string
+                if (typeof userId === 'string' && userId) { // Basic check
+                  await createNotification(
+                    db,
+                    userId, 
+                    'quest_failed_community',
+                    notificationTitle,
+                    notificationMessage,
+                    ctaUrl,
+                    quest._id.toString(),
+                    quest.title
+                  );
+                  notifiedUserCount++;
+                }
               }
             }
           }

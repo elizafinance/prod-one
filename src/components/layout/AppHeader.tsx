@@ -54,7 +54,6 @@ export default function AppHeader() {
   const router = useRouter(); // Initialize router
   const [isClient, setIsClient] = useState(false);
   const uiState = useUiStateStore(); // Get the whole store or specific items
-  const [notificationsInitialized, setNotificationsInitialized] = useState(false); // Reinstated local state
   const prevConnectedRef = useRef<boolean | undefined>(undefined); // For disconnect watcher
 
   useEffect(() => {
@@ -73,29 +72,65 @@ export default function AppHeader() {
   }, [session]);
   */
 
-  const fetchNotificationsData = useCallback(async () => {
-    if (authStatus === "authenticated" && connected && session?.user?.walletAddress && !notificationsInitialized) {
-      // console.log('[AppHeader] Initializing notifications for:', session.user.walletAddress);
-      try {
-        await uiState.fetchInitialUnreadCount(session.user.walletAddress, true);
-        // console.log('[AppHeader] Notifications initialized successfully via store action');
-        setNotificationsInitialized(true); // Set local state after successful fetch
-      } catch (error: any) {
-        console.error('[AppHeader] Error initializing notifications via store action:', error);
-        setNotificationsInitialized(false); // Reset on error so it can retry
-      }
-    }
-  }, [authStatus, connected, session?.user?.walletAddress, uiState, notificationsInitialized]);
-
-  useEffect(() => { fetchNotificationsData(); }, [fetchNotificationsData]);
+  // Simplified effect for fetching initial unread count
+  const walletAddress = session?.user?.walletAddress; // Extract walletAddress
 
   useEffect(() => {
-    if (authStatus !== "authenticated" || !connected) {
-      // console.log('[AppHeader] Resetting notifications - auth:', authStatus, 'connected:', connected);
-      uiState.setUnreadNotificationCount(0);
-      setNotificationsInitialized(false); // Reset local state on logout/disconnect
+    console.log(`[AppHeader Effect] authStatus: ${authStatus}, connected: ${connected}, walletAddress: ${walletAddress}`); // Keep this log for now
+    if (authStatus === 'authenticated' && connected && walletAddress) {
+        uiState.fetchInitialUnreadCount(walletAddress, true);
+    } else if (authStatus !== 'loading') { 
+        uiState.setUnreadNotificationCount(0); 
     }
-  }, [authStatus, connected, uiState]);
+  }, [authStatus, connected, walletAddress, uiState.fetchInitialUnreadCount, uiState.setUnreadNotificationCount]);
+
+  // SSE Connection Management
+  useEffect(() => {
+    let eventSource: EventSource | null = null;
+
+    if (authStatus === 'authenticated' && connected && walletAddress) {
+      console.log('[AppHeader SSE] Establishing SSE connection...');
+      eventSource = new EventSource('/api/notifications/subscribe');
+
+      eventSource.onopen = () => {
+        console.log('[AppHeader SSE] Connection opened.');
+      };
+
+      eventSource.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          // console.log('[AppHeader SSE] Message received:', data);
+          if (data.type === 'unread_count_update') {
+            // console.log('[AppHeader SSE] Received unread_count_update:', data.count);
+            uiState.setUnreadNotificationCount(data.count);
+          } else if (data.type === 'heartbeat') {
+            // console.log('[AppHeader SSE] Heartbeat received');
+          }
+        } catch (error) {
+          console.error('[AppHeader SSE] Error parsing message data:', error);
+        }
+      };
+
+      eventSource.onerror = (error) => {
+        console.error('[AppHeader SSE] Connection error:', error);
+        // EventSource will attempt to reconnect automatically on some errors.
+        // For critical errors, or if it closes, it might need to be explicitly handled.
+        if (eventSource?.readyState === EventSource.CLOSED) {
+            console.log('[AppHeader SSE] Connection was closed.');
+            // Optionally attempt to re-establish connection here after a delay, or rely on next effect run.
+        }
+      };
+    } else {
+      console.log('[AppHeader SSE] Conditions not met for SSE, or cleaning up previous connection.');
+    }
+
+    return () => {
+      if (eventSource) {
+        console.log('[AppHeader SSE] Closing SSE connection.');
+        eventSource.close();
+      }
+    };
+  }, [authStatus, connected, walletAddress, uiState.setUnreadNotificationCount]); // Add uiState.setUnreadNotificationCount to deps
 
   // Global Disconnect Watcher Effect (moved from useHomePageLogic)
   useEffect(() => {

@@ -7,8 +7,10 @@ import { toast } from 'sonner';
 import { PublicKey } from '@solana/web3.js';
 import { getAssociatedTokenAddress, getAccount } from '@solana/spl-token';
 import { checkRequiredEnvVars } from '@/utils/checkEnv';
+import { useEnv, getEnvVar } from '@/hooks/useEnv';
 import { useUserAirdrop, UserAirdropData } from '@/hooks/useUserAirdrop';
 import { useWalletModal } from '@solana/wallet-adapter-react-ui';
+import { hasSufficientDefaiBalance } from '@/utils/tokenBalance';
 
 export function useHomePageLogic() {
   const { data: session, status: authStatus, update: updateSession } = useSession();
@@ -16,6 +18,9 @@ export function useHomePageLogic() {
   const { connection } = useConnection();
   const { setVisible: setWalletModalVisible } = useWalletModal();
   const walletPromptedRef = useRef(false);
+  
+  // Get environment variables via API to bypass Next.js bundling issues
+  const { envVars, isLoading: isEnvLoading, error: envError } = useEnv();
 
   const userAirdrop = useUserAirdrop();
   const [typedAddress, setTypedAddress] = useState('');
@@ -141,30 +146,30 @@ export function useHomePageLogic() {
   }, [wallet.connected, session, isFetchingInvites]);
 
   const checkDefaiBalance = useCallback(async (userPublicKey: PublicKey | null, conn: any) => {
-    if (!userPublicKey || !conn) {
+    if (!userPublicKey || !conn || !envVars) {
         return;
     }
     setIsCheckingDefaiBalance(true);
-    const tokenMintAddress = process.env.NEXT_PUBLIC_DEFAI_TOKEN_MINT_ADDRESS;
-    const tokenDecimals = parseInt(process.env.NEXT_PUBLIC_DEFAI_TOKEN_DECIMALS || '9', 10);
-    const requiredDefaiAmount = parseInt(process.env.NEXT_PUBLIC_REQUIRED_DEFAI_AMOUNT || '5000', 10);
-
-    if (tokenMintAddress) {
-      try {
-        const mint = new PublicKey(tokenMintAddress);
-        const ata = await getAssociatedTokenAddress(mint, userPublicKey);
-        const accountInfo = await getAccount(conn, ata, 'confirmed');
-        const balance = Number(accountInfo.amount) / (10 ** tokenDecimals);
-        setDefaiBalance(balance);
-        setHasSufficientDefai(balance >= requiredDefaiAmount);
-      } catch (e) {
-        console.warn("Could not fetch DeFAI balance", e);
-        setDefaiBalance(0);
-        setHasSufficientDefai(false);
+    
+    try {
+      const result = await hasSufficientDefaiBalance(conn, userPublicKey);
+      
+      setDefaiBalance(result.balance);
+      setHasSufficientDefai(result.hasSufficient);
+      
+      if (result.error) {
+        console.warn("DeFAI balance check warning:", result.error);
       }
+      
+      console.log(`[checkDefaiBalance] Balance: ${result.balance}, Required: ${result.required}, Sufficient: ${result.hasSufficient}`);
+    } catch (e) {
+      console.error("Could not fetch DeFAI balance", e);
+      setDefaiBalance(0);
+      setHasSufficientDefai(false);
     }
+    
     setIsCheckingDefaiBalance(false);
-  }, []);
+  }, [envVars]);
 
   const activateRewardsAndFetchData = useCallback(async (connectedWalletAddress: string, xUserId: string, userDbId: string | undefined) => {
     setActivationAttempted(true);
@@ -346,8 +351,13 @@ export function useHomePageLogic() {
   }, [authStatus, userDetailsFetched]);
 
   useEffect(() => {
-    checkRequiredEnvVars();
-  }, []);
+    // Check environment variables once they're loaded from API
+    if (envVars && !isEnvLoading) {
+      checkRequiredEnvVars(envVars);
+    } else if (envError) {
+      console.error('[HomePageLogic] Failed to load environment variables:', envError);
+    }
+  }, [envVars, isEnvLoading, envError]);
 
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -535,6 +545,7 @@ export function useHomePageLogic() {
     setCurrentTotalAirdropForSharing,
     isCheckingDefaiBalance,
     hasSufficientDefai,
+    setHasSufficientDefai,
     showWelcomeModal,
     setShowWelcomeModal,
     isProcessingLinkInvite,

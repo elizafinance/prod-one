@@ -10,7 +10,7 @@ import { getUserFromRequest, AuthenticatedUser } from '@/lib/authSession'; // Im
 // Basic EVM-style address validation (starts with 0x, 40 hex chars)
 const EVM_ADDRESS_REGEX = /^0x[a-fA-F0-9]{40}$/;
 // Placeholder for Solana address validation (typically Base58, 32-44 chars)
-// const SOLANA_ADDRESS_REGEX = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+// Moved to validation utility: @/lib/validation
 
 // --- Verifiable Credential Minting Function (Temporarily Disabled) ---
 /*

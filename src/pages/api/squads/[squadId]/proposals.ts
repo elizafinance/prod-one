@@ -3,9 +3,9 @@ import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth'; // Corrected path
 import { connectToDatabase, SquadDocument, UserDocument } from '@/lib/mongodb'; // Adjust path
 import { Proposal, IProposal } from '@/models/Proposal'; // Adjust path
-import { Notification } from '@/models/Notification'; // Added
 import { Types } from 'mongoose';
 import { ensureMongooseConnected } from '@/lib/mongooseConnect';
+import { createNotification } from '@/lib/notificationUtils';
 
 // Helper function to determine current epoch (Friday to Friday UTC)
 function getCurrentEpoch() {
@@ -126,22 +126,33 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       await newProposal.save();
 
-      // Create notifications for squad members
+      // Create notifications for squad members using the standardized utility
       if (squad.memberWalletAddresses && squad.memberWalletAddresses.length > 0) {
-        const notificationsToCreate = squad.memberWalletAddresses.map(walletAddress => ({
-          recipientWalletAddress: walletAddress,
-          type: 'proposal_created' as const,
-          title: `New Proposal in ${squad.name}! `,
-          message: `A new token reward proposal '${newProposal.tokenName}' has been created for your squad ${squad.name}. Voting is open! `,
-          data: {
-            proposalId: newProposal._id.toString(),
-            proposalName: newProposal.tokenName,
-            squadId: squad.squadId,
-            squadName: squad.name,
-          },
-        }));
-        await Notification.insertMany(notificationsToCreate);
-        console.log(`Created ${notificationsToCreate.length} notifications for new proposal ${newProposal._id} in squad ${squad.name}.`);
+        const ctaUrl = newProposal.squadId && newProposal._id ? `/squads/${squad.squadId.toString()}/proposals/${newProposal._id.toString()}` : '/proposals';
+        const leaderUsername = leaderUser.xUsername; // Assumes leaderUser has xUsername populated
+
+        for (const memberWalletAddress of squad.memberWalletAddresses) {
+          // Avoid notifying the leader about their own proposal creation if they are also a listed member for notifications
+          // However, proposal_created is typically for all members to be aware.
+          // If leader should NOT get this specific one, add: if (memberWalletAddress === leaderWalletAddress) continue;
+          
+          await createNotification(
+            db, 
+            memberWalletAddress, 
+            'proposal_created',
+            `New Proposal: ${newProposal.tokenName}`,
+            `A new proposal "${newProposal.tokenName}" has been created in your squad, ${squad.name}, by @${leaderUsername || leaderWalletAddress.substring(0,6)}. Voting is open! `,
+            ctaUrl,
+            newProposal._id.toString(),   // relatedQuestId (using for proposalId)
+            newProposal.tokenName,        // relatedQuestTitle (using for proposalName)
+            squad.squadId,                // relatedSquadId (string ID from squad doc)
+            squad.name,                   // relatedSquadName
+            leaderWalletAddress,          // relatedUserId (creator of the proposal)
+            leaderUsername                // relatedUserName (creator's username)
+            // No relatedInvitationId, rewardAmount, rewardCurrency, badgeId
+          );
+        }
+        console.log(`Sent ${squad.memberWalletAddresses.length} 'proposal_created' notifications for proposal ${newProposal._id} in squad ${squad.name}.`);
       }
 
       return res.status(201).json({ message: 'Proposal created successfully!', proposal: newProposal });

@@ -42,15 +42,25 @@ export async function POST(request: Request) {
     );
     if (result.matchedCount === 0) { return NextResponse.json({ error: 'Invitation could not be revoked (it might have been processed already).' }, { status: 409 });}
 
+    const notificationTitle = `Invite Revoked: ${invitation.squadName}`;
+    const notificationMessage = `Your invitation to join the squad "${invitation.squadName}" was revoked by @${revokingUserXUsername || revokingUserWalletAddress.substring(0,6)}.`;
+    // CTA could link to general squad browsing or user's profile/dashboard
+    const ctaUrl = `/squads/browse`; 
+
     await createNotification(
       db,
-      invitation.invitedUserWalletAddress,
-      'squad_invite_revoked',
-      `Your invitation to join "${invitation.squadName}" was revoked by @${revokingUserXUsername}.`,
-      invitation.squadId,
-      invitation.squadName,
-      revokingUserWalletAddress,
-      revokingUserXUsername
+      invitation.invitedUserWalletAddress, // recipientWalletAddress
+      'squad_invite_revoked',              // type
+      notificationTitle,                   // title
+      notificationMessage,                 // message
+      ctaUrl,                              // ctaUrl
+      undefined,                           // relatedQuestId
+      undefined,                           // relatedQuestTitle
+      invitation.squadId,                  // relatedSquadId
+      invitation.squadName,                // relatedSquadName
+      revokingUserWalletAddress,           // relatedUserId (the user who revoked the invite)
+      revokingUserXUsername,               // relatedUserName (the name of the user who revoked)
+      invitation.invitationId              // relatedInvitationId (the ID of the invitation that was revoked)
     );
 
     return NextResponse.json({ message: 'Squad invitation revoked successfully.' });

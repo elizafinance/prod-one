@@ -7,6 +7,7 @@ import { Document, ObjectId } from 'mongodb';
 import UserDetailsModal from '@/components/admin/UserDetailsModal';
 import ConfirmationModal from '@/components/admin/ConfirmationModal';
 import CreateUserModal from '@/components/admin/CreateUserModal';
+import { isAdminWallet } from '@/lib/adminUtils';
 
 export interface UserRow {
   _id?: string | ObjectId;
@@ -117,11 +118,11 @@ export default function AdminUsersPage() {
   // This useEffect handles fetching based on filters, pagination, and auth status
   useEffect(() => {
     if (status !== 'authenticated') return;
-    const userRoleAuth = (session?.user as any)?.role;
-    if (userRoleAuth !== 'admin') return;
+    const userWalletAddress = (session?.user as any)?.walletAddress;
+    if (!isAdminWallet(userWalletAddress)) return;
     fetchUsers(currentPage);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status, (session?.user as any)?.role, query, roleFilter, squadIdFilter, hasSquadFilter, currentPage, limit, fetchUsers]);
+  }, [status, (session?.user as any)?.walletAddress, query, roleFilter, squadIdFilter, hasSquadFilter, currentPage, limit, fetchUsers]);
 
   // This useEffect is for session-specific actions, now correctly using memoized fetchUsers
   useEffect(() => {
@@ -237,9 +238,9 @@ export default function AdminUsersPage() {
     setUsers(prev => [newUser, ...prev]);
   };
 
-  const userRole = (session?.user as any)?.role;
+  const userWalletAddress = (session?.user as any)?.walletAddress;
   if (status === 'loading') return <p className="p-10">Loading session...</p>;
-  if (status !== 'authenticated' || userRole !== 'admin') {
+  if (status !== 'authenticated' || !isAdminWallet(userWalletAddress)) {
     return <p className="p-10 text-red-600">Access denied</p>;
   }
 

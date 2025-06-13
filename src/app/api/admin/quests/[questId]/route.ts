@@ -5,6 +5,7 @@ import CommunityQuestModel from '@/models/communityQuest.model';
 import mongoose, { Types } from 'mongoose'; // Import mongoose and Types
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
+import { isAdminSession } from '@/lib/adminUtils';
 
 // Simplified Lean Quest for date checking in PUT
 interface LeanQuestForDateCheck {
@@ -43,7 +44,7 @@ interface RouteContext {
 // GET - Get a single quest by ID
 export async function GET(request: NextRequest, { params }: RouteContext) {
   const session: any = await getServerSession(authOptions);
-  if (!session?.user?.role || session.user.role !== 'admin') {
+  if (!isAdminSession(session)) {
     return NextResponse.json({ error: 'Forbidden: Requires admin privileges' }, { status: 403 });
   }
 
@@ -94,7 +95,7 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
 // PUT - Update a quest by ID
 export async function PUT(request: NextRequest, { params }: RouteContext) {
   const session: any = await getServerSession(authOptions);
-  if (!session?.user?.role || session.user.role !== 'admin') {
+  if (!isAdminSession(session)) {
     return NextResponse.json({ error: 'Forbidden: Requires admin privileges' }, { status: 403 });
   }
 
@@ -236,7 +237,7 @@ export async function PUT(request: NextRequest, { params }: RouteContext) {
 // DELETE - Delete a quest by ID (or mark as inactive/archived)
 export async function DELETE(request: NextRequest, { params }: RouteContext) {
   const session: any = await getServerSession(authOptions);
-  if (!session?.user?.role || session.user.role !== 'admin') {
+  if (!isAdminSession(session)) {
     return NextResponse.json({ error: 'Forbidden: Requires admin privileges' }, { status: 403 });
   }
 

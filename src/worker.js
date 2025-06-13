@@ -1,7 +1,9 @@
-import { rabbitmqService } from './services/rabbitmq.service';
-import { questEngineService } from './modules/quest-engine/questEngine.service';
-import { redisService } from './services/redis.service';
-import { rewardDistributorService } from './modules/reward-distributor/rewardDistributor.service';
+import './config/env-loader.js';
+
+import { rabbitmqService } from './services/rabbitmq.service.js';
+import { questEngineService } from './modules/quest-engine/questEngine.service.js';
+import { redisService } from './services/redis.service.js';
+import { rewardDistributorService } from './modules/reward-distributor/rewardDistributor.service.js';
 
 async function startWorker() {
   console.log('[Worker] Starting background worker process...');

@@ -4,8 +4,10 @@
 import { useState, useEffect, useCallback, FormEvent } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { useWallet } from '@solana/wallet-adapter-react';
+import { useWallet, useConnection } from '@solana/wallet-adapter-react';
 import { toast } from 'sonner';
+import { PublicKey } from '@solana/web3.js';
+import { getDefaiBalance } from '@/utils/tokenBalance';
 import UserAvatar from '@/components/UserAvatar';
 import ShareProfileButton from '@/components/ShareProfileButton';
 import GlowingBadge from '@/components/GlowingBadge';
@@ -64,11 +66,13 @@ export default function UserProfilePage() {
   const router = useRouter();
   const walletAddress = params?.walletAddress as string || '';
   const { publicKey } = useWallet();
+  const { connection } = useConnection();
   const loggedInUserWalletAddress = publicKey?.toBase58();
 
   const [profileData, setProfileData] = useState<PublicProfileData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [defaiBalance, setDefaiBalance] = useState<number | null>(null);
 
   useEffect(() => {
     if (walletAddress) {
@@ -90,6 +94,27 @@ export default function UserProfilePage() {
       fetchProfileData();
     }
   }, [walletAddress]);
+
+  // Fetch DeFAI balance for own profile
+  useEffect(() => {
+    const isOwnProfile = loggedInUserWalletAddress === walletAddress;
+    if (isOwnProfile && publicKey && connection) {
+      const fetchDefaiBalance = async () => {
+        try {
+          const result = await getDefaiBalance(connection, publicKey);
+          setDefaiBalance(result.balance);
+          
+          if (result.error) {
+            console.warn("[Profile] DeFAI balance warning:", result.error);
+          }
+        } catch (e) {
+          console.warn("[Profile] Could not fetch DeFAI balance:", e);
+          setDefaiBalance(0);
+        }
+      };
+      fetchDefaiBalance();
+    }
+  }, [loggedInUserWalletAddress, walletAddress, publicKey, connection]);
 
   // Loading, Error, and Not Found states JSX (simplified for brevity in instruction)
   if (isLoading) return <main className="flex flex-col items-center justify-center min-h-screen bg-background text-foreground"><p>Loading Profile...</p></main>;
@@ -121,7 +146,7 @@ export default function UserProfilePage() {
         {/* Airdrop Info Display for Own Profile */}
         {isOwnProfile && (
           <div className="my-6">
-            <AirdropInfoDisplay showTitle={false} />
+            <AirdropInfoDisplay showTitle={false} defaiBalanceFetched={defaiBalance} />
           </div>
         )}
 

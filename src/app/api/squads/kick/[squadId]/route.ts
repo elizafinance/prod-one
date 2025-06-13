@@ -59,18 +59,46 @@ export async function POST(
       }
     );
 
+    const kickedUserNotificationTitle = `Removed from ${squad.name}`;
+    const kickedUserNotificationMessage = `You have been removed from the squad "${squad.name}" by the leader, @${leaderXUsername || leaderWalletAddress.substring(0,6)}.`;
+    const ctaUrlForKicked = `/squads/browse`; // Link to browse other squads
+
     await createNotification(
-      db, memberWalletAddressToKick, 'squad_kicked',
-      `You have been kicked from the squad "${squad.name}" by the leader @${leaderXUsername}.`,
-      squad.squadId, squad.name, leaderWalletAddress, leaderXUsername
+      db, 
+      memberWalletAddressToKick,          // recipientWalletAddress
+      'squad_kicked',                     // type
+      kickedUserNotificationTitle,        // title
+      kickedUserNotificationMessage,      // message
+      ctaUrlForKicked,                    // ctaUrl
+      undefined,                          // relatedQuestId
+      undefined,                          // relatedQuestTitle
+      squad.squadId,                      // relatedSquadId
+      squad.name,                         // relatedSquadName
+      leaderWalletAddress,                // relatedUserId (the leader who kicked)
+      leaderXUsername                     // relatedUserName (leader's name)
+      // No relatedInvitationId
     );
 
     const remainingMembers = squad.memberWalletAddresses.filter(wa => wa !== memberWalletAddressToKick && wa !== leaderWalletAddress);
+    const remainingMemberNotificationTitle = `@${kickedUserXUsername} Left Squad`;
+    const remainingMemberNotificationMessage = `@${kickedUserXUsername} was removed from your squad, "${squad.name}", by the leader.`;
+    const squadPageCtaUrl = squad.squadId ? `/squads/${squad.squadId}` : '/squads';
+
     for (const memberAddr of remainingMembers) {
       await createNotification(
-        db, memberAddr, 'squad_member_left',
-        `@${kickedUserXUsername} was kicked from your squad "${squad.name}" by the leader.`,
-        squad.squadId, squad.name, memberWalletAddressToKick, kickedUserXUsername
+        db, 
+        memberAddr,                            // recipientWalletAddress
+        'squad_member_left',                 // type (user left, albeit by kick)
+        remainingMemberNotificationTitle,      // title
+        remainingMemberNotificationMessage,    // message
+        squadPageCtaUrl,                       // ctaUrl
+        undefined,                             // relatedQuestId
+        undefined,                             // relatedQuestTitle
+        squad.squadId,                         // relatedSquadId
+        squad.name,                            // relatedSquadName
+        memberWalletAddressToKick,             // relatedUserId (the user who was kicked/left)
+        kickedUserXUsername                    // relatedUserName (name of the user who was kicked/left)
+        // No relatedInvitationId
       );
     }
 

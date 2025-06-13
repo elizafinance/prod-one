@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { connectToDatabase, NotificationDocument } from '@/lib/mongodb';
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
+import { NotificationDisplayData } from '@/components/notifications/NotificationItem';
 
 const DEFAULT_NOTIFICATIONS_LIMIT = 20; // Define a default limit
 
@@ -27,12 +28,35 @@ export async function GET(request: Request) {
     const totalNotifications = await notificationsCollection.countDocuments(query);
     const totalPages = Math.ceil(totalNotifications / limit);
 
-    const userNotifications = await notificationsCollection
+    const dbNotifications = await notificationsCollection
       .find(query)
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
       .toArray();
+
+    const transformedNotifications: NotificationDisplayData[] = dbNotifications.map(doc => ({
+      _id: doc._id!.toString(),
+      notificationId: doc.notificationId,
+      userId: doc.recipientWalletAddress,
+      type: doc.type,
+      title: doc.title,
+      message: doc.message,
+      isRead: doc.isRead,
+      ctaUrl: doc.ctaUrl,
+      createdAt: doc.createdAt?.toISOString(),
+      updatedAt: doc.updatedAt?.toISOString(),
+      relatedQuestId: doc.relatedQuestId,
+      relatedQuestTitle: doc.relatedQuestTitle,
+      relatedSquadId: doc.relatedSquadId,
+      relatedSquadName: doc.relatedSquadName,
+      relatedUserId: doc.relatedUserId,
+      relatedUserName: doc.relatedUserName,
+      relatedInvitationId: doc.relatedInvitationId,
+      rewardAmount: doc.rewardAmount,
+      rewardCurrency: doc.rewardCurrency,
+      badgeId: doc.badgeId,
+    }));
 
     const unreadCount = await notificationsCollection.countDocuments({
         ...query,
@@ -40,7 +64,7 @@ export async function GET(request: Request) {
     });
 
     return NextResponse.json({
-      notifications: userNotifications,
+      notifications: transformedNotifications,
       unreadCount,
       currentPage: page,
       totalPages,

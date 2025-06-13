@@ -118,16 +118,28 @@ export async function POST(request: Request) {
     await invitationsCollection.insertOne(newInvitation);
 
     // 6. Create notification for user
+    const notificationTitle = `Invite: Join ${targetSquad.name}`;
+    // In this flow, the "inviter" is effectively the squad leader, as the user is joining via a general squad link.
+    const notificationMessage = `You received an invitation to join the squad "${targetSquad.name}". Review and accept if you wish.`;
+    const ctaUrl = `/squads/invitations`; // Or a more specific link to this invitation
+    // Attempt to get leader's username, otherwise it will be undefined and createNotification handles it
+    const leaderUserDoc = await usersCollection.findOne({ walletAddress: targetSquad.leaderWalletAddress });
+    const leaderUsername = leaderUserDoc?.xUsername; 
+
     await createNotification(
       db,
-      currentUserWalletAddress,
-      'squad_invite_received',
-      `You have been invited to join the squad "${targetSquad.name}" by the leader.`,
-      squadId,
-      targetSquad.name,
-      targetSquad.leaderWalletAddress,
-      undefined,
-      invitationId
+      currentUserWalletAddress,  // recipientWalletAddress
+      'squad_invite_received',   // type
+      notificationTitle,         // title
+      notificationMessage,       // message
+      ctaUrl,                    // ctaUrl
+      undefined,                 // relatedQuestId
+      undefined,                 // relatedQuestTitle
+      squadId,                   // relatedSquadId (from request body, same as targetSquad.squadId)
+      targetSquad.name,          // relatedSquadName
+      targetSquad.leaderWalletAddress, // relatedUserId (the squad leader who effectively invited via link)
+      leaderUsername,            // relatedUserName (leader's username, if found)
+      invitationId               // relatedInvitationId (the ID of the invitation document created)
     );
 
     return NextResponse.json(

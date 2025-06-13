@@ -104,6 +104,7 @@
     "@jest/globals": "^29.7.0",
     "@swc/jest": "^0.2.38",
     "@tailwindcss/typography": "^0.5.13",
+    "@testing-library/dom": "^10.4.0",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.3.0",
     "@testing-library/react-hooks": "^8.0.1",

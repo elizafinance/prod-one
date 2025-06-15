@@ -35,7 +35,7 @@ import SquadGoalQuestCard from "@/components/dashboard/SquadGoalQuestCard";
 import { useUserAirdrop, UserAirdropData as UserAirdropHookData } from '@/hooks/useUserAirdrop'; // Explicitly import type
 import ConnectXButton from '@/components/xauth/ConnectXButton'; // Updated path
 import VerifyFollowButton from '@/components/xauth/VerifyFollowButton'; // Updated path
-import NotificationTestPanel from '@/components/dev/NotificationTestPanel'; // <<<< IMPORT NEW COMPONENT
+// import NotificationTestPanel from '@/components/dev/NotificationTestPanel'; // <<<< IMPORT NEW COMPONENT
 
 // Dynamically import WalletMultiButton
 const WalletMultiButtonDynamic = dynamic(
@@ -555,9 +555,9 @@ export default function HomePage() {
                 )}
 
                 {/* Conditionally render the NotificationTestPanel for development */} 
-                {process.env.NODE_ENV === 'development' && authStatus === 'authenticated' && wallet.connected && (
+                {/* {process.env.NODE_ENV === 'development' && authStatus === 'authenticated' && wallet.connected && (
                   <NotificationTestPanel />
-                )}
+                )} */}
 
                  {/* Desktop: Activate Your Account Section */}
                  {(authStatus === "authenticated" && wallet.connected && (!isRewardsActive || hasSufficientDefai === false)) && (
@@ -863,11 +863,11 @@ export default function HomePage() {
                 />
 
                 {/* Conditionally render the NotificationTestPanel for development - MOBILE */} 
-                {process.env.NODE_ENV === 'development' && authStatus === 'authenticated' && wallet.connected && (
+                {/* {process.env.NODE_ENV === 'development' && authStatus === 'authenticated' && wallet.connected && (
                   <div className="w-full">
                     <NotificationTestPanel />
                   </div>
-                )}
+                )} */}
 
                 <DashboardActionRow 
                   isRewardsActive={isRewardsActive}

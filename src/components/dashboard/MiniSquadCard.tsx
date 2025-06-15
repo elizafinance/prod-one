@@ -39,6 +39,7 @@ const MiniSquadCard: React.FC<MiniSquadCardProps> = ({
         <UsersIcon className="w-10 h-10 mx-auto text-muted-foreground mb-3" />
         <h3 className="text-md font-semibold text-foreground mb-1">No Squad Yet</h3>
         <p className="text-xs text-muted-foreground mb-3">Join or create a squad to boost your earnings!</p>
+        
         <Link href="/squads/browse" passHref>
           <button className="w-full py-2 px-4 bg-[#2B96F1] hover:bg-blue-600 text-white text-xs font-semibold rounded-lg shadow hover:shadow-md transition-colors">
             Browse Squads

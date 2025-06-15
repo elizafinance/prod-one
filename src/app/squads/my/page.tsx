@@ -1,8 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
-import { useWallet } from '@solana/wallet-adapter-react';
-import { useSession } from 'next-auth/react';
+import { useHomePageLogic } from '@/hooks/useHomePageLogic';
 import Link from 'next/link';
 import { SquadDocument } from '@/lib/mongodb';
 import { toast } from 'sonner';
@@ -17,33 +16,27 @@ interface MySquadData extends SquadDocument {
 const PROPOSAL_CREATION_MIN_SQUAD_POINTS = parseInt(process.env.NEXT_PUBLIC_SQUAD_POINTS_TO_CREATE_PROPOSAL || "10000", 10);
 
 export default function MySquadPage() {
-  const { publicKey, connected } = useWallet();
-  const { data: session, status: authStatus } = useSession<any>();
-  const typedSession: any = session;
-  const [mySquadData, setMySquadData] = useState<MySquadData | null>(null);
-  const [isFetchingSquad, setIsFetchingSquad] = useState(false);
+  // Use the same logic as the working dashboard
+  const {
+    session,
+    authStatus,
+    wallet,
+    mySquadData,
+    isFetchingSquad,
+    userCheckedNoSquad,
+    fetchMySquadData,
+  } = useHomePageLogic();
+
+  // Local state for this page
   const [error, setError] = useState<string | null>(null);
-  const [userCheckedNoSquad, setUserCheckedNoSquad] = useState(false);
-  const [hasLoadedData, setHasLoadedData] = useState(false);
-  
-  // User points for verifying squad creation eligibility
   const [userPoints, setUserPoints] = useState<number | null>(null);
   const [isLoadingPoints, setIsLoadingPoints] = useState(false);
-  
-  // Tier requirements from server
   const [tierRequirements, setTierRequirements] = useState<{ 
     tiers: Array<{ tier: number, minPoints: number, maxMembers: number }>,
     minRequiredPoints: number 
   } | null>(null);
   const [isFetchingTiers, setIsFetchingTiers] = useState(true);
-
-  // Track previous wallet address to detect actual wallet changes
-  const [prevWalletAddress, setPrevWalletAddress] = useState<string | null>(null);
-
   const [isCreateProposalModalOpen, setIsCreateProposalModalOpen] = useState(false);
-
-  // Stable fetch indicator to prevent blinking loops
-  const [fetchAttempted, setFetchAttempted] = useState(false);
 
   const fetchUserPoints = useCallback(async (walletAddress: string) => {
     if (!walletAddress || isLoadingPoints) return;
@@ -73,174 +66,18 @@ export default function MySquadPage() {
     setIsLoadingPoints(false);
   }, [isLoadingPoints]);
 
-  // Fetch user points for squad creation eligibility when user is authenticated and wallet is connected.
+  // Fetch user points when needed
   useEffect(() => {
-    if (authStatus === "authenticated" && connected && publicKey && !isLoadingPoints) {
-      // Check if points haven't been fetched yet or if the user context might have changed
-      // This condition might need refinement based on how often you want this to re-fetch.
-      // For now, it fetches if userPoints is null, implying initial load or a reset.
+    if (authStatus === "authenticated" && wallet.connected && wallet.publicKey && !isLoadingPoints) {
       if (userPoints === null) {
-        fetchUserPoints(publicKey.toBase58());
+        fetchUserPoints(wallet.publicKey.toBase58());
       }
     }
-  }, [authStatus, connected, publicKey, fetchUserPoints, isLoadingPoints, userPoints]);
-
-  const fetchMySquadData = useCallback(async (userWalletAddress: string) => {
-    if (authStatus !== "authenticated" || !typedSession?.user?.xId) {
-      setError("User not authenticated. Cannot fetch squad data.");
-      setIsFetchingSquad(false);
-      setHasLoadedData(true);
-      setUserCheckedNoSquad(true);
-      return;
-    }
-
-    if (!userWalletAddress || isFetchingSquad || (userCheckedNoSquad && !isCreateProposalModalOpen) || (mySquadData && hasLoadedData && isCreateProposalModalOpen && !isFetchingSquad)) {
-      // Skip if already fetching or determined no squad
-      return;
-    }
-    
-    setIsFetchingSquad(true);
-    setError(null);
-    
-    try {
-      const response = await fetch(`/api/squads/my-squad?userWalletAddress=${encodeURIComponent(userWalletAddress)}`);
-      const data = await response.json();
-      if (response.ok) {
-        if (data.squad) {
-          setMySquadData(data.squad as MySquadData);
-          setHasLoadedData(true);
-          setUserCheckedNoSquad(false);
-        } else {
-          setMySquadData(null);
-          setHasLoadedData(true);
-          setUserCheckedNoSquad(true);
-          
-          // If user is not in a squad, fetch their points to check eligibility for creating one
-          if (userWalletAddress) {
-            fetchUserPoints(userWalletAddress);
-          }
-        }
-      } else {
-        setError(data.error || response.statusText);
-        setMySquadData(null);
-        if (response.status === 404 || response.status === 403) {
-          setUserCheckedNoSquad(true);
-          setHasLoadedData(true);
-          // Also fetch points if we get a 404/403 indicating not in squad or mismatch
-          if (userWalletAddress) {
-            fetchUserPoints(userWalletAddress);
-          }
-        }
-      }
-    } catch (error) {
-      setError((error as Error).message);
-      setMySquadData(null);
-      setHasLoadedData(true);
-    }
-    
-    setIsFetchingSquad(false);
-  }, [isFetchingSquad, userCheckedNoSquad, fetchUserPoints, mySquadData, hasLoadedData, isCreateProposalModalOpen, authStatus, typedSession?.user?.xId]);
-
-  useEffect(() => {
-    let isActive = true;
-    let timer: NodeJS.Timeout;
-    
-    // Very clear guard condition set
-    const shouldFetch = 
-      // Authentication requirements
-      authStatus === "authenticated" && 
-      typedSession?.user?.xId && 
-      // Wallet requirements
-      connected && 
-      publicKey && 
-      // State requirements - only fetch if we haven't loaded or checked
-      (!hasLoadedData || !userCheckedNoSquad) &&
-      // Only fetch once per render cycle
-      !fetchAttempted &&
-      // Not currently fetching
-      !isFetchingSquad;
-    
-    if (shouldFetch) {
-      // Mark that we've attempted a fetch for this cycle
-      setFetchAttempted(true);
-      
-      // Add a debounce timer
-      timer = setTimeout(() => {
-        if (isActive) {
-          console.log("[MySquadPage] Fetching squad data for:", publicKey.toBase58());
-          fetchMySquadData(publicKey.toBase58());
-        }
-      }, 500);
-    } 
-    // Clear case - set definitive state to prevent further attempts
-    else if (authStatus === "unauthenticated" || (authStatus === "authenticated" && !typedSession?.user?.xId)) {
-      console.log("[MySquadPage] Not authenticated properly, clearing squad data");
-      setMySquadData(null);
-      setUserCheckedNoSquad(true);
-      setHasLoadedData(true);
-      setFetchAttempted(true);
-    }
-    
-    return () => {
-      isActive = false;
-      if (timer) clearTimeout(timer);
-    };
-  }, [
-    authStatus, 
-    typedSession?.user?.xId, 
-    connected, 
-    publicKey, 
-    fetchMySquadData,
-    userCheckedNoSquad,
-    hasLoadedData,
-    fetchAttempted,
-    isFetchingSquad
-  ]);
-  
-  // Reset fetch attempted when relevant dependencies change
-  useEffect(() => {
-    if (
-      publicKey || // New wallet connected
-      authStatus === "authenticated" || // New authentication
-      !hasLoadedData || // Data needs to be loaded
-      !userCheckedNoSquad // Status needs to be checked
-    ) {
-      setFetchAttempted(false);
-    }
-  }, [publicKey, authStatus, hasLoadedData, userCheckedNoSquad]);
-
-  useEffect(() => {
-    const currentAddress = publicKey ? publicKey.toBase58() : null;
-
-    if (!connected) {
-      setPrevWalletAddress(null);
-      // Optionally, reset other states like mySquadData, userCheckedNoSquad, hasLoadedData
-      // setMySquadData(null);
-      // setUserCheckedNoSquad(false); // Allow re-check on next connection
-      // setHasLoadedData(false);
-      return;
-    }
-
-    if (currentAddress && currentAddress !== prevWalletAddress) {
-      setPrevWalletAddress(currentAddress);
-      setUserCheckedNoSquad(false);
-      setHasLoadedData(false);
-      // Explicitly do not call fetchMySquadData here, let the main effect handle it based on auth status
-    } else if (!currentAddress && prevWalletAddress) {
-      // Wallet was disconnected (publicKey became null)
-      setPrevWalletAddress(null);
-      // Resetting flags so that on next connect, data can be fetched.
-      // setUserCheckedNoSquad(false);
-      // setHasLoadedData(false);
-      // setMySquadData(null); // Clear stale data
-    }
-  }, [connected, publicKey, prevWalletAddress]);
+  }, [authStatus, wallet.connected, wallet.publicKey, fetchUserPoints, isLoadingPoints, userPoints]);
 
   const handleForceRefresh = () => {
-    if (authStatus === "authenticated" && connected && publicKey) {
-      setUserCheckedNoSquad(false);
-      setHasLoadedData(false);
-      fetchMySquadData(publicKey.toBase58());
+    if (authStatus === "authenticated" && wallet.connected && wallet.publicKey) {
+      fetchMySquadData(wallet.publicKey.toBase58());
     }
   };
 
@@ -266,16 +103,16 @@ export default function MySquadPage() {
   // Check if the user has enough points to create a squad
   const minRequiredPoints = tierRequirements?.minRequiredPoints || 1000;
   const canCreateSquad = userPoints !== null && userPoints >= minRequiredPoints;
-  const isUserLeader = mySquadData?.leaderWalletAddress === publicKey?.toBase58();
-  const canCreateProposal = isUserLeader && mySquadData && mySquadData.totalSquadPoints >= PROPOSAL_CREATION_MIN_SQUAD_POINTS;
+  
+  // Type guard for mySquadData
+  const typedSquadData = mySquadData as MySquadData | null;
+  const isUserLeader = typedSquadData?.leaderWalletAddress === wallet.publicKey?.toBase58();
+  const canCreateProposal = isUserLeader && typedSquadData && typedSquadData.totalSquadPoints >= PROPOSAL_CREATION_MIN_SQUAD_POINTS;
 
   const handleProposalCreated = () => {
     toast.info('Refreshing squad data after proposal creation...');
-    if (publicKey) {
-      // Ensure data is marked as not loaded to trigger fetch
-      setHasLoadedData(false);
-      setUserCheckedNoSquad(false);
-      fetchMySquadData(publicKey.toBase58());
+    if (wallet.publicKey) {
+      fetchMySquadData(wallet.publicKey.toBase58());
     }
   };
 
@@ -333,19 +170,19 @@ export default function MySquadPage() {
           {isFetchingSquad && <p className="text-center text-indigo-600">Loading squad info...</p>}
           {error && <p className="text-center text-red-600 bg-red-100 p-2 rounded border border-red-200">Error: {error}</p>}
           
-          {!isFetchingSquad && mySquadData && (
+          {!isFetchingSquad && typedSquadData && (
             <div className="text-center space-y-4">
               <div className="p-4 bg-white/80 rounded-lg border border-gray-200">
-                <p className="text-lg font-semibold text-gray-800">Name: <span className="text-indigo-600 font-bold">{mySquadData.name}</span></p>
-                {mySquadData.description && <p className="text-sm text-gray-600 mt-1 italic">&quot;{mySquadData.description}&quot;</p>}
-                <p className="text-sm text-gray-600 mt-2">{TOKEN_LABEL_POINTS}: <span className="font-bold text-green-600">{mySquadData.totalSquadPoints.toLocaleString()}</span></p>
-                <p className="text-sm text-gray-600">Max Members: <span className="font-bold">{getMaxMembersForPoints(mySquadData.totalSquadPoints)}</span></p>
+                <p className="text-lg font-semibold text-gray-800">Name: <span className="text-indigo-600 font-bold">{typedSquadData.name}</span></p>
+                {typedSquadData.description && <p className="text-sm text-gray-600 mt-1 italic">&quot;{typedSquadData.description}&quot;</p>}
+                <p className="text-sm text-gray-600 mt-2">{TOKEN_LABEL_POINTS}: <span className="font-bold text-green-600">{typedSquadData.totalSquadPoints.toLocaleString()}</span></p>
+                <p className="text-sm text-gray-600">Max Members: <span className="font-bold">{getMaxMembersForPoints(typedSquadData.totalSquadPoints)}</span></p>
                 
                 <div className="mt-3 text-xs bg-indigo-100 p-2 rounded border border-indigo-200">
                   {isUserLeader ? (
                     <p className="text-indigo-700 font-medium">You are the leader of this squad!</p>
                   ) : (
-                    <p className="text-indigo-700">Leader: <span className="font-mono">{mySquadData.leaderWalletAddress.substring(0,6)}...{mySquadData.leaderWalletAddress.substring(mySquadData.leaderWalletAddress.length-4)}</span></p>
+                    <p className="text-indigo-700">Leader: <span className="font-mono">{typedSquadData.leaderWalletAddress.substring(0,6)}...{typedSquadData.leaderWalletAddress.substring(typedSquadData.leaderWalletAddress.length-4)}</span></p>
                   )}
                 </div>
               </div>
@@ -356,7 +193,7 @@ export default function MySquadPage() {
                   <h4 className="text-md font-semibold text-blue-600 mb-2">Squad Governance</h4>
                   <p className="text-xs text-gray-500 mb-3">
                     You must have at least {PROPOSAL_CREATION_MIN_SQUAD_POINTS.toLocaleString()} squad points to create a token proposal.<br />
-                    Your squad currently has <span className="font-bold text-green-600">{mySquadData.totalSquadPoints.toLocaleString()}</span> points.<br />
+                    Your squad currently has <span className="font-bold text-green-600">{typedSquadData?.totalSquadPoints.toLocaleString()}</span> points.<br />
                     <span className="text-indigo-700 font-medium block mt-2">
                       Need more points? Earn more by completing quests, inviting friends, or buy more DeFAI below.
                     </span>
@@ -379,7 +216,7 @@ export default function MySquadPage() {
               {canCreateProposal && (
                 <div className="mt-4 pt-4 border-t border-gray-200">
                   <h4 className="text-md font-semibold text-blue-600 mb-2">Squad Governance</h4>
-                  <p className="text-xs text-gray-500 mb-3">As squad leader with {mySquadData.totalSquadPoints.toLocaleString()} squad points, you can create a token proposal for the AI Reward.</p>
+                  <p className="text-xs text-gray-500 mb-3">As squad leader with {typedSquadData?.totalSquadPoints.toLocaleString()} squad points, you can create a token proposal for the AI Reward.</p>
                   <Button 
                     onClick={() => setIsCreateProposalModalOpen(true)} 
                     className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg shadow-md hover:shadow-lg transition-all"
@@ -390,7 +227,7 @@ export default function MySquadPage() {
               )}
 
               <div className="space-y-2 pt-4">
-                <Link href={`/squads/${mySquadData.squadId}`} passHref>
+                <Link href={`/squads/${typedSquadData?.squadId}`} passHref>
                   <Button variant="outline" className="w-full border-indigo-500 text-indigo-600 hover:bg-indigo-100">
                     Manage Squad Details
                   </Button>
@@ -449,12 +286,14 @@ export default function MySquadPage() {
                   </div>
                   
                   {userCheckedNoSquad && (
-                    <button 
-                      onClick={handleForceRefresh} 
-                      className="py-2 px-4 bg-blue-500 hover:bg-blue-600 text-white text-sm font-semibold rounded-lg transition-colors shadow hover:shadow-md mt-3"
-                    >
-                      Refresh Squad Data
-                    </button>
+                    <div className="space-y-2 mt-3">
+                      <button 
+                        onClick={handleForceRefresh} 
+                        className="py-2 px-4 bg-blue-500 hover:bg-blue-600 text-white text-sm font-semibold rounded-lg transition-colors shadow hover:shadow-md"
+                      >
+                        Refresh Squad Data
+                      </button>
+                    </div>
                   )}
                 </>
               )}
@@ -490,11 +329,11 @@ export default function MySquadPage() {
         </div>
       </div>
 
-      {mySquadData && (
+      {typedSquadData && (
         <CreateProposalModal 
             isOpen={isCreateProposalModalOpen} 
             onClose={() => setIsCreateProposalModalOpen(false)} 
-            squadId={mySquadData.squadId} 
+            squadId={typedSquadData.squadId} 
             onProposalCreated={handleProposalCreated} 
         />
       )}

@@ -185,6 +185,7 @@ callbacks: {
     if (user) { // This block runs on sign-in or when session is updated with user object
       token.dbId = user.dbId || user.id;
       token.walletAddress = user.walletAddress;
+      token.xId = user.xId; // Add xId to token for wallet-based auth
       token.role = user.role;
       token.chain = user.chain; // Persist chain from user object (returned by authorize) into JWT
       // console.log("[NextAuth DEBUG - jwt callback] Token updated from user object. New chain:", token.chain);
@@ -202,6 +203,7 @@ callbacks: {
           const userFromDb = await usersCollection.findOne({ _id: new ObjectId(token.dbId) });
           if (userFromDb) {
             token.walletAddress = userFromDb.walletAddress || token.walletAddress;
+            token.xId = userFromDb.xUserId || userFromDb.walletAddress || token.xId; // Ensure xId is maintained
             token.role = userFromDb.role || 'user';
             token.chain = userFromDb.walletChain || token.chain || 'unknown';
             token.linkedXUsername = userFromDb.linkedXUsername;
@@ -230,6 +232,7 @@ callbacks: {
     session.user.id = token.sub || token.dbId;
     session.user.dbId = token.dbId as string || null;
     session.user.walletAddress = token.walletAddress as string || null;
+    session.user.xId = token.xId as string || null; // Add xId to session for wallet-based auth
     session.user.role = token.role as string || 'user';
     session.user.chain = token.chain as string || 'unknown';
     session.user.linkedXUsername = token.linkedXUsername as string || null;

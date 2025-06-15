@@ -1,11 +1,65 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { connectToDatabase } from '@/lib/mongodb';
+import { connectToDatabase, UserDocument } from '@/lib/mongodb';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 import { ObjectId, Filter, Document } from 'mongodb';
 import { AIR } from '@/config/points.config';
 import { randomBytes } from 'crypto';
 import { isAdminSession } from '@/lib/adminUtils';
+import { generateUniqueReferralCode } from '@/lib/auth';
+
+// Function to sync database roles with environment admin wallets
+async function syncAdminRoles(db: any) {
+  try {
+    const adminWallets = process.env.ADMIN_WALLET_ADDRESSES;
+    if (!adminWallets) {
+      return; // No admin wallets configured
+    }
+
+    const adminWalletList = adminWallets
+      .split(',')
+      .map(wallet => wallet.trim())
+      .filter(wallet => wallet.length > 0);
+
+    if (adminWalletList.length === 0) {
+      return;
+    }
+
+    const usersCollection = db.collection('users');
+
+    // Set admin role for wallets in environment variable
+    await usersCollection.updateMany(
+      { 
+        walletAddress: { $in: adminWalletList },
+        role: { $ne: 'admin' }
+      },
+      { 
+        $set: { 
+          role: 'admin',
+          updatedAt: new Date()
+        }
+      }
+    );
+
+    // Set user role for wallets NOT in environment variable that currently have admin role
+    await usersCollection.updateMany(
+      { 
+        walletAddress: { $nin: adminWalletList },
+        role: 'admin'
+      },
+      { 
+        $set: { 
+          role: 'user',
+          updatedAt: new Date()
+        }
+      }
+    );
+
+  } catch (error) {
+    console.error('[SyncAdminRoles] Error syncing admin roles:', error);
+    // Don't throw - this is a background sync operation
+  }
+}
 
 export async function GET(request: NextRequest) {
   const session: any = await getServerSession(authOptions);
@@ -16,7 +70,11 @@ export async function GET(request: NextRequest) {
 
   try {
     const { db } = await connectToDatabase();
-    const usersCollection = db.collection('users');
+    const usersCollection = db.collection<UserDocument>('users');
+
+    // Sync admin roles before fetching users
+    await syncAdminRoles(db);
+
     const { searchParams } = new URL(request.url);
     const q = searchParams.get('q') || '';
     const roleFilter = searchParams.get('role');
@@ -201,28 +259,6 @@ export async function DELETE(request: NextRequest) {
   }
 }
 
-// Helper to generate unique referral codes identical to auth/activate-rewards flows
-async function generateUniqueReferralCode(db: any, length = 8): Promise<string> {
-  const usersCollection = db.collection('users');
-  let referralCode = '';
-  let isUnique = false;
-  let attempts = 0;
-  const maxAttempts = 10;
-  while (!isUnique && attempts < maxAttempts) {
-    referralCode = randomBytes(Math.ceil(length / 2)).toString('hex').slice(0, length);
-    const existingUser = await usersCollection.findOne({ referralCode });
-    if (!existingUser) {
-      isUnique = true;
-    }
-    attempts++;
-  }
-  if (!isUnique) {
-    console.warn(`Could not generate unique referral code in admin create user after ${maxAttempts} attempts.`);
-    return referralCode + randomBytes(2).toString('hex');
-  }
-  return referralCode;
-}
-
 export async function POST(request: NextRequest) {
   const session: any = await getServerSession(authOptions);
   if (!isAdminSession(session)) {
@@ -258,6 +294,26 @@ export async function POST(request: NextRequest) {
 
     const referralCode = await generateUniqueReferralCode(db);
 
+    // Determine role based on environment admin wallets if wallet address provided
+    let finalRole = role;
+    if (walletAddress) {
+      const adminWallets = process.env.ADMIN_WALLET_ADDRESSES;
+      if (adminWallets) {
+        const adminWalletList = adminWallets
+          .split(',')
+          .map(wallet => wallet.trim())
+          .filter(wallet => wallet.length > 0);
+        
+        const isEnvAdmin = adminWalletList.some(adminWallet => 
+          adminWallet.toLowerCase() === walletAddress.toLowerCase()
+        );
+        
+        if (isEnvAdmin) {
+          finalRole = 'admin';
+        }
+      }
+    }
+
     const newDoc: Record<string, any> = {
       walletAddress: walletAddress || undefined,
       xUsername: xUsername || undefined,
@@ -265,7 +321,7 @@ export async function POST(request: NextRequest) {
       points: startingPoints,
       completedActions: ['initial_connection'],
       referralCode,
-      role,
+      role: finalRole,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -276,9 +332,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Insert failed' }, { status: 500 });
     }
 
-    return NextResponse.json({ message: 'User created', user: { _id: insertRes.insertedId, ...newDoc } }, { status: 201 });
-  } catch (err) {
-    console.error('admin create user error', err);
-    return NextResponse.json({ error: 'Server error' }, { status: 500 });
+    const createdUser = await usersCollection.findOne({ _id: insertRes.insertedId });
+
+    return NextResponse.json({ 
+      message: 'User created successfully', 
+      user: createdUser 
+    }, { status: 201 });
+
+  } catch (error) {
+    console.error('[AdminUsers] Error creating user:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 } 

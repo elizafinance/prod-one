@@ -7,7 +7,6 @@ import { Document, ObjectId } from 'mongodb';
 import UserDetailsModal from '@/components/admin/UserDetailsModal';
 import ConfirmationModal from '@/components/admin/ConfirmationModal';
 import CreateUserModal from '@/components/admin/CreateUserModal';
-import { isAdminWallet } from '@/lib/adminUtils';
 
 export interface UserRow {
   _id?: string | ObjectId;
@@ -67,7 +66,6 @@ export default function AdminUsersPage() {
   const [query, setQuery] = useState('');
   const [selectedUser, setSelectedUser] = useState<FullUserDetail | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-
   // State for purge confirmation modal
   const [isPurgeConfirmModalOpen, setIsPurgeConfirmModalOpen] = useState(false);
   const [userToPurge, setUserToPurge] = useState<UserRow | null>(null);
@@ -107,7 +105,7 @@ export default function AdminUsersPage() {
       }
     } catch (err) {
       toast.error('Error fetching users');
-      console.error(err);
+      console.error('Fetch users error:', err);
       setUsers([]);
       setTotalPages(1);
       setCurrentPage(1);
@@ -119,7 +117,7 @@ export default function AdminUsersPage() {
   useEffect(() => {
     if (status !== 'authenticated') return;
     const userWalletAddress = (session?.user as any)?.walletAddress;
-    if (!isAdminWallet(userWalletAddress)) return;
+    // Removed client-side admin check - API handles authentication
     fetchUsers(currentPage);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status, (session?.user as any)?.walletAddress, query, roleFilter, squadIdFilter, hasSquadFilter, currentPage, limit, fetchUsers]);
@@ -240,8 +238,8 @@ export default function AdminUsersPage() {
 
   const userWalletAddress = (session?.user as any)?.walletAddress;
   if (status === 'loading') return <p className="p-10">Loading session...</p>;
-  if (status !== 'authenticated' || !isAdminWallet(userWalletAddress)) {
-    return <p className="p-10 text-red-600">Access denied</p>;
+  if (status !== 'authenticated') {
+    return <p className="p-10 text-red-600">Please log in to access admin features</p>;
   }
 
   return (
@@ -325,19 +323,29 @@ export default function AdminUsersPage() {
                 </tr>
               </thead>
               <tbody>
-                {users.map((u) => {
+                {users.map((u, index) => {
                   const displayId = (u._id as any)?.toString() || 'N/A';
                   const idForOps = u.walletAddress || displayId;
                   const isLikelyObjectId = /^[a-f0-9]{24}$/i.test(idForOps);
+                  // Create unique key using MongoDB _id (guaranteed unique) or fallback to index
+                  const uniqueKey = u._id ? u._id.toString() : `user-${index}`;
+                  
+                  // Role is now synced automatically in the database
+                  const displayRole = u.role || 'user';
+                  const isAdmin = displayRole === 'admin';
 
                   return (
-                    <tr key={idForOps || Math.random().toString()} className="border-t hover:bg-gray-50">
+                    <tr key={uniqueKey} className="border-t hover:bg-gray-50">
                       <td className="p-2 font-mono truncate max-w-xs" title={displayId}>{displayId.substring(0,8)}...</td>
                       <td className="p-2 font-mono truncate max-w-xs" title={u.walletAddress}>{u.walletAddress || '-'}</td>
                       <td className="p-2 truncate max-w-xs">{u.xUsername || '-'}</td>
                       <td className="p-2 text-right">{u.points?.toLocaleString() || 0}</td>
                       <td className="p-2 truncate max-w-xs" title={u.squadId}>{u.squadId || '-'}</td>
-                      <td className="p-2">{u.role || 'user'}</td>
+                      <td className="p-2">
+                        <span className={isAdmin ? 'text-red-600 font-semibold' : ''}>
+                          {displayRole}
+                        </span>
+                      </td>
                       <td className="p-2 whitespace-nowrap">
                         <button
                           onClick={() => idForOps && handleViewDetails(idForOps)}

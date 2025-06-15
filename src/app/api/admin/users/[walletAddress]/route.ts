@@ -55,20 +55,12 @@ export async function GET(
       .limit(10)
       .toArray();
 
-    let recentNotifications: any[] = [];
-    if (user._id) { 
-        recentNotifications = await notificationsCollection
-        .find({ userId: user._id.toString() })
-        .sort({ createdAt: -1 })
-        .limit(10)
-        .toArray();
-    } else if ((user as any).id) {
-        recentNotifications = await notificationsCollection
-        .find({ userId: (user as any).id })
-        .sort({ createdAt: -1 })
-        .limit(10)
-        .toArray();
-    }
+    // Fetch recent notifications by wallet address (same field used by regular notifications API)
+    const recentNotifications = await notificationsCollection
+      .find({ recipientWalletAddress: walletAddress })
+      .sort({ createdAt: -1 })
+      .limit(10)
+      .toArray();
 
     return NextResponse.json({ user, recentActions, recentNotifications });
   } catch (error) {

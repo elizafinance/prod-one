@@ -1,5 +1,15 @@
 import { withRateLimit } from '../src/middleware/rateLimiter';
 
+jest.mock('next/server', () => ({
+  NextResponse: {
+    json: (body: any, init?: any) =>
+      new Response(JSON.stringify(body), {
+        ...init,
+        headers: { 'Content-Type': 'application/json', ...(init?.headers || {}) },
+      }),
+  },
+}));
+
 function createRequest(ip: string): Request {
   return new Request('http://localhost', {
     headers: { 'x-forwarded-for': ip },

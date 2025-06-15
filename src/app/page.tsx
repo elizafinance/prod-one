@@ -23,10 +23,10 @@ import { checkRequiredEnvVars } from '@/utils/checkEnv';
 import DeFAILogo from '@/components/DeFAILogo';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import AirdropInfoDisplay from "@/components/airdrop/AirdropInfoDisplay";
+// import AirdropInfoDisplay from "@/components/airdrop/AirdropInfoDisplay"; // Temporarily hidden
 import { AIR } from '@/config/points.config'; // Import AIR config
 import { formatPoints, generateReferralLink, getBaseUrl } from '@/lib/utils'; // Import formatPoints and referral utilities
-import AirdropSnapshotHorizontal from "@/components/dashboard/AirdropSnapshotHorizontal";
+// import AirdropSnapshotHorizontal from "@/components/dashboard/AirdropSnapshotHorizontal"; // Temporarily hidden
 import DashboardActionRow from "@/components/layout/DashboardActionRow";
 import MiniSquadCard from "@/components/dashboard/MiniSquadCard";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
@@ -541,8 +541,8 @@ export default function HomePage() {
                   completedActions={userData?.completedActions || []}
                 />
 
-                {/* Airdrop Snapshot Horizontal */}
-                {(authStatus === "authenticated" && wallet.connected && isRewardsActive && userData && hasSufficientDefai === true) && (
+                {/* Airdrop Snapshot Horizontal - Temporarily Hidden */}
+                {/* {(authStatus === "authenticated" && wallet.connected && isRewardsActive && userData && hasSufficientDefai === true) && (
                   <AirdropSnapshotHorizontal 
                     initialAirdropAllocation={userData.initialAirdropAmount ?? null}
                     defaiBalance={defaiBalance} 
@@ -552,7 +552,7 @@ export default function HomePage() {
                     snapshotDateString={snapshotDateString}
                     isLoading={isActivatingRewards || isCheckingDefaiBalance} 
                   />
-                )}
+                )} */}
 
                 {/* Conditionally render the NotificationTestPanel for development */} 
                 {/* {process.env.NODE_ENV === 'development' && authStatus === 'authenticated' && wallet.connected && (
@@ -747,8 +747,8 @@ export default function HomePage() {
               </p>
             </div>
             
-            {/* Original Airdrop Checker for non-authed/non-active users on mobile */}
-            {authStatus !== "authenticated" || !isRewardsActive || !wallet.connected ? (
+            {/* Original Airdrop Checker for non-authed/non-active users on mobile - Temporarily Hidden */}
+            {/* {authStatus !== "authenticated" || !isRewardsActive || !wallet.connected ? (
               <div className="w-full mb-6">
                 <div className="relative flex items-center mt-1 mb-4">
                   <input
@@ -779,7 +779,7 @@ export default function HomePage() {
                   </div>
                 )}
               </div>
-            ) : null}
+            ) : null} */}
             
             {/* Mobile: Activate Account Section (similar logic to desktop) */}
             {(authStatus === "authenticated" && wallet.connected && (!isRewardsActive || hasSufficientDefai === false)) && (
@@ -856,11 +856,11 @@ export default function HomePage() {
 
             {showPointsSection && userData && (
               <div className="w-full max-w-md mt-1 flex flex-col items-center space-y-5">
-                <AirdropInfoDisplay 
+                {/* <AirdropInfoDisplay 
                   onTotalAirdropChange={setCurrentTotalAirdropForSharing} 
                   showTitle={false} 
                   defaiBalanceFetched={defaiBalance}
-                />
+                /> */}
 
                 {/* Conditionally render the NotificationTestPanel for development - MOBILE */} 
                 {/* {process.env.NODE_ENV === 'development' && authStatus === 'authenticated' && wallet.connected && (

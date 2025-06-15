@@ -43,7 +43,7 @@ const navItems: NavItem[] = [
   { href: "/squads/browse", label: "Squads Browse" },
   { href: "/proposals", label: "Proposals" },
   { href: "/yield", label: "Yield" },
-  { href: "/myair", label: "My AIR" },
+  // { href: "/myair", label: "My AIR" }, // Temporarily hidden
   // The Airdrop Checker is part of the Dashboard page, so no separate nav item usually needed
   // If it were a distinct page: { href: "/airdrop-checker", label: "Airdrop Checker" },
 ];

@@ -119,7 +119,7 @@ export default function AdminUsersPage() {
   useEffect(() => {
     if (status !== 'authenticated') return;
     const userWalletAddress = (session?.user as any)?.walletAddress;
-    if (!isAdminWallet(userWalletAddress)) return;
+    // Removed client-side admin check - API handles authentication
     fetchUsers(currentPage);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status, (session?.user as any)?.walletAddress, query, roleFilter, squadIdFilter, hasSquadFilter, currentPage, limit, fetchUsers]);
@@ -240,8 +240,8 @@ export default function AdminUsersPage() {
 
   const userWalletAddress = (session?.user as any)?.walletAddress;
   if (status === 'loading') return <p className="p-10">Loading session...</p>;
-  if (status !== 'authenticated' || !isAdminWallet(userWalletAddress)) {
-    return <p className="p-10 text-red-600">Access denied</p>;
+  if (status !== 'authenticated') {
+    return <p className="p-10 text-red-600">Please log in to access admin features</p>;
   }
 
   return (

@@ -62,7 +62,7 @@ function calculateRemainingTime(endDateString: string): string {
   return 'Ending soon';
 }
 
-const WEBSOCKET_SERVER_URL = process.env.NEXT_PUBLIC_WEBSOCKET_URL || 'http://localhost:3001';
+const WEBSOCKET_SERVER_URL = process.env.NEXT_PUBLIC_WEBSOCKET_URL || '';
 
 export default function QuestDetailPage() {
   const router = useRouter();
@@ -102,25 +102,31 @@ export default function QuestDetailPage() {
   useEffect(() => {
     if (!questId || typeof window === 'undefined') return;
 
-    const socket: Socket = io(WEBSOCKET_SERVER_URL);
-
-    socket.on('connect', () => console.log('[QuestDetail/WS] Connected:', socket.id));
-    socket.on('disconnect', (reason) => console.log('[QuestDetail/WS] Disconnected:', reason));
-    socket.on('connect_error', (err) => console.error('[QuestDetail/WS] Connection error:', err));
-
-    socket.on('quest_progress_update', (update: QuestProgressUpdateEvent) => {
-      if (update.questId === questId) {
-        console.log('[QuestDetail/WS] Received relevant progress update:', update);
-        setQuest(prevQuest => 
-          prevQuest ? { ...prevQuest, progress: update.currentProgress, goal: update.goalTarget } : null
-        );
-      }
-    });
-
-    return () => {
-      console.log('[QuestDetail/WS] Disconnecting WebSocket...');
-      socket.disconnect();
-    };
+    if (WEBSOCKET_SERVER_URL) {
+      const socket: Socket = io(WEBSOCKET_SERVER_URL);
+      socket.on('connect', () => console.log('[QuestDetail/WS] Connected:', socket.id));
+      socket.on('disconnect', (reason) => console.log('[QuestDetail/WS] Disconnected:', reason));
+      socket.on('connect_error', (err) => console.error('[QuestDetail/WS] Connection error:', err));
+      socket.on('quest_progress_update', (update: QuestProgressUpdateEvent) => {
+        if (update.questId === questId) {
+          setQuest(prev => prev ? { ...prev, progress: update.currentProgress, goal: update.goalTarget } : null);
+        }
+      });
+      return () => socket.disconnect();
+    } else {
+      const evt = new EventSource('/api/notifications/subscribe');
+      const handler = (e: MessageEvent) => {
+        try {
+          const data = JSON.parse(e.data);
+          if (data?.type === 'quest_progress_update' && data.questId === questId) {
+            setQuest(prev => prev ? { ...prev, progress: data.currentProgress, goal: data.goalTarget } : null);
+          }
+        } catch {}
+      };
+      evt.addEventListener('message', handler);
+      evt.onerror = (err) => console.error('[QuestDetail/SSE] Error:', err);
+      return () => evt.close();
+    }
   }, [questId]);
 
   const getGoalUnit = () => {
@@ -173,8 +179,8 @@ export default function QuestDetailPage() {
 
     switch (quest.goal_type) {
       case 'total_referrals':
-        ctaText = 'Invite Friends Now!';
-        ctaLink = '/referrals'; // Example link to a referrals page
+        ctaText = 'Share My Referral Link';
+        ctaLink = '/profile';
         break;
       case 'users_at_tier':
         ctaText = `Reach ${quest.goal_target_metadata?.tier_name || 'Target'} Tier`;

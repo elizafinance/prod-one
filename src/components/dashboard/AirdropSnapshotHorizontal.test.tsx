@@ -14,7 +14,7 @@ const defaultProps = {
   defaiBalance: 1000,
   totalCommunityPoints: 1000000,
   airdropPoolSize: 50000000,
-  snapshotDateString: 'May 20th, 2025 at 12:00 PM UTC',
+  snapshotDateString: 'May 20th, 2024 at 12:00 PM UTC',
 };
 
 describe('AirdropSnapshotHorizontal', () => {

@@ -120,7 +120,7 @@ export async function POST(request: Request) {
           await squadsCollection.updateOne(
             { squadId: squad.squadId },
             { 
-              $pull: { memberWalletAddresses: userWalletAddress },
+              $pull: { memberWalletAddresses: userWalletAddress as any },
               $set: { updatedAt: new Date() }
             }
           );

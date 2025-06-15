@@ -61,7 +61,7 @@ export async function POST(request: Request) {
 
     if (updatedReferrerBoosts && updatedReferrerBoosts.length > 0) {
       const activeBoostIndex = updatedReferrerBoosts.findIndex(
-        boost => boost.type === 'percentage_bonus_referrer' && boost.remainingUses > 0
+        (boost: ReferralBoost) => boost.type === 'percentage_bonus_referrer' && (boost.remainingUses ?? 0) > 0
       );
 
       if (activeBoostIndex !== -1) {

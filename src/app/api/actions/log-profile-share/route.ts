@@ -40,7 +40,7 @@ const baseHandler = withAuth(async (request: Request, session) => {
       return NextResponse.json({
         message: 'Profile share action already recorded. No new points or boost awarded.',
         currentPoints: user.points,
-        referralBoostActive: user.activeReferralBoosts?.some(boost => (boost.remainingUses || 0) > 0) || false // Check remainingUses for active
+        referralBoostActive: user.activeReferralBoosts?.some((boost: ReferralBoost) => (boost.remainingUses ?? 0) > 0) ?? false // Check remainingUses for active
       });
     }
 
@@ -64,17 +64,17 @@ const baseHandler = withAuth(async (request: Request, session) => {
     const now = new Date();
     const newBoost: ReferralBoost = {
       boostId: uuidv4(),
-      type: REFERRAL_FRENZY_BOOST_TYPE,
+      boostType: REFERRAL_FRENZY_BOOST_TYPE,
       value: REFERRAL_FRENZY_BOOST_VALUE,
       remainingUses: REFERRAL_FRENZY_BOOST_USES,
       description: REFERRAL_FRENZY_BOOST_DESCRIPTION,
-      // expiresAt and activatedAt are not part of the current mongodb.ts ReferralBoost interface
-      // If they are needed, the interface in mongodb.ts should be updated.
-      // For now, adhering to the existing interface.
+      activatedAt: now,
+      // Give the boost a generous expiry (e.g., 1 year); adjust as needed
+      expiresAt: new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000),
     };
 
     // Filter existing boosts - the current logic in mongodb.ts doesn't have an expiry, uses remainingUses
-    const activeReferralBoosts = user.activeReferralBoosts?.filter(b => (b.remainingUses || 0) > 0) || [];
+    const activeReferralBoosts = user.activeReferralBoosts?.filter((b: ReferralBoost) => (b.remainingUses ?? 0) > 0) || [];
     activeReferralBoosts.push(newBoost);
 
     await usersCollection.updateOne(

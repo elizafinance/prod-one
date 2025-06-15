@@ -65,13 +65,15 @@ export async function GET(
     }
 
 
-    // Recent notifications are linked by userId (which should be _id.toString())
+    // Fetch recent notifications by wallet address (same field used by regular notifications API)
     let recentNotifications: any[] = [];
-    recentNotifications = await notificationsCollection
-        .find({ userId: user._id.toString() }) // user._id is already an ObjectId here
-        .sort({ createdAt: -1 })
-        .limit(10)
-        .toArray();
+    if (user.walletAddress) {
+        recentNotifications = await notificationsCollection
+            .find({ recipientWalletAddress: user.walletAddress })
+            .sort({ createdAt: -1 })
+            .limit(10)
+            .toArray();
+    }
     
 
     return NextResponse.json({ user, recentActions, recentNotifications });

@@ -12,6 +12,7 @@ import { QuestProgressData, useSquadQuestProgressStore } from '@/store/useQuestP
 import RequestToJoinModal from '@/components/modals/RequestToJoinModal';
 import { TOKEN_LABEL_POINTS } from '@/lib/labels';
 import { generateReferralLink } from '@/lib/utils';
+import SquadChat from '@/components/squads/SquadChat';
 
 // Updated interface to match the enriched data from the new API
 interface EnrichedSquadMember {
@@ -1119,6 +1120,12 @@ export default function SquadDetailsPage() {
           )}
         </div>
         {/* End Quest Display Section */}
+
+        {/* Squad Chat Section */}
+        {isUserMember && squadDetails && (
+          <SquadChat squadId={squadDetails.squadId} currentUserWallet={currentUserWalletAddress || ''} />
+        )}
+        {/* End Squad Chat Section */}
       </div>
 
       {/* Request To Join Modal */}

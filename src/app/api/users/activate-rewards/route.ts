@@ -55,7 +55,7 @@ function shouldApplyReferralBoost(referrer?: UserDocument): ReferralBoost | unde
     }
     // Find an active boost (e.g., with remaining uses)
     // This logic might need refinement based on how boosts are structured and prioritized
-    return referrer.activeReferralBoosts.find(boost => (boost.remainingUses || 0) > 0);
+    return referrer.activeReferralBoosts.find((boost: ReferralBoost) => (boost.remainingUses || 0) > 0);
 }
 
 export async function POST(request: NextRequest) {

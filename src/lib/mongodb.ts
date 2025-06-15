@@ -120,10 +120,13 @@ export interface UserDocument {
 
 export interface ReferralBoost {
   boostId: string;
-  type: 'percentage_bonus_referrer';
-  value: number;
-  remainingUses: number;
-  description: string;
+  type?: 'percentage_bonus_referrer';
+  boostType?: string; // alias used by some routes
+  value?: number;
+  remainingUses?: number;
+  description?: string;
+  activatedAt?: Date;
+  expiresAt?: Date;
 }
 
 export interface ActionDocument {
@@ -165,8 +168,10 @@ export interface SquadInvitationDocument {
   invitationId: string;
   squadId: string;
   squadName: string;
-  invitedByUserWalletAddress: string;
-  invitedUserWalletAddress: string;
+  invitedByUserWalletAddress?: string;
+  invitedUserWalletAddress?: string;
+  inviterWalletAddress?: string;   // alias used by new invitation routes
+  inviteeWalletAddress?: string;   // alias used by new invitation routes
   status: 'pending' | 'accepted' | 'declined' | 'revoked' | 'expired';
   message?: string;
   createdAt: Date;
@@ -235,7 +240,7 @@ export interface NotificationDocument {
 
 // Assuming ISquadJoinRequest and its model file exist as per HEAD branch
 // If SquadJoinRequest.ts doesn't exist or is not intended, this line should be removed.
-export type { ISquadJoinRequest } from '../models/SquadJoinRequest.js';
+export type { ISquadJoinRequest } from '@/models/SquadJoinRequest';
 
 // Interface for the new Meetup Check-in feature
 export interface MeetupCheckInDocument {

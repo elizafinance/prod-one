@@ -48,9 +48,10 @@ export async function POST(request: Request) {
     const notificationMessage = `@${currentUserXUsername || currentUserWalletAddress.substring(0,6)} declined the invitation to join your squad, "${invitation.squadName}".`;
     const ctaUrl = invitation.squadId ? `/squads/${invitation.squadId}` : '/squads';
 
+    const inviterWallet = invitation.inviterWalletAddress ?? invitation.invitedByUserWalletAddress!;
     await createNotification(
       db,
-      invitation.invitedByUserWalletAddress,
+      inviterWallet,
       'squad_invite_declined',
       notificationTitle,
       notificationMessage,

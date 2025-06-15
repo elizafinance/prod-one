@@ -1,12 +1,11 @@
 import { NextResponse } from 'next/server';
-import clientPromise from '@/lib/mongodb';
+import { connectToDatabase } from '@/lib/mongodb';
 
 const PASS_NET_WEIGHT_TARGET = parseInt(process.env.NEXT_PUBLIC_PROPOSAL_PASS_NET_WEIGHT_TARGET || '1000', 10);
 
 export async function GET() {
   try {
-    const client = await clientPromise;
-    const db = client.db();
+    const { db } = await connectToDatabase();
 
     // Fetch the newest ACTIVE proposal (fallback to newest overall)
     let proposalDoc = await db.collection('proposals')
@@ -45,7 +44,7 @@ export async function GET() {
     let upVotesCount = 0;
     let downVotesCount = 0;
 
-    votesAgg.forEach((row) => {
+    votesAgg.forEach((row: any) => {
       if (row._id === 'up') {
         upVotesWeight = row.totalWeight;
         upVotesCount = row.count;

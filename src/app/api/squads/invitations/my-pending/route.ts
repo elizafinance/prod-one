@@ -35,7 +35,7 @@ export async function GET(request: Request) {
     console.log('[MyPendingInvitesAPI] Pending invitations found:', pendingInvitations);
 
     // Get wallet addresses of inviters to fetch their profile info
-    const inviterWallets = pendingInvitations.map(invite => invite.invitedByUserWalletAddress);
+    const inviterWallets = pendingInvitations.map(invite => invite.inviterWalletAddress ?? invite.invitedByUserWalletAddress!);
     const inviterUsers = await usersCollection.find(
       { walletAddress: { $in: inviterWallets } },
       { projection: { walletAddress: 1, xUsername: 1, xProfileImageUrl: 1, _id: 0 } }
@@ -51,7 +51,7 @@ export async function GET(request: Request) {
 
     // Enrich the invitations with inviter info
     const enrichedInvitations: EnrichedSquadInvitation[] = pendingInvitations.map(invite => {
-      const inviterInfo = inviterUserMap.get(invite.invitedByUserWalletAddress);
+      const inviterInfo = inviterUserMap.get(invite.inviterWalletAddress ?? invite.invitedByUserWalletAddress!);
       return {
         ...invite,
         inviterInfo: inviterInfo 

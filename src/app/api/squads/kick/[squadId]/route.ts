@@ -54,7 +54,7 @@ export async function POST(
     await squadsCollection.updateOne(
       { squadId: squadIdToManage }, 
       { 
-        $pull: { memberWalletAddresses: memberWalletAddressToKick }, 
+        $pull: { memberWalletAddresses: memberWalletAddressToKick as any }, 
         $set: { updatedAt: new Date() },
       }
     );

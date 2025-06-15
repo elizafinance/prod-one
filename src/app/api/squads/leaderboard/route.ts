@@ -1,22 +1,40 @@
 import { NextResponse } from 'next/server';
-import { connectToDatabase, SquadDocument, UserDocument } from '@/lib/mongodb';
+import { connectToDatabase, SquadDocument } from '@/lib/mongodb';
 
-const SQUAD_LEADERBOARD_LIMIT = 50; // Example limit
+// Default limit used when caller does not specify one.
+// A value of 0 or the string "all" means "no limit" (return all squads).
+const DEFAULT_LIMIT = 50;
 
 export async function GET(request: Request) {
   try {
+    // Parse limit query param
+    const { searchParams } = new URL(request.url);
+    const rawLimit = searchParams.get('limit');
+
+    let effectiveLimit: number | null = DEFAULT_LIMIT;
+    if (rawLimit !== null) {
+      if (rawLimit.toLowerCase() === 'all' || rawLimit === '0') {
+        effectiveLimit = null; // "no limit"
+      } else {
+        const parsed = parseInt(rawLimit, 10);
+        if (!isNaN(parsed) && parsed > 0) {
+          effectiveLimit = parsed;
+        }
+      }
+    }
+
     const { db } = await connectToDatabase();
     const squadsCollection = db.collection<SquadDocument>('squads');
 
-    // MongoDB Aggregation Pipeline
-    const leaderboard = await squadsCollection.aggregate([
+    // Build aggregation pipeline
+    const pipeline: any[] = [
       // Stage 1: Lookup to join with users collection to get member details
       {
         $lookup: {
-          from: 'users', // The collection to join
-          localField: 'memberWalletAddresses', // Field from the input documents (squads)
-          foreignField: 'walletAddress', // Field from the documents of the "from" collection (users)
-          as: 'memberDetails' // Output array field
+          from: 'users',
+          localField: 'memberWalletAddresses',
+          foreignField: 'walletAddress',
+          as: 'memberDetails'
         }
       },
       // Stage 2: Calculate total points and member count
@@ -33,42 +51,52 @@ export async function GET(request: Request) {
               }
             }
           },
-          calculatedMemberCount: {
-            $size: '$memberWalletAddresses' // Count members based on the wallet addresses array
-          },
+          calculatedMemberCount: { $size: '$memberWalletAddresses' },
           maxMembers: '$maxMembers',
           tier: '$tier'
         }
       },
-      // Stage 3: Sort by the calculated total points
+      // Stage 3: Fallback to stored totalSquadPoints if calculated is 0 or missing
       {
-        $sort: { calculatedTotalSquadPoints: -1 }
-      },
-      // Stage 4: Limit the results
-      {
-        $limit: SQUAD_LEADERBOARD_LIMIT
-      },
-      // Stage 5: Project the final desired fields
-      {
-        $project: {
-          _id: 0, // Exclude the default MongoDB _id
-          squadId: 1,
-          name: 1,
-          description: 1,
-          leaderWalletAddress: 1,
-          totalSquadPoints: '$calculatedTotalSquadPoints', // Rename for client consistency
-          memberCount: '$calculatedMemberCount', // Rename for client consistency
-          maxMembers: '$maxMembers',
-          tier: '$tier'
-          // Note: memberDetails array is not projected to keep payload smaller
+        $addFields: {
+          finalTotalSquadPoints: {
+            $cond: [
+              { $gt: ['$calculatedTotalSquadPoints', 0] },
+              '$calculatedTotalSquadPoints',
+              { $ifNull: ['$totalSquadPoints', 0] }
+            ]
+          }
         }
-      }
-    ]).toArray();
+      },
+      // Stage 4: Sort by final total points
+      { $sort: { finalTotalSquadPoints: -1 } }
+    ];
 
+    // Stage 5: Apply limit if requested
+    if (effectiveLimit !== null) {
+      pipeline.push({ $limit: effectiveLimit });
+    }
+
+    // Stage 6: Final projection
+    pipeline.push({
+      $project: {
+        _id: 0,
+        squadId: 1,
+        name: 1,
+        description: 1,
+        leaderWalletAddress: 1,
+        totalSquadPoints: '$finalTotalSquadPoints',
+        memberCount: '$calculatedMemberCount',
+        maxMembers: '$maxMembers',
+        tier: '$tier'
+      }
+    });
+
+    const leaderboard = await squadsCollection.aggregate(pipeline).toArray();
     return NextResponse.json(leaderboard);
 
   } catch (error) {
-    console.error("Error fetching squad leaderboard:", error);
+    console.error('Error fetching squad leaderboard:', error);
     return NextResponse.json({ error: 'Failed to fetch squad leaderboard data' }, { status: 500 });
   }
 } 

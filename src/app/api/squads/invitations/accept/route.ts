@@ -200,9 +200,10 @@ export async function POST(request: Request) {
     const inviterNotificationMessage = `@${currentUserXUsername} accepted your invitation to join "${squadToJoin.name}".`;
     const squadPageCtaUrl = squadToJoin.squadId ? `/squads/${squadToJoin.squadId}` : '/squads';
 
+    const inviterWallet = invitation.inviterWalletAddress ?? invitation.invitedByUserWalletAddress!;
     await createNotification(
       db,
-      invitation.invitedByUserWalletAddress, // recipientWalletAddress
+      inviterWallet, // recipientWalletAddress
       'squad_invite_accepted',             // type
       inviterNotificationTitle,            // title
       inviterNotificationMessage,          // message
@@ -221,7 +222,7 @@ export async function POST(request: Request) {
     const memberNotificationMessage = `@${currentUserXUsername} has just joined your squad, "${squadToJoin.name}"!`;
 
     squadToJoin.memberWalletAddresses.forEach(async (memberAddress) => {
-      if (memberAddress !== currentUserWalletAddress && memberAddress !== invitation.invitedByUserWalletAddress) {
+      if (memberAddress !== currentUserWalletAddress && memberAddress !== inviterWallet) {
         await createNotification(
           db,
           memberAddress,                   // recipientWalletAddress

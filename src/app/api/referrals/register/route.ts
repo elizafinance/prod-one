@@ -61,16 +61,16 @@ export async function POST(request: Request) {
 
     if (updatedReferrerBoosts && updatedReferrerBoosts.length > 0) {
       const activeBoostIndex = updatedReferrerBoosts.findIndex(
-        boost => boost.type === 'percentage_bonus_referrer' && boost.remainingUses > 0
+        (boost: ReferralBoost) => boost.type === 'percentage_bonus_referrer' && (boost.remainingUses ?? 0) > 0
       );
 
       if (activeBoostIndex !== -1) {
         const boost = updatedReferrerBoosts[activeBoostIndex];
-        bonusFromBoost = Math.floor(POINTS_REFERRAL_BONUS_FOR_REFERRER * boost.value);
+        bonusFromBoost = Math.floor(POINTS_REFERRAL_BONUS_FOR_REFERRER * (boost.value ?? 0));
         pointsToAwardReferrer += bonusFromBoost;
         appliedBoostDescription = boost.description;
 
-        updatedReferrerBoosts[activeBoostIndex].remainingUses -= 1;
+        updatedReferrerBoosts[activeBoostIndex].remainingUses = (updatedReferrerBoosts[activeBoostIndex].remainingUses ?? 1) - 1;
         if (updatedReferrerBoosts[activeBoostIndex].remainingUses <= 0) {
           // Remove boost if uses are exhausted
           updatedReferrerBoosts.splice(activeBoostIndex, 1);

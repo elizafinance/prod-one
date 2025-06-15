@@ -32,7 +32,8 @@ export async function POST(request: Request) {
 
     const squad = await squadsCollection.findOne({ squadId: invitation.squadId });
     if (!squad) { return NextResponse.json({ error: 'Associated squad not found.'}, { status: 404 });}
-    if (squad.leaderWalletAddress !== revokingUserWalletAddress && invitation.invitedByUserWalletAddress !== revokingUserWalletAddress) {
+    const inviterWallet = (invitation.inviterWalletAddress ?? invitation.invitedByUserWalletAddress)!;
+    if (squad.leaderWalletAddress !== revokingUserWalletAddress && inviterWallet !== revokingUserWalletAddress) {
       return NextResponse.json({ error: 'You do not have permission to revoke this invitation.' }, { status: 403 });
     }
 
@@ -42,6 +43,7 @@ export async function POST(request: Request) {
     );
     if (result.matchedCount === 0) { return NextResponse.json({ error: 'Invitation could not be revoked (it might have been processed already).' }, { status: 409 });}
 
+    const inviteeWallet = (invitation.inviteeWalletAddress ?? invitation.invitedUserWalletAddress)!;
     const notificationTitle = `Invite Revoked: ${invitation.squadName}`;
     const notificationMessage = `Your invitation to join the squad "${invitation.squadName}" was revoked by @${revokingUserXUsername || revokingUserWalletAddress.substring(0,6)}.`;
     // CTA could link to general squad browsing or user's profile/dashboard
@@ -49,7 +51,7 @@ export async function POST(request: Request) {
 
     await createNotification(
       db,
-      invitation.invitedUserWalletAddress, // recipientWalletAddress
+      inviteeWallet, // recipientWalletAddress
       'squad_invite_revoked',              // type
       notificationTitle,                   // title
       notificationMessage,                 // message

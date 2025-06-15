@@ -1018,7 +1018,10 @@ export default function SquadDetailsPage() {
                     {sentPendingInvites.map(invite => (
                       <li key={invite.invitationId} className="p-2 bg-gray-200 rounded-md text-sm flex justify-between items-center">
                         <div>
-                          <span className="text-gray-700">To: {invite.invitedUserWalletAddress.substring(0,6)}...{invite.invitedUserWalletAddress.substring(invite.invitedUserWalletAddress.length - 4)}</span>
+                          {(() => {
+                            const toWallet = invite.inviteeWalletAddress ?? invite.invitedUserWalletAddress ?? '';
+                            return <span className="text-gray-700">To: {toWallet.substring(0,6)}...{toWallet.substring(toWallet.length - 4)}</span>
+                          })()}
                           <span className="block text-xs text-gray-500">Sent: {new Date(invite.createdAt || Date.now()).toLocaleDateString()}</span>
                         </div>
                         <button 

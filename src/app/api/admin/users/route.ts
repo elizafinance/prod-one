@@ -124,7 +124,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    let finalQuery: Filter<Document> = {};
+    let finalQuery: any = {};
     if (andConditions.length > 0) {
       finalQuery = { $and: andConditions };
     }

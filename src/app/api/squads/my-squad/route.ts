@@ -24,7 +24,7 @@ interface MySquadApiResponse {
 
 export async function GET(request: Request) {
   const session = await getServerSession(authOptions) as any;
-  console.log('[MySquadAPI] Session:', JSON.stringify(session));
+  
   // Step 1: Basic authentication - is the user logged in via NextAuth?
   if (!session || !session.user || !session.user.xId) { // Check for xId as the primary session identifier
     console.warn('[MySquadAPI] Not authenticated or xId missing. Session:', session);
@@ -35,18 +35,21 @@ export async function GET(request: Request) {
   // The frontend might still send userWalletAddress as a query param (from connected wallet)
   const { searchParams } = new URL(request.url);
   const clientProvidedWalletAddress = searchParams.get('userWalletAddress');
-  console.log('[MySquadAPI] Query param userWalletAddress:', clientProvidedWalletAddress);
 
   try {
     const { db } = await connectToDatabase();
     const usersCollection = db.collection<UserDocument>('users');
     const squadsCollection = db.collection<SquadDocument>('squads');
 
-    // Step 2: Fetch the user from DB using the authenticated xId to get their canonical walletAddress
+    // Step 2: Fetch the user from DB using multiple strategies
     let userFromDb = await usersCollection.findOne({ xUserId: userXId });
-    console.log('[MySquadAPI] DB lookup result for xUserId', userXId, ':', userFromDb);
 
-    // Fallback: No record matched by xUserId – try by wallet address if provided
+    // Fallback 1: If xId looks like a wallet address, try direct wallet lookup
+    if (!userFromDb && userXId && userXId.length > 20) {
+      userFromDb = await usersCollection.findOne({ walletAddress: userXId });
+    }
+
+    // Fallback 2: No record matched by xUserId – try by wallet address if provided
     if (!userFromDb && clientProvidedWalletAddress) {
       console.warn('[MySquadAPI] No user found by xUserId – attempting wallet lookup:', clientProvidedWalletAddress);
       const userByWallet = await usersCollection.findOne({ walletAddress: clientProvidedWalletAddress });
@@ -62,15 +65,18 @@ export async function GET(request: Request) {
     }
 
     if (!userFromDb) {
-      console.error('[MySquadAPI] User not found in DB after wallet fallback for xUserId:', userXId);
+      console.error('[MySquadAPI] User not found in DB after all fallbacks for xUserId:', userXId);
       return NextResponse.json({ error: 'User record not found in database for authenticated xId.' }, { status: 404 });
     }
     
     // Step 3: If client provided a wallet address, ensure it matches the one in DB for this xId.
-    // This is an important security/consistency check.
+    // This is an important security/consistency check, but be more lenient for wallet-only auth
     if (clientProvidedWalletAddress && userFromDb.walletAddress !== clientProvidedWalletAddress) {
         console.warn(`[My Squad API] Client wallet ${clientProvidedWalletAddress} does not match DB wallet ${userFromDb.walletAddress} for xId ${userXId}`);
-        return NextResponse.json({ error: 'Wallet address mismatch.' }, { status: 403 }); // Forbidden
+        // For wallet-only auth where xId = walletAddress, be more lenient
+        if (userXId !== clientProvidedWalletAddress) {
+          return NextResponse.json({ error: 'Wallet address mismatch.' }, { status: 403 }); // Forbidden
+        }
     }
     
     const authoritativeWalletAddress = userFromDb.walletAddress; // This is the trusted wallet address

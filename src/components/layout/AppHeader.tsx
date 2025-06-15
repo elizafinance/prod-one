@@ -43,6 +43,8 @@ const navItems: NavItem[] = [
   { href: "/squads/browse", label: "Squads Browse" },
   { href: "/proposals", label: "Proposals" },
   { href: "/yield", label: "Yield" },
+  { href: "https://swap.defairewards.net", label: "Swap" },
+  { href: "https://defairewards.net", label: "Learn" },
   // { href: "/myair", label: "My AIR" }, // Temporarily hidden
   // The Airdrop Checker is part of the Dashboard page, so no separate nav item usually needed
   // If it were a distinct page: { href: "/airdrop-checker", label: "Airdrop Checker" },
@@ -217,15 +219,33 @@ export default function AppHeader() {
             {/* Desktop Nav Links - Show if authenticated */}
             {isClient && authStatus === "authenticated" && (
               <nav className="hidden md:flex md:items-center md:space-x-4 md:ml-6">
-                {navItems.map(({ href, label }) => (
-                  <Link
-                    key={href}
-                    href={href}
-                    className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
-                  >
-                    {label}
-                  </Link>
-                ))}
+                {navItems.map(({ href, label }) => {
+                  const isExternal = href.startsWith('http');
+                  const isSwap = label === 'Swap';
+                  const linkClasses = isSwap
+                    ? 'text-sm font-medium bg-gradient-to-r from-yellow-400 via-orange-500 to-pink-500 text-white px-3 py-1 rounded-md shadow hover:shadow-lg transition-all'
+                    : 'text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors';
+
+                  if (isExternal) {
+                    return (
+                      <a
+                        key={href}
+                        href={href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={linkClasses}
+                      >
+                        {label}
+                      </a>
+                    );
+                  }
+
+                  return (
+                    <Link key={href} href={href} className={linkClasses}>
+                      {label}
+                    </Link>
+                  );
+                })}
               </nav>
             )}
           </div>

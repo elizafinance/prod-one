@@ -46,10 +46,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: 'User has already been referred or processed a referral' }, { status: 409 });
     }
 
-    // Ensure referrer has a walletAddress, which should always be the case if they are a valid referrer
+    // If referrer has not yet connected a wallet, we still proceed – we will credit by userId instead.
     if (!referrer.walletAddress) {
-      console.error(`Referrer with code ${referralCode} found but has no walletAddress.`);
-      return NextResponse.json({ error: 'Referrer account is incomplete.' }, { status: 500 });
+      console.warn(`[Referral Register] Referrer ${referrer._id.toString()} has no walletAddress – awarding by userId.`);
     }
     
     // Award points to referrer
@@ -78,20 +77,32 @@ export async function POST(request: Request) {
       }
     }
 
+    // Use PointsService to award points
+    const pointsService = await (await import('@/services/points.service')).getPointsService();
+    if (referrer.walletAddress) {
+      await pointsService.addPoints(referrer.walletAddress, pointsToAwardReferrer, {
+        reason: 'referral:register',
+        actionType: 'referral_bonus',
+      });
+    } else {
+      await pointsService.addPointsByUserId(referrer._id.toString(), pointsToAwardReferrer, {
+        reason: 'referral:register_no_wallet',
+        actionType: 'referral_bonus',
+      });
+    }
+
+    // Always update referralsMadeCount + activeReferralBoosts directly
     await usersCollection.updateOne(
-      { walletAddress: referrer.walletAddress }, // Query by walletAddress, not _id from potentially stale referrer object
-      { 
-        $inc: { 
-          points: pointsToAwardReferrer,
-          referralsMadeCount: 1
-        },
-        $set: { 
+      { _id: referrer._id },
+      {
+        $inc: { referralsMadeCount: 1 },
+        $set: {
           updatedAt: new Date(),
-          activeReferralBoosts: updatedReferrerBoosts // Save updated boosts array
-        }
-      }
+          activeReferralBoosts: updatedReferrerBoosts,
+        },
+      },
     );
-    
+
     // Update referrer's squad points if they are in a squad
     if (referrer.squadId) {
       const squadUpdate = await squadsCollection.updateOne(
@@ -101,7 +112,7 @@ export async function POST(request: Request) {
           $set: { updatedAt: new Date() } 
         }
       );
-      console.log(`[Referral Register] Referrer ${referrer.walletAddress} squad ${referrer.squadId} points updated by ${pointsToAwardReferrer}. Matched: ${squadUpdate.matchedCount}, Modified: ${squadUpdate.modifiedCount}`);
+      console.log(`[Referral Register] Referrer ${referrer.walletAddress || referrer._id.toString()} squad ${referrer.squadId} points updated by ${pointsToAwardReferrer}. Matched: ${squadUpdate.matchedCount}, Modified: ${squadUpdate.modifiedCount}`);
       if (squadUpdate.modifiedCount > 0 && pointsToAwardReferrer > 0) {
         try {
           await rabbitmqService.publishToExchange(
@@ -112,7 +123,7 @@ export async function POST(request: Request) {
               pointsChange: pointsToAwardReferrer,
               reason: 'referrer_bonus_registration',
               timestamp: new Date().toISOString(),
-              responsibleUserId: referrer.walletAddress // The referrer whose action led to points
+              responsibleUserId: referrer.walletAddress || referrer._id.toString() // The referrer whose action led to points
             }
           );
           console.log(`[Referral Register] Published squad.points.updated for referrer's squad ${referrer.squadId}`);
@@ -123,8 +134,10 @@ export async function POST(request: Request) {
     }
 
     // Log the standard referral action
+    const referrerIdentifier = referrer.walletAddress || referrer._id.toString();
+
     await actionsCollection.insertOne({
-      walletAddress: referrer.walletAddress,
+      walletAddress: referrerIdentifier,
       actionType: 'referral_bonus',
       pointsAwarded: POINTS_REFERRAL_BONUS_FOR_REFERRER, // Log standard points
       timestamp: new Date(),
@@ -134,7 +147,7 @@ export async function POST(request: Request) {
     // If bonus points were awarded from a boost, log that separately
     if (bonusFromBoost > 0) {
       await actionsCollection.insertOne({
-        walletAddress: referrer.walletAddress,
+        walletAddress: referrerIdentifier,
         actionType: 'referral_powerup_bonus',
         pointsAwarded: bonusFromBoost,
         timestamp: new Date(),
@@ -175,7 +188,7 @@ export async function POST(request: Request) {
     try {
       const eventPayload = {
         userId: referredUserWalletAddress, // The user who was referred
-        referredByUserId: referrer.walletAddress, // The user who made the referral
+        referredByUserId: referrerIdentifier, // The user who made the referral
         timestamp: new Date().toISOString(),
         // questRelevantValue: 1 // Each successful referral counts as 1
       };
@@ -192,7 +205,7 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json({ 
-      message: `Referral successful! Referrer (${referrer.walletAddress}) earned ${pointsToAwardReferrer} points (includes ${bonusFromBoost} bonus).` 
+      message: `Referral successful! Referrer (${referrerIdentifier}) earned ${pointsToAwardReferrer} points (includes ${bonusFromBoost} bonus).` 
     });
 
   } catch (error) {

@@ -258,6 +258,120 @@ export class PointsService {
       nftId: simulatedNftId,
     };
   }
+
+  // --- NEW: Award points by MongoDB user _id (string) ------------------
+  async addPointsByUserId(userId: string, pointsDelta: number, options: AwardPointsOptions): Promise<UserDocument | null> {
+    if (!userId) throw new Error('userId is required.');
+    if (typeof pointsDelta !== 'number' || isNaN(pointsDelta)) throw new Error('pointsDelta must be a valid number.');
+
+    const {
+      reason,
+      metadata = {},
+      emitEvent = true,
+      allowNegativeTotal = false,
+      actionType,
+      dbSession,
+    } = options;
+
+    const usersCollection = this.db.collection<UserDocument>('users');
+    const actionsCollection = this.db.collection<ActionDocument>('actions');
+    const squadsCollection = this.db.collection<SquadDocument>('squads');
+
+    const _id = new ObjectId(userId);
+
+    // 1. Fetch user by _id
+    const user = await usersCollection.findOne({ _id }, { session: dbSession });
+    if (!user) {
+      console.warn(`[PointsService] User not found for _id: ${userId}. Cannot add points.`);
+      return null;
+    }
+
+    // 2. Calculate new points total
+    const currentPoints = user.points || 0;
+    let newPointsTotal = currentPoints + pointsDelta;
+    if (!allowNegativeTotal && newPointsTotal < 0) {
+      newPointsTotal = 0;
+    }
+
+    // 3. Prepare update
+    const userUpdate: any = { $set: { points: newPointsTotal, updatedAt: new Date() } };
+    if (pointsDelta > 0 && actionType && !user.completedActions?.includes(actionType)) {
+      userUpdate.$addToSet = { completedActions: actionType };
+    }
+
+    // 4. Perform update
+    await usersCollection.updateOne({ _id }, userUpdate, { session: dbSession });
+
+    // 5. Log action – fallback to some identifier if wallet is missing
+    const identifierWalletAddr = user.walletAddress || user.xUserId || userId;
+    const actionLog: ActionDocument = {
+      walletAddress: identifierWalletAddr,
+      actionType: actionType || reason,
+      pointsAwarded: pointsDelta,
+      timestamp: new Date(),
+      notes: reason,
+      metadata,
+    };
+    await actionsCollection.insertOne(actionLog, { session: dbSession });
+
+    // 6. Squad update (if any)
+    if (user.squadId && pointsDelta !== 0) {
+      const squadUpdateResult = await squadsCollection.updateOne(
+        { squadId: user.squadId },
+        {
+          $inc: { totalSquadPoints: pointsDelta },
+          $set: { updatedAt: new Date() },
+        },
+        { session: dbSession },
+      );
+      if (squadUpdateResult.modifiedCount > 0 && emitEvent) {
+        try {
+          await rabbitmqService.publishToExchange(
+            rabbitmqConfig.eventsExchange,
+            rabbitmqConfig.routingKeys.squadPointsUpdated,
+            {
+              squadId: user.squadId,
+              pointsChange: pointsDelta,
+              reason: `points_service:${reason}`,
+              timestamp: new Date().toISOString(),
+              responsibleUserId: identifierWalletAddr,
+            },
+          );
+        } catch (e) {
+          console.error(`[PointsService] Failed to publish squad.points.updated for squad ${user.squadId}:`, e);
+        }
+      }
+    }
+
+    // 7. Emit user points updated event
+    if (emitEvent) {
+      try {
+        await rabbitmqService.publishToExchange(
+          rabbitmqConfig.eventsExchange,
+          rabbitmqConfig.routingKeys.userPointsUpdated,
+          {
+            walletAddress: identifierWalletAddr,
+            oldPoints: currentPoints,
+            newPoints: newPointsTotal,
+            pointsChange: pointsDelta,
+            reason,
+            timestamp: new Date().toISOString(),
+            metadata,
+          },
+        );
+      } catch (e) {
+        console.error(`[PointsService] Failed to publish user.points.updated for ${identifierWalletAddr}:`, e);
+      }
+    }
+
+    return {
+      ...user,
+      walletAddress: user.walletAddress, // may be undefined
+      points: newPointsTotal,
+      completedActions: userUpdate.$addToSet ? [...(user.completedActions || []), actionType] : user.completedActions,
+    } as UserDocument;
+  }
+  // --------------------------------------------------------------------
 }
 
 // Helper to get an instance of the service

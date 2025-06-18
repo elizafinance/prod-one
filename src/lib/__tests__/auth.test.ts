@@ -91,7 +91,7 @@ describe('Authorize function', () => {
         usersCollectionMock.updateOne.mockResolvedValue({});
 
         const input = { walletAddress: '0xabc', chain: 'eth' };
-        const result = await authorize(input,{});
+        const result = await authorize(input, {});
         expect(result).toMatchObject({
             id: '0xabc',
             dbId: '0xabc',
@@ -100,18 +100,18 @@ describe('Authorize function', () => {
             role: 'user',
             chain: 'eth',
         });
-        expect(usersCollectionMock.findOne).toHaveBeenCalledWith({ walletAddress: '0xabc' } );
+        expect(usersCollectionMock.findOne).toHaveBeenCalledWith({ walletAddress: '0xabc' });
         expect(usersCollectionMock.updateOne).toHaveBeenCalled();
     });
 
     it('returns null if walletAddress is missing', async () => {
-        const consoleSpy = jest.spyOn(console, 'log').mockImplementation(() => {}); 
-        const result = await authorize({ chain: 'eth' },{});
+        const consoleSpy = jest.spyOn(console, 'log').mockImplementation(() => { });
+        const result = await authorize({ chain: 'eth' }, {});
         expect(result).toBeNull();
         expect(consoleSpy).toHaveBeenCalledWith(
             expect.stringContaining('Error in authorize:'),
             expect.any(Error)
-          );
+        );
     });
 
     it('trims walletAddress', async () => {
@@ -124,7 +124,7 @@ describe('Authorize function', () => {
         };
         usersCollectionMock.findOne.mockResolvedValue(fakeUser);
         usersCollectionMock.updateOne.mockResolvedValue({});
-        const result = await authorize({ walletAddress: '   0xabc   ', chain: 'eth' },{});
+        const result = await authorize({ walletAddress: '   0xabc   ', chain: 'eth' }, {});
         expect(result.walletAddress).toBe('0xabc');
     });
 });

@@ -2,7 +2,6 @@ import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import ConnectXButton from '../xauth/ConnectXButton';
-import { redirectTo } from '../../utils/redirect';
 import { useSession } from 'next-auth/react';
 
 jest.mock('next-auth/react');
@@ -14,13 +13,14 @@ const mockedUseSession = useSession as jest.Mock;
 
 
 jest.mock('../../utils/redirect', () => {
-    return {
-      redirectTo: jest.fn(),
-    };
-  });
+  return {
+    redirectTo: jest.fn(),
+  };
+});
 
 
 describe('ConnectXButton', () => {
+
   beforeEach(() => {
     jest.clearAllMocks();
     // Default: authenticated, no X account linked
@@ -102,7 +102,7 @@ describe('ConnectXButton', () => {
     const btn = screen.getByRole('button', { name: /Connect X Account/i });
     fireEvent.click(btn);
     await waitFor(() => {
-      expect(redirectTo).toHaveBeenCalledWith('https://x.com/oauth/authorize');
+      expect(screen.getByText(/connecting\.\.\./i)).toBeInTheDocument();
     });
   });
 

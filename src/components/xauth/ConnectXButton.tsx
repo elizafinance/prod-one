@@ -9,6 +9,7 @@ export default function ConnectXButton() {
   const [isLoading, setIsLoading] = useState(false);
 
   const handleConnectX = async () => {
+     console.log("Connecting X account...");
     setIsLoading(true);
     try {
       const response = await fetch('/api/x/connect/initiate');

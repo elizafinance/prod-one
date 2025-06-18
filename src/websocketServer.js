@@ -36,6 +36,13 @@ io.on('connection', (socket) => {
   //   // Broadcast or emit back
   //   socket.emit('server_response', { received: data });
   // });
+
+  socket.on('join', ({ room }) => {
+    if (room) {
+      socket.join(room);
+      console.log(`[WebSocket] Socket ${socket.id} joined room ${room}`);
+    }
+  });
 });
 
 async function setupRabbitMQConsumerForWebSockets() {
@@ -81,11 +88,33 @@ async function setupRabbitMQConsumerForWebSockets() {
   }
 }
 
+async function setupSquadMessagesConsumer() {
+  console.log('[WebSocket/RabbitMQ] Initializing consumer for squad messages...');
+  try {
+    const channel = await rabbitmqService.getChannel();
+    // Ensure topic exchange exists (already asserted in service)
+    const { eventsExchange } = rabbitmqConfig;
+    const q = await channel.assertQueue('', { exclusive: true, durable: false });
+    await channel.bindQueue(q.queue, eventsExchange, 'squad.message.new.*');
+    channel.consume(q.queue, (msg) => {
+      if (msg && msg.content) {
+        const payload = JSON.parse(msg.content.toString());
+        // Expected payload: { squadId, message }
+        io.to(`squad_${payload.squadId}`).emit('squad_message_new', payload);
+      }
+    }, { noAck: true });
+    console.log('[WebSocket] Squad message consumer ready.');
+  } catch (err) {
+    console.error('[WebSocket] Error setting up squad message consumer', err);
+  }
+}
+
 async function startServer() {
   try {
     await rabbitmqService.connect(); // Ensure RabbitMQ connection for the consumer part
     console.log('[WebSocket] RabbitMQ connected for WebSocket server.');
     await setupRabbitMQConsumerForWebSockets(); // Call this after RabbitMQ is connected
+    await setupSquadMessagesConsumer();
 
     httpServer.listen(WEBSOCKET_PORT, () => {
       console.log(`[WebSocket] Server listening on port ${WEBSOCKET_PORT}`);

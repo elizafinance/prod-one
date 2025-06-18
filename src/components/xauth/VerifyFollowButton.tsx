@@ -40,7 +40,7 @@ export default function VerifyFollowButton({ linkedXUsername, onFollowStatusChan
 
     setLastAttempt(now);
     setIsVerifyingFollow(true);
-    
+
     try {
       const response = await fetch('/api/x/verify-follow', { method: 'POST' });
       const data = await response.json();
@@ -71,7 +71,7 @@ export default function VerifyFollowButton({ linkedXUsername, onFollowStatusChan
           } else if (data.reason === 'token_corruption') {
             message = "Your X authentication data is corrupted. Please re-link your X account.";
           }
-          
+
           toast.error(message, {
             duration: 8000,
           });
@@ -95,7 +95,7 @@ export default function VerifyFollowButton({ linkedXUsername, onFollowStatusChan
       }
 
       if (data.follows) {
-        const message = data.cached 
+        const message = data.cached
           ? "✓ You are following @defAIRewards (cached result)"
           : "✓ Successfully verified: You are following @defAIRewards!";
         toast.success(message);
@@ -111,7 +111,7 @@ export default function VerifyFollowButton({ linkedXUsername, onFollowStatusChan
     } catch (error: any) {
       // Log error for debugging, but don't expose internal details to user
       console.error("[VerifyFollow] Error:", error.message || error);
-      
+
       if (!error.message.includes('Verification failed') && !error.message.includes('re-linking')) {
         toast.error("An unexpected error occurred while verifying follow status.");
       }
@@ -122,11 +122,11 @@ export default function VerifyFollowButton({ linkedXUsername, onFollowStatusChan
 
   // Only render if X account is linked
   if (!linkedXUsername || status === 'loading') {
-    return null; 
+    return null;
   }
-  
+
   if (status !== 'authenticated') { // Should ideally not happen if X is linked, but good check
-      return <p className="text-xs text-gray-500">Log in to verify follow status.</p>;
+    return <p className="text-xs text-gray-500">Log in to verify follow status.</p>;
   }
 
   const now = Date.now();
@@ -150,22 +150,23 @@ export default function VerifyFollowButton({ linkedXUsername, onFollowStatusChan
   return (
     <div className="space-y-2">
       <button
+      data-testId="follow-btn"
         onClick={handleVerifyFollow}
         disabled={isDisabled}
-        className={`w-full px-4 py-2 text-xs font-medium rounded-md transition-colors ${
-          isRateLimited 
+        className={`w-full px-4 py-2 text-xs font-medium rounded-md transition-colors ${isRateLimited
             ? 'bg-orange-500 text-white cursor-not-allowed opacity-60'
             : isRecentlyAttempted
-            ? 'bg-yellow-500 text-white cursor-not-allowed opacity-60'
-            : 'text-white bg-blue-500 hover:bg-blue-600 disabled:opacity-60'
-        }`}
+              ? 'bg-yellow-500 text-white cursor-not-allowed opacity-60'
+              : 'text-white bg-blue-500 hover:bg-blue-600 disabled:opacity-60'
+          }`}
       >
         {getButtonText()}
       </button>
-      
+
       <p className="text-xs text-gray-500 text-center">
-        Having issues? Try <button 
-          onClick={() => window.location.href = '/profile'} 
+        Having issues? Try <button
+          data-testId="relink-btn"
+          onClick={() => window.location.href = '/profile'}
           className="text-blue-500 hover:text-blue-600 underline"
         >
           re-linking your X account

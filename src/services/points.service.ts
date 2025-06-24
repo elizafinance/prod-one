@@ -71,6 +71,11 @@ export class PointsService {
       userUpdate.$addToSet = { completedActions: actionType };
     }
     
+    // Update totalEstimatedAirdrop
+    const initialAirdropAmount = user.initialAirdropAmount || 0;
+    const newTotalEstimatedAirdrop = newPointsTotal + initialAirdropAmount;
+    userUpdate.$set.totalEstimatedAirdrop = newTotalEstimatedAirdrop;
+    
     // TODO: Recompute highestAirdropTierLabel, badges based on newPointsTotal (complex logic, defer)
 
     // 4. Perform user update
@@ -298,6 +303,11 @@ export class PointsService {
     if (pointsDelta > 0 && actionType && !user.completedActions?.includes(actionType)) {
       userUpdate.$addToSet = { completedActions: actionType };
     }
+
+    // Update totalEstimatedAirdrop
+    const initialAirdropAmount = user.initialAirdropAmount || 0;
+    const newTotalEstimatedAirdrop = newPointsTotal + initialAirdropAmount;
+    userUpdate.$set.totalEstimatedAirdrop = newTotalEstimatedAirdrop;
 
     // 4. Perform update
     await usersCollection.updateOne({ _id }, userUpdate, { session: dbSession });

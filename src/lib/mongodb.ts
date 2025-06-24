@@ -91,6 +91,8 @@ export interface UserDocument {
   updatedAt?: Date;
   current_tier_name?: string;
   tier_updated_at?: Date;
+  initialAirdropAmount?: number;
+  totalEstimatedAirdrop?: number;
 
   // Agent-related fields
   agentId?: string;

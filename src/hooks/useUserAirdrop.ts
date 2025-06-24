@@ -3,8 +3,8 @@ import { useWallet } from '@solana/wallet-adapter-react';
 import { useSession } from 'next-auth/react';
 import { getInitialDefaiForWallet } from '@/lib/airdropDataUtils';
 
-// TODO: Make this configurable, e.g., via environment variable or points.config.ts
-const POINT_TO_DEFAI_RATIO = 1; // Assuming 1 AIR point = 1 DeFAI for now
+// Get airdrop pool size from environment variable
+const airdropPoolSize = parseInt(process.env.NEXT_PUBLIC_AIRDROP_POINTS_POOL_SIZE || '1000000000', 10);
 
 export interface UserAirdropData {
   initialDefai: number | null;
@@ -61,22 +61,36 @@ export function useUserAirdrop(): UserAirdropData {
       try {
         const initialDefai = getInitialDefaiForWallet(userWalletAddress);
         let userPoints: number | null = null;
+        let totalCommunityPoints: number | null = null;
 
-        // Fetch points from /api/users/my-points
-        const pointsResponse = await fetch('/api/users/my-points');
-        if (pointsResponse.ok) {
-          const pointsData = await pointsResponse.json();
+        // Fetch points and total community points in parallel
+        const [pointsResponse, totalPointsResponse] = await Promise.allSettled([
+          fetch('/api/users/my-points'),
+          fetch('/api/stats/total-points')
+        ]);
+
+        if (pointsResponse.status === 'fulfilled' && pointsResponse.value.ok) {
+          const pointsData = await pointsResponse.value.json();
           userPoints = pointsData.points as number;
         } else {
-          console.warn('Failed to fetch user points:', await pointsResponse.text());
-          // Keep userPoints as null, error will be set if initialDefai is also null and no data at all
+          console.warn('Failed to fetch user points');
+        }
+
+        if (totalPointsResponse.status === 'fulfilled' && totalPointsResponse.value.ok) {
+          const totalPointsData = await totalPointsResponse.value.json();
+          totalCommunityPoints = totalPointsData.totalCommunityPoints > 0 ? totalPointsData.totalCommunityPoints : null;
+        } else {
+          console.warn('Failed to fetch total community points');
         }
 
         let airBasedDefaiCalc: number | null = null;
         let totalDefaiCalc: number | null = null;
 
-        if (userPoints !== null) {
-          airBasedDefaiCalc = userPoints * POINT_TO_DEFAI_RATIO;
+        // Calculate proportional share of the airdrop pool
+        if (userPoints !== null && userPoints > 0 && totalCommunityPoints !== null && totalCommunityPoints > 0) {
+          airBasedDefaiCalc = (userPoints / totalCommunityPoints) * airdropPoolSize;
+        } else if (userPoints !== null && userPoints === 0) {
+          airBasedDefaiCalc = 0;
         }
 
         if (initialDefai !== null && airBasedDefaiCalc !== null) {

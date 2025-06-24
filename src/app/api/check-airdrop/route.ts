@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import airdropDataList from '@/data/airdropData.json';
+import { connectToDatabase, UserDocument } from '@/lib/mongodb';
 
 interface AirdropGsheetEntry {
   Account: string;
@@ -33,6 +34,34 @@ export async function GET(request: Request) {
   const airdropEntry = typedAirdropData.find(item => item.Account === walletAddress.trim());
 
   if (airdropEntry) {
+    // Save initialAirdropAmount if not already saved
+    try {
+      const { db } = await connectToDatabase();
+      const usersCollection = db.collection<UserDocument>('users');
+      
+      const user = await usersCollection.findOne({ walletAddress });
+      
+      if (user && (user.initialAirdropAmount === undefined || user.initialAirdropAmount === 0)) {
+        // Save the initial airdrop amount and calculate total estimated airdrop
+        const currentPoints = user.points || 0;
+        const totalEstimatedAirdrop = airdropEntry.AIRDROP + currentPoints;
+        
+        await usersCollection.updateOne(
+          { walletAddress },
+          { 
+            $set: { 
+              initialAirdropAmount: airdropEntry.AIRDROP,
+              totalEstimatedAirdrop: totalEstimatedAirdrop,
+              updatedAt: new Date()
+            }
+          }
+        );
+      }
+    } catch (error) {
+      console.error('Error updating initial airdrop amount:', error);
+      // Don't fail the request if DB update fails
+    }
+    
     return NextResponse.json({ AIRDROP: airdropEntry.AIRDROP });
   } else {
     return NextResponse.json({ error: "Sorry You Don't Qualify For The Airdrop." }, { status: 404 });

@@ -5,7 +5,7 @@ import { connectToDatabase } from "@/lib/mongodb"; // Assuming mongodb.ts is als
 import { randomBytes } from 'crypto';
 import { AIR } from '@/config/points.config'; // Import AIR constants
 // const POINTS_INITIAL_CONNECTION = 100; // Replaced by AIR.INITIAL_LOGIN
-async function generateUniqueReferralCode(db, length = 8) {
+export async function generateUniqueReferralCode(db, length = 8) {
     const usersCollection = db.collection('users');
     let referralCode = '';
     let isUnique = false;
@@ -40,6 +40,96 @@ async function logAuthFailure(reason, context = {}) {
         console.error('[AuthFailureLogger] Failed to persist auth failure', logErr, { reason, context });
     }
 }
+export async function authorize(credentials, req) {
+    console.log("[NextAuth DEBUG - authorize] Received credentials:", JSON.stringify(credentials, null, 2)); // Log received credentials
+    try {
+        const walletAddressRaw = credentials === null || credentials === void 0 ? void 0 : credentials.walletAddress;
+        const chain = credentials === null || credentials === void 0 ? void 0 : credentials.chain;
+        console.log("[NextAuth DEBUG - authorize] Received credentials:", JSON.stringify(credentials, null, 2)); // Log received credentials
+        if (!walletAddressRaw) {
+            throw new Error('walletAddress is required');
+        }
+        const walletAddress = walletAddressRaw.trim();
+        let db = null;
+        let usersCollection = null;
+        try {
+            if (process.env.MONGODB_URI && process.env.MONGODB_DB_NAME) {
+                const conn = await connectToDatabase();
+                db = conn.db;
+                usersCollection = db.collection('users');
+            }
+        }
+        catch (err) {
+            console.warn('[Credentials Authorize] Could not connect to MongoDB. Falling back to dev user.', err);
+        }
+        // If we still don't have a collection (DB unavailable in dev), shortcut with an in-memory user
+        if (!usersCollection) {
+            // Dev fallback: return ephemeral user so sign-in succeeds without DB
+            return {
+                id: walletAddress,
+                dbId: walletAddress,
+                walletAddress,
+                xId: walletAddress,
+                role: 'user',
+                name: walletAddress,
+                chain: chain || 'unknown',
+            };
+        }
+        const now = new Date();
+        // Attempt to find existing user by walletAddress
+        let userDoc = await usersCollection.findOne({ walletAddress });
+        if (!userDoc) {
+            // Create new user with INITIAL_LOGIN points and referralCode
+            const referralCode = await generateUniqueReferralCode(db);
+            const newUser = {
+                walletAddress,
+                walletChain: chain || 'unknown',
+                xUserId: walletAddress, // Use wallet address as xUserId placeholder
+                points: AIR.INITIAL_LOGIN,
+                referralCode,
+                completedActions: ['initial_connection'],
+                createdAt: now,
+                updatedAt: now,
+                lastLoginAt: now,
+                role: 'user',
+                isActive: true,
+            };
+            const insert = await usersCollection.insertOne(newUser);
+            userDoc = Object.assign({ _id: insert.insertedId }, newUser);
+            if (!userDoc.xUserId) {
+                await usersCollection.updateOne({ _id: userDoc._id }, { $set: { xUserId: walletAddress } });
+                userDoc.xUserId = walletAddress;
+            }
+        }
+        else {
+            // Update lastLoginAt, updatedAt, and potentially walletChain if provided and different
+            const updates = { lastLoginAt: now, updatedAt: now };
+            if (chain && userDoc.walletChain !== chain) {
+                updates.walletChain = chain;
+            }
+            await usersCollection.updateOne({ _id: userDoc._id }, { $set: updates });
+            if (updates.walletChain)
+                userDoc.walletChain = updates.walletChain; // Reflect update in userDoc
+        }
+        // Return user object expected by NextAuth
+        const authUserObject = {
+            id: userDoc._id.toHexString(),
+            dbId: userDoc._id.toHexString(),
+            walletAddress: userDoc.walletAddress,
+            xId: userDoc.xUserId || userDoc.walletAddress,
+            role: userDoc.role || 'user',
+            name: userDoc.xUsername || userDoc.walletAddress,
+            chain: userDoc.walletChain || chain || 'unknown',
+        };
+        // console.log("[NextAuth DEBUG - authorize] Returning user object:", JSON.stringify(authUserObject, null, 2));
+        return authUserObject;
+    }
+    catch (err) {
+        console.log("Error in authorize:", err);
+        console.error('[NextAuth DEBUG - authorize] Error:', err);
+        return null;
+    }
+}
 export const authOptions = {
     providers: [
         CredentialsProvider({
@@ -49,94 +139,7 @@ export const authOptions = {
                 walletAddress: { label: 'Wallet Address', type: 'text' },
                 chain: { label: 'Chain', type: 'text' },
             },
-            async authorize(credentials, req) {
-                // console.log("[NextAuth DEBUG - authorize] Received credentials:", JSON.stringify(credentials, null, 2)); // Log received credentials
-                try {
-                    const walletAddressRaw = credentials === null || credentials === void 0 ? void 0 : credentials.walletAddress;
-                    const chain = credentials === null || credentials === void 0 ? void 0 : credentials.chain;
-                    if (!walletAddressRaw) {
-                        throw new Error('walletAddress is required');
-                    }
-                    const walletAddress = walletAddressRaw.trim();
-                    let db = null;
-                    let usersCollection = null;
-                    try {
-                        if (process.env.MONGODB_URI && process.env.MONGODB_DB_NAME) {
-                            const conn = await connectToDatabase();
-                            db = conn.db;
-                            usersCollection = db.collection('users');
-                        }
-                    }
-                    catch (err) {
-                        console.warn('[Credentials Authorize] Could not connect to MongoDB. Falling back to dev user.', err);
-                    }
-                    // If we still don't have a collection (DB unavailable in dev), shortcut with an in-memory user
-                    if (!usersCollection) {
-                        // Dev fallback: return ephemeral user so sign-in succeeds without DB
-                        return {
-                            id: walletAddress,
-                            dbId: walletAddress,
-                            walletAddress,
-                            xId: walletAddress,
-                            role: 'user',
-                            name: walletAddress,
-                            chain: chain || 'unknown',
-                        };
-                    }
-                    const now = new Date();
-                    // Attempt to find existing user by walletAddress
-                    let userDoc = await usersCollection.findOne({ walletAddress });
-                    if (!userDoc) {
-                        // Create new user with INITIAL_LOGIN points and referralCode
-                        const referralCode = await generateUniqueReferralCode(db);
-                        const newUser = {
-                            walletAddress,
-                            walletChain: chain || 'unknown',
-                            xUserId: walletAddress, // Use wallet address as xUserId placeholder
-                            points: AIR.INITIAL_LOGIN,
-                            referralCode,
-                            completedActions: ['initial_connection'],
-                            createdAt: now,
-                            updatedAt: now,
-                            lastLoginAt: now,
-                            role: 'user',
-                            isActive: true,
-                        };
-                        const insert = await usersCollection.insertOne(newUser);
-                        userDoc = Object.assign({ _id: insert.insertedId }, newUser);
-                        if (!userDoc.xUserId) {
-                            await usersCollection.updateOne({ _id: userDoc._id }, { $set: { xUserId: walletAddress } });
-                            userDoc.xUserId = walletAddress;
-                        }
-                    }
-                    else {
-                        // Update lastLoginAt, updatedAt, and potentially walletChain if provided and different
-                        const updates = { lastLoginAt: now, updatedAt: now };
-                        if (chain && userDoc.walletChain !== chain) {
-                            updates.walletChain = chain;
-                        }
-                        await usersCollection.updateOne({ _id: userDoc._id }, { $set: updates });
-                        if (updates.walletChain)
-                            userDoc.walletChain = updates.walletChain; // Reflect update in userDoc
-                    }
-                    // Return user object expected by NextAuth
-                    const authUserObject = {
-                        id: userDoc._id.toHexString(),
-                        dbId: userDoc._id.toHexString(),
-                        walletAddress: userDoc.walletAddress,
-                        xId: userDoc.xUserId || userDoc.walletAddress,
-                        role: userDoc.role || 'user',
-                        name: userDoc.xUsername || userDoc.walletAddress,
-                        chain: userDoc.walletChain || chain || 'unknown',
-                    };
-                    // console.log("[NextAuth DEBUG - authorize] Returning user object:", JSON.stringify(authUserObject, null, 2));
-                    return authUserObject;
-                }
-                catch (err) {
-                    console.error('[NextAuth DEBUG - authorize] Error:', err);
-                    return null;
-                }
-            },
+            authorize,
         }),
         // TwitterProvider removed – wallet-only auth
     ],
@@ -164,6 +167,7 @@ export const authOptions = {
             if (user) { // This block runs on sign-in or when session is updated with user object
                 token.dbId = user.dbId || user.id;
                 token.walletAddress = user.walletAddress;
+                token.xId = user.xId; // Add xId to token for wallet-based auth
                 token.role = user.role;
                 token.chain = user.chain; // Persist chain from user object (returned by authorize) into JWT
                 // console.log("[NextAuth DEBUG - jwt callback] Token updated from user object. New chain:", token.chain);
@@ -179,6 +183,7 @@ export const authOptions = {
                         const userFromDb = await usersCollection.findOne({ _id: new ObjectId(token.dbId) });
                         if (userFromDb) {
                             token.walletAddress = userFromDb.walletAddress || token.walletAddress;
+                            token.xId = userFromDb.xUserId || userFromDb.walletAddress || token.xId; // Ensure xId is maintained
                             token.role = userFromDb.role || 'user';
                             token.chain = userFromDb.walletChain || token.chain || 'unknown';
                             token.linkedXUsername = userFromDb.linkedXUsername;
@@ -209,6 +214,7 @@ export const authOptions = {
             session.user.id = token.sub || token.dbId;
             session.user.dbId = token.dbId || null;
             session.user.walletAddress = token.walletAddress || null;
+            session.user.xId = token.xId || null; // Add xId to session for wallet-based auth
             session.user.role = token.role || 'user';
             session.user.chain = token.chain || 'unknown';
             session.user.linkedXUsername = token.linkedXUsername || null;

@@ -16,6 +16,7 @@ export interface IUser extends Document {
   earnedBadgeIds?: string[];
   initialAirdropAmount?: number;
   totalEstimatedAirdrop?: number;
+  airBasedDefai?: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -36,6 +37,7 @@ const UserSchema = new Schema<IUser>({
   earnedBadgeIds: [{ type: String }],
   initialAirdropAmount: { type: Number, default: 0 },
   totalEstimatedAirdrop: { type: Number, default: 0 },
+  airBasedDefai: { type: Number, default: 0 },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now },
 });

@@ -13,6 +13,8 @@ const UserSchema = new Schema({
     activeReferralBoosts: { type: Array },
     squadId: { type: String, index: true },
     earnedBadgeIds: [{ type: String }],
+    initialAirdropAmount: { type: Number, default: 0 },
+    totalEstimatedAirdrop: { type: Number, default: 0 },
     createdAt: { type: Date, default: Date.now },
     updatedAt: { type: Date, default: Date.now },
 });

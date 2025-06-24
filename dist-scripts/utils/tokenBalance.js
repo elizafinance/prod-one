@@ -1,7 +1,6 @@
 import { PublicKey } from '@solana/web3.js';
 import { getAssociatedTokenAddress, getAccount, TokenAccountNotFoundError } from '@solana/spl-token';
-// Security: Input validation
-const SOLANA_ADDRESS_PATTERN = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+import { validateSolanaAddress } from '@/lib/validation';
 const MAX_DECIMALS = 18;
 const MIN_DECIMALS = 0;
 const balanceCache = new Map();
@@ -23,16 +22,6 @@ const defaultSecurityConfig = {
     maxRetries: 3,
     timeoutMs: 10000 // 10 second timeout
 };
-/**
- * SECURITY: Validates Solana wallet address format
- */
-function validateWalletAddress(address) {
-    if (!address || typeof address !== 'string')
-        return false;
-    if (address.length < 32 || address.length > 44)
-        return false;
-    return SOLANA_ADDRESS_PATTERN.test(address);
-}
 /**
  * SECURITY: Rate limiting check
  */
@@ -117,7 +106,7 @@ export async function getTokenBalance(connection, walletAddress, tokenMintAddres
     const cacheKey = `balance_${walletString}_${tokenMintAddress}_${decimals}_${allowOwnerOffCurve}`;
     try {
         // SECURITY: Input validation
-        if (!validateWalletAddress(walletString)) {
+        if (!validateSolanaAddress(walletString)) {
             secureLog(securityConfig.logLevel, 'Invalid wallet address', { walletAddress: walletString });
             return {
                 balance: 0,
@@ -125,7 +114,7 @@ export async function getTokenBalance(connection, walletAddress, tokenMintAddres
                 error: SANITIZED_ERRORS.INVALID_ADDRESS
             };
         }
-        if (!validateWalletAddress(tokenMintAddress)) {
+        if (!validateSolanaAddress(tokenMintAddress)) {
             secureLog(securityConfig.logLevel, 'Invalid token mint', { tokenMintAddress });
             return {
                 balance: 0,

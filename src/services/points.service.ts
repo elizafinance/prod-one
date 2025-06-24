@@ -65,16 +65,25 @@ export class PointsService {
       newPointsTotal = 0; // Prevent points from going below zero
     }
 
+    // Calculate airBasedDefai and totalEstimatedAirdrop
+    // Fetch total community points
+    const totalCommunityPoints = await usersCollection.aggregate([
+      { $group: { _id: null, total: { $sum: "$points" } } }
+    ]).toArray();
+    const totalPoints = totalCommunityPoints[0]?.total || 0;
+    const airdropPoolSize = parseInt(process.env.NEXT_PUBLIC_AIRDROP_POINTS_POOL_SIZE || '1000000000', 10);
+    let airBasedDefai = 0;
+    if (totalPoints > 0 && newPointsTotal > 0) {
+      airBasedDefai = (newPointsTotal / totalPoints) * airdropPoolSize;
+    }
+    const initialAirdropAmount = user.initialAirdropAmount || 0;
+    const newTotalEstimatedAirdrop = initialAirdropAmount + airBasedDefai;
+
     // 3. Prepare user update
-    const userUpdate: any = { $set: { points: newPointsTotal, updatedAt: new Date() } };
+    const userUpdate: any = { $set: { points: newPointsTotal, updatedAt: new Date(), airBasedDefai, totalEstimatedAirdrop: newTotalEstimatedAirdrop } };
     if (pointsDelta > 0 && actionType && !user.completedActions?.includes(actionType)) {
       userUpdate.$addToSet = { completedActions: actionType };
     }
-    
-    // Update totalEstimatedAirdrop
-    const initialAirdropAmount = user.initialAirdropAmount || 0;
-    const newTotalEstimatedAirdrop = newPointsTotal + initialAirdropAmount;
-    userUpdate.$set.totalEstimatedAirdrop = newTotalEstimatedAirdrop;
     
     // TODO: Recompute highestAirdropTierLabel, badges based on newPointsTotal (complex logic, defer)
 
@@ -298,16 +307,24 @@ export class PointsService {
       newPointsTotal = 0;
     }
 
+    // Calculate airBasedDefai and totalEstimatedAirdrop
+    const totalCommunityPoints = await usersCollection.aggregate([
+      { $group: { _id: null, total: { $sum: "$points" } } }
+    ]).toArray();
+    const totalPoints = totalCommunityPoints[0]?.total || 0;
+    const airdropPoolSize = parseInt(process.env.NEXT_PUBLIC_AIRDROP_POINTS_POOL_SIZE || '1000000000', 10);
+    let airBasedDefai = 0;
+    if (totalPoints > 0 && newPointsTotal > 0) {
+      airBasedDefai = (newPointsTotal / totalPoints) * airdropPoolSize;
+    }
+    const initialAirdropAmount = user.initialAirdropAmount || 0;
+    const newTotalEstimatedAirdrop = initialAirdropAmount + airBasedDefai;
+
     // 3. Prepare update
-    const userUpdate: any = { $set: { points: newPointsTotal, updatedAt: new Date() } };
+    const userUpdate: any = { $set: { points: newPointsTotal, updatedAt: new Date(), airBasedDefai, totalEstimatedAirdrop: newTotalEstimatedAirdrop } };
     if (pointsDelta > 0 && actionType && !user.completedActions?.includes(actionType)) {
       userUpdate.$addToSet = { completedActions: actionType };
     }
-
-    // Update totalEstimatedAirdrop
-    const initialAirdropAmount = user.initialAirdropAmount || 0;
-    const newTotalEstimatedAirdrop = newPointsTotal + initialAirdropAmount;
-    userUpdate.$set.totalEstimatedAirdrop = newTotalEstimatedAirdrop;
 
     // 4. Perform update
     await usersCollection.updateOne({ _id }, userUpdate, { session: dbSession });

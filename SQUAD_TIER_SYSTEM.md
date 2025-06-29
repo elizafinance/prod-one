@@ -73,12 +73,56 @@ TIER_3_MAX_MEMBERS=100
 - Manually trigger tier upgrades when eligible
 - Better visibility into squad growth potential
 
+## Admin Management
+
+Admins have several ways to manage squad tiers:
+
+### 1. **Admin Squad Management Page** 
+- Access at `/admin/squads`
+- View all squads with their current tier and points
+- Manually set any squad to any tier (overrides point calculation)
+- Batch update all squads to their correct tiers
+
+### 2. **API Endpoints for Admins**
+```bash
+# Get all squads
+GET /api/admin/squads
+
+# Batch update all squad tiers based on points
+POST /api/admin/squads/update-tiers
+
+# Manually set a specific squad's tier (overrides points)
+POST /api/admin/squads/set-tier
+Body: { "squadId": "xxx", "tier": 2 }
+
+# Check/upgrade specific squad (same as leader function)
+POST /api/squads/check-tier  
+Body: { "squadId": "xxx" }
+```
+
+### 3. **How to Manually Upgrade a Squad Tier**
+
+**Option A: Via Admin UI**
+1. Go to `/admin/squads`
+2. Find the squad in the list
+3. Click "Manage Tier"
+4. Select the new tier from dropdown
+5. Click "Update Tier"
+
+**Option B: Via API**
+```bash
+curl -X POST https://your-domain/api/admin/squads/set-tier \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_AUTH_TOKEN" \
+  -d '{"squadId": "SQUAD_ID", "tier": 2}'
+```
+
 ## Migration for Existing Squads
 
 For squads created before this system:
-1. Run the admin batch update endpoint to check all squads
-2. Or squad leaders can manually trigger a tier check
-3. The system will upgrade eligible squads to their appropriate tier
+1. **Batch Update**: Use the admin panel or API to update all squads at once
+2. **Individual Update**: Squad leaders can manually trigger a tier check
+3. **Admin Override**: Manually set specific squads to desired tiers
 
 ## Technical Notes
 

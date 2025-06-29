@@ -31,13 +31,23 @@ if (process.env.NODE_ENV === 'development') {
   // In development mode, use a global variable so that the value
   // is preserved across module reloads caused by HMR (Hot Module Replacement).
   if (!global._mongoClientPromise) {
-    const client = new MongoClient(MONGODB_URI!);
+    const client = new MongoClient(MONGODB_URI!, {
+      maxPoolSize: 10,
+      minPoolSize: 2,
+      maxIdleTimeMS: 10000,
+      serverSelectionTimeoutMS: 5000,
+    });
     global._mongoClientPromise = client.connect();
   }
   clientPromise = global._mongoClientPromise;
 } else {
   // In production mode, it's best to not use a global variable.
-  const client = new MongoClient(MONGODB_URI!);
+  const client = new MongoClient(MONGODB_URI!, {
+    maxPoolSize: 50,
+    minPoolSize: 10,
+    maxIdleTimeMS: 10000,
+    serverSelectionTimeoutMS: 5000,
+  });
   clientPromise = client.connect();
 }
 
@@ -56,7 +66,12 @@ export async function connectToDatabase(): Promise<{ client: MongoClient; db: Db
     throw new Error('MONGODB_DB_NAME environment variable is not defined');
   }
 
-  const client = new MongoClient(MONGODB_URI);
+  const client = new MongoClient(MONGODB_URI, {
+    maxPoolSize: 50,
+    minPoolSize: 10,
+    maxIdleTimeMS: 10000,
+    serverSelectionTimeoutMS: 5000,
+  });
   await client.connect();
   const db = client.db(MONGODB_DB_NAME);
 
@@ -241,9 +256,19 @@ export interface NotificationDocument {
   badgeId?: string;
 }
 
-// Assuming ISquadJoinRequest and its model file exist as per HEAD branch
-// If SquadJoinRequest.ts doesn't exist or is not intended, this line should be removed.
-export type { ISquadJoinRequest } from '@/models/SquadJoinRequest';
+export interface ISquadJoinRequest {
+  _id?: ObjectId;
+  requestId: string; // UUID
+  squadId: string; // Aligns with SquadDocument.squadId
+  squadName: string; // Denormalized for easier display
+  requestingUserWalletAddress: string;
+  requestingUserXUsername?: string; // Denormalized
+  requestingUserXProfileImageUrl?: string; // Denormalized
+  status: 'pending' | 'approved' | 'rejected' | 'cancelled';
+  message?: string; // Optional message from the requester
+  createdAt: Date;
+  updatedAt: Date;
+}
 
 // Interface for the new Meetup Check-in feature
 export interface MeetupCheckInDocument {

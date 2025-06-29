@@ -6,8 +6,8 @@
  * or: npx ts-node --project tsconfig.json -r tsconfig-paths/register scripts/backfillAirdropData.ts
  */
 
-import { connectToDatabase, UserDocument } from '../src/lib/mongodb';
-import airdropDataList from '../src/data/airdropData.json';
+import { connectToDatabase, UserDocument } from '../lib/mongodb.js';
+import airdropDataList from '../data/airdropData.json' with { type: 'json' };
 import { Db } from 'mongodb';
 
 interface AirdropGsheetEntry {

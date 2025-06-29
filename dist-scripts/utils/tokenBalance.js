@@ -1,6 +1,16 @@
 import { PublicKey } from '@solana/web3.js';
 import { getAssociatedTokenAddress, getAccount, TokenAccountNotFoundError } from '@solana/spl-token';
-import { validateSolanaAddress } from '@/lib/validation';
+// import { validateSolanaAddress } from '@/lib/validation';
+// Simple inline validation for Solana addresses
+const validateSolanaAddress = (address) => {
+    try {
+        new PublicKey(address);
+        return true;
+    }
+    catch (_a) {
+        return false;
+    }
+};
 const MAX_DECIMALS = 18;
 const MIN_DECIMALS = 0;
 const balanceCache = new Map();

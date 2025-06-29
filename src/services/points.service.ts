@@ -4,6 +4,7 @@ import { rabbitmqConfig } from '@/config/rabbitmq.config';
 import { AIR, ACTION_TYPE_POINTS } from '@/config/points.config'; // Assuming AIR and ACTION_TYPE_POINTS are defined here
 import { Db, ObjectId, ClientSession } from 'mongodb';
 import { AIR_NFT_TIERS } from '@/config/airNft.config'; 
+import { SquadTierService } from '@/services/squadTierService';
 // Define the type based on the structure of AIR_NFT_TIERS elements
 type AirNftTierConfig = typeof AIR_NFT_TIERS[number];
 // import { hybridMint } from '@/lib/solana/hybridInteractions'; // Conceptual import for Solana interactions
@@ -111,21 +112,37 @@ export class PointsService {
         },
         { session: dbSession }
       );
-      if (squadUpdateResult.modifiedCount > 0 && emitEvent) {
-        try {
-          await rabbitmqService.publishToExchange(
-            rabbitmqConfig.eventsExchange,
-            rabbitmqConfig.routingKeys.squadPointsUpdated,
-            {
-              squadId: user.squadId,
-              pointsChange: pointsDelta,
-              reason: `points_service:${reason}`,
-              timestamp: new Date().toISOString(),
-              responsibleUserId: walletAddress,
+      if (squadUpdateResult.modifiedCount > 0) {
+        // Check if squad tier needs to be upgraded
+        if (pointsDelta > 0) { // Only check for upgrades on positive point changes
+          try {
+            const tierUpdateResult = await SquadTierService.checkAndUpdateSquadTier(user.squadId);
+            if (tierUpdateResult.updated) {
+              console.log(
+                `[PointsService] Squad ${user.squadId} tier upgraded from ${tierUpdateResult.oldTier} to ${tierUpdateResult.newTier}`
+              );
             }
-          );
-        } catch (publishError) {
-          console.error(`[PointsService] Failed to publish squad.points.updated for squad ${user.squadId}:`, publishError);
+          } catch (tierError) {
+            console.error(`[PointsService] Failed to check/update squad tier for ${user.squadId}:`, tierError);
+          }
+        }
+        
+        if (emitEvent) {
+          try {
+            await rabbitmqService.publishToExchange(
+              rabbitmqConfig.eventsExchange,
+              rabbitmqConfig.routingKeys.squadPointsUpdated,
+              {
+                squadId: user.squadId,
+                pointsChange: pointsDelta,
+                reason: `points_service:${reason}`,
+                timestamp: new Date().toISOString(),
+                responsibleUserId: walletAddress,
+              }
+            );
+          } catch (publishError) {
+            console.error(`[PointsService] Failed to publish squad.points.updated for squad ${user.squadId}:`, publishError);
+          }
         }
       }
     }

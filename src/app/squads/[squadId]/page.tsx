@@ -25,6 +25,16 @@ interface SquadDetailsData extends SquadDocument {
   leaderReferralCode?: string; // Add field for leader's referral code
   totalSquadPoints: number; // Added to match the API response
   maxMembers?: number; // Added maxMembers field
+  tier?: number; // Current tier
+}
+
+interface TierProgress {
+  currentTier: number;
+  currentMaxMembers: number;
+  totalPoints: number;
+  nextTier: number | null;
+  pointsToNextTier: number | null;
+  nextTierMaxMembers: number | null;
 }
 
 // Define a Quest type for frontend usage based on expected fields from CommunityQuest model
@@ -257,6 +267,11 @@ export default function SquadDetailsPage() {
   const [isLeaving, setIsLeaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasLoadedInitialData, setHasLoadedInitialData] = useState(false);
+  
+  // State for tier progress
+  const [tierProgress, setTierProgress] = useState<TierProgress | null>(null);
+  const [isCheckingTier, setIsCheckingTier] = useState(false);
+  const [isUpgradingTier, setIsUpgradingTier] = useState(false);
 
   // State for editing squad info
   const [isEditingSquad, setIsEditingSquad] = useState(false);
@@ -334,6 +349,61 @@ export default function SquadDetailsPage() {
     setIsFetchingJoinRequests(false);
   }, [connected]);
 
+  const fetchTierProgress = useCallback(async (squadId: string) => {
+    if (!squadId) return;
+    
+    setIsCheckingTier(true);
+    try {
+      const response = await fetch(`/api/squads/check-tier?squadId=${squadId}`);
+      const data = await response.json();
+      
+      if (response.ok && data.tierProgress) {
+        setTierProgress(data.tierProgress);
+      }
+    } catch (err) {
+      console.error("[SquadDetailsPage] Error fetching tier progress:", err);
+    }
+    setIsCheckingTier(false);
+  }, []);
+
+  const handleUpgradeTier = async () => {
+    if (!squadId || !isUserLeader) {
+      toast.error("Only squad leaders can upgrade tiers");
+      return;
+    }
+    
+    setIsUpgradingTier(true);
+    try {
+      const response = await fetch('/api/squads/check-tier', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ squadId })
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok && data.success) {
+        if (data.oldTier !== undefined && data.newTier !== undefined) {
+          toast.success(`Squad upgraded from Tier ${data.oldTier} to Tier ${data.newTier}! Max members increased to ${data.newMaxMembers}`);
+          // Refresh squad details and tier progress
+          fetchSquadDetails();
+          fetchTierProgress(squadId);
+        } else {
+          toast.info(data.message || "Squad is already at the appropriate tier");
+          if (data.tierProgress) {
+            setTierProgress(data.tierProgress);
+          }
+        }
+      } else {
+        toast.error(data.error || "Failed to upgrade squad tier");
+      }
+    } catch (err) {
+      console.error("Upgrade tier error:", err);
+      toast.error("An error occurred while upgrading tier");
+    }
+    setIsUpgradingTier(false);
+  };
+
   useEffect(() => {
     if (squadId === null) {
       toast.error("Invalid Squad ID.");
@@ -362,6 +432,9 @@ export default function SquadDetailsPage() {
           fetchSentPendingInvitesForSquad(data.squad.squadId);
           fetchJoinRequestsForSquad(data.squad.squadId);
         }
+        
+        // Fetch tier progress for all squad members
+        fetchTierProgress(data.squad.squadId);
       } else {
         throw new Error(data.error || 'Failed to fetch squad details. Squad may not exist or an error occurred.');
       }
@@ -795,6 +868,48 @@ export default function SquadDetailsPage() {
             </p>
           </div>
         </div>
+
+        {/* Squad Tier Information */}
+        {tierProgress && (
+          <div className="mb-6 p-4 bg-muted border border-border rounded-lg">
+            <div className="flex justify-between items-start">
+              <div>
+                <h2 className="text-xs font-semibold text-purple-700 uppercase tracking-wider mb-2">Squad Tier</h2>
+                <div className="flex items-center gap-4">
+                  <div>
+                    <p className="text-2xl font-bold text-foreground">Tier {tierProgress.currentTier}</p>
+                    <p className="text-sm text-muted-foreground">
+                      Max {tierProgress.currentMaxMembers} members
+                    </p>
+                  </div>
+                  {tierProgress.nextTier && (
+                    <div className="ml-8">
+                      <p className="text-sm text-muted-foreground">Next: Tier {tierProgress.nextTier}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {tierProgress.pointsToNextTier?.toLocaleString()} points needed
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        (Max {tierProgress.nextTierMaxMembers} members)
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+              {isUserLeader && tierProgress.nextTier && tierProgress.pointsToNextTier === 0 && (
+                <button
+                  onClick={handleUpgradeTier}
+                  disabled={isUpgradingTier}
+                  className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white text-sm font-semibold py-2 px-4 rounded-md shadow-md hover:shadow-lg transform hover:scale-105 transition-all duration-150 ease-in-out disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isUpgradingTier ? 'Upgrading...' : 'Upgrade Tier'}
+                </button>
+              )}
+            </div>
+            {!tierProgress.nextTier && (
+              <p className="text-sm text-green-600 mt-2">🎉 Maximum tier reached!</p>
+            )}
+          </div>
+        )}
 
         <div className="mb-8">
           <h2 className="text-xl font-semibold text-foreground mb-3">Members ({squadDetails.membersFullDetails?.length || squadDetails.memberWalletAddresses.length} / {squadDetails.maxMembers || process.env.NEXT_PUBLIC_MAX_SQUAD_MEMBERS})</h2>
